@@ -5,6 +5,8 @@ import com.hanco.buildai.blueprint.*;
 import com.hanco.buildai.build.*;
 import com.hanco.buildai.net.*;
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import static net.minecraft.server.command.CommandManager.argument;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -99,6 +101,19 @@ public final class BuildAIMod implements ModInitializer {
                         reply(player,e.getKey()+": "+p.consumed().getOrDefault(e.getKey(),0)+" used / "+e.getValue()+" needed");
                     return 1;
                 }))
+                .then(literal("substitute").requires(s->s.hasPermissionLevel(2))
+                    .then(argument("mapping",StringArgumentType.greedyString()).executes(c->{
+                        ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                        ConstructionProject p=ConstructionManager.get(player);
+                        if(p==null){reply(player,"No active blueprint");return 0;}
+                        String[] parts=StringArgumentType.getString(c,"mapping").trim().split("\\s+");
+                        if(parts.length!=2){reply(player,"Usage: /buildai substitute minecraft:stone minecraft:cobblestone");return 0;}
+                        try{
+                            p.substitute(parts[0],parts[1]);
+                            reply(player,"Approved replacement: "+parts[0]+" -> "+parts[1]);
+                            return 1;
+                        }catch(Exception e){reply(player,"Replacement rejected: "+e.getMessage());return 0;}
+                    })))
                 .then(literal("confirm").requires(s->s.hasPermissionLevel(2)).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);

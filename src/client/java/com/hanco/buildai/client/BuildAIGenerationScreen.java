@@ -92,6 +92,15 @@ public final class BuildAIGenerationScreen extends Screen {
             inset,top+unit*9+5,usable,footerY,0xFFDBE7E8);
         drawIfFits(ctx,"AI design received: "+s.receivedCharacters()+" characters",
             inset,top+unit*10+5,usable,footerY,0xFFDBE7E8);
+        drawIfFits(ctx,"Output rate (average): "+String.format(java.util.Locale.ROOT,"%.0f",s.charactersPerSecond())+
+            " characters/second",inset,top+unit*11+5,usable,footerY,0xFFDBE7E8);
+        String estimate=GenerationHistory.estimate(s,progress.category());
+        java.util.List<OrderedText> etaLines=textRenderer.wrapLines(Text.literal(estimate),usable);
+        for(int i=0;i<Math.min(2,etaLines.size());i++){
+            int y=top+unit*13+i*11;
+            if(y+10>=footerY)break;
+            ctx.drawTextWithShadow(textRenderer,etaLines.get(i),inset,y,0xFF80E9CB);
+        }
 
         String note=s.finished()
             ? s.failed()?"Generation stopped. Your previous blueprint is unchanged.":
@@ -101,7 +110,7 @@ public final class BuildAIGenerationScreen extends Screen {
                     "s. Waiting for OpenAI; completion time is unknown."
                 : "Live updates represent real model, network and validation events.";
         List<OrderedText> notes=textRenderer.wrapLines(Text.literal(note),usable);
-        int noteY=top+unit*12;
+        int noteY=top+unit*16;
         for(int i=0;i<Math.min(2,notes.size());i++) {
             int y=noteY+i*11;
             if(y+11>=footerY)break;
@@ -110,7 +119,7 @@ public final class BuildAIGenerationScreen extends Screen {
 
         // Milestones now live INSIDE the same dark panel. Show the most recent
         // events that fit above the footer; never draw a list beyond the card.
-        int historyTop=top+unit*15;
+        int historyTop=top+unit*19;
         if(historyTop+13<footerY) {
             ctx.fill(inset,historyTop-6,inset+usable,historyTop-5,0xFF405D68);
             drawIfFits(ctx,"RECENT ACTIVITY",inset,historyTop,usable,footerY,0xFF83E5C9);

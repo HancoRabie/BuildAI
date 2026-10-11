@@ -128,7 +128,8 @@ public final class BuildAIScreen extends Screen {
                     status="Upload and get server approval first.";return;
                 }
                 close();
-                PlacementMode.start();
+                if(BuildAIClient.previewLocked)PlacementMode.inspect();
+                else PlacementMode.start();
             });
             add("Lock XYZ (Enter)",left+half+gap,row(7),half,buttonHeight,b->{
                 if(!PlacementMode.active()){

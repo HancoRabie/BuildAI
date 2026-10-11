@@ -39,6 +39,20 @@ In private **Chat Mode** enabled from F8, ordinary chat messages create a new de
 
 **Continue with ChatGPT** now has a client-only browser OAuth implementation. It's not yet proven against a real ChatGPT login or response; validate in a test world. An optional separately billed developer API key remains the fallback. See [docs/OPEN_SOURCE_AND_CHATGPT.md](docs/OPEN_SOURCE_AND_CHATGPT.md).
 
+## Saving and loading builds (works in headless Minecraft)
+
+**No Java Swing file dialog is used.** Minecraft's Fabric development JVM may be headless and cannot open `JFileChooser`, even on Windows. BuildAI now saves a unique `.schem` file **automatically whenever AI generation finishes successfully**. You can also press F8 → Placement / Export → **Save Blueprint to Library** to explicitly save an imported or generated structure.
+
+Saved files live in the active Minecraft game directory under `buildai/blueprints/`. For IntelliJ's default Loom `runClient`, that is normally `<BuildAI project>/run/buildai/blueprints/`, not necessarily the regular launcher profile's `.minecraft` directory. F8 → **Import File / My Builds** opens a Minecraft-native list of these saved files, or allows you to paste the full path of an existing schematic file. The `.schem` is a permanent structure file, not merely a preview state; AI revision history is still in memory only.
+
+**Important for existing sessions:** a BuildAI client launched *before* this feature was pulled does not have auto-save. Restarting it will lose an unsaved design. Use Upload & Preview → placement/confirm if you only need the structure in that disposable world; this is not equivalent to exporting a reimportable blueprint.
+
+## Long-running ChatGPT generation and ETA
+
+The BuildAI generation monitor now reports real elapsed time, output character count and average received characters per second. It never invents a fixed percent complete or a countdown from the unobservable model output length. After **two or more completed comparable generations**, BuildAI can display an approximate **remaining-time range** calibrated from local completed durations, always labeled rough. If the request exceeds that range, the UI returns to `remaining unknown`. Until enough samples exist, the UI shows `learning` rather than presenting a misleading clock.
+
+The local history at `buildai/generation-timings.tsv` contains only generation categories, elapsed seconds and character counts—not prompts, OpenAI tokens, blueprints or account data.
+
 ## Launch BuildAI directly from IntelliJ
 
 Open the local `BuildAI` project (not ChainFrames), set **Gradle JVM to Java 21**, and run these in the IntelliJ Terminal:

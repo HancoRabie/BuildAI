@@ -84,7 +84,9 @@ public final class BuildAIClient implements ClientModInitializer {
         if(mc.player!=null)mc.player.sendMessage(Text.literal("[BuildAI] "+message),false);
     }
     public static void generate(String prompt) {
-        if(apiKey.isBlank()){message("Connect an OpenAI developer API key in F8 before enabling AI building chat.");return;}
+        if(!ChatGPTSignIn.connected()&&apiKey.isBlank()){
+            message("Open F8 and Continue with ChatGPT (or use an API key) to generate buildings.");return;
+        }
         String text=prompt==null?"":prompt.trim();
         if(text.isBlank()){message("Describe a building or revision.");return;}
         boolean newBuild=text.startsWith("new ")||text.startsWith("new:");
@@ -95,6 +97,8 @@ public final class BuildAIClient implements ClientModInitializer {
         message(previous==null?"Generating new architectural blueprint...":"Revising existing blueprint...");
         CompletableFuture.supplyAsync(()->{
             try {
+                if(ChatGPTSignIn.connected())
+                    return AIArchitect.generateWithChatGPT(description,previous);
                 return previous==null
                     ? AIArchitect.generateDesign(key,description)
                     : AIArchitect.reviseDesign(key,description,previous);

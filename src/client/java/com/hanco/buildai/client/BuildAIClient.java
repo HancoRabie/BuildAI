@@ -2,6 +2,9 @@ package com.hanco.buildai.client;
 
 import com.hanco.buildai.blueprint.Blueprint;
 import com.hanco.buildai.net.PlacePayload;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.math.BlockPos;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -19,6 +22,10 @@ import java.util.concurrent.CompletableFuture;
 public final class BuildAIClient implements ClientModInitializer {
     public static volatile Blueprint draft;
     public static volatile boolean selecting=false;
+    public static volatile boolean surfacePending=false;
+    public static volatile boolean previewLocked=false;
+    public static volatile int surfaceLayer=0;
+    public static volatile BlockPos previewOrigin=null;
     public static volatile boolean chatMode=false;
     private static String apiKey="";
     private static KeyBinding open;
@@ -43,6 +50,16 @@ public final class BuildAIClient implements ClientModInitializer {
     }
     private static String rootCause(Throwable t){while(t.getCause()!=null)t=t.getCause();return String.valueOf(t.getMessage());}
     @Override public void onInitializeClient(){
+        PreviewRenderer.register();
+        UseBlockCallback.EVENT.register((player,world,hand,hit)->{
+            if(world.isClient() && surfacePending && player.isSneaking()){
+                BlockPos surface=hit.getBlockPos();
+                previewOrigin=new BlockPos(previewOrigin.getX(),surface.getY()+1-surfaceLayer,previewOrigin.getZ());
+                surfacePending=false;previewLocked=true;
+                message("Preview anchored to selected surface. Inspect it and run /buildai confirm to build.");
+            }
+            return ActionResult.PASS;
+        });
         open=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.buildai.open",InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_F8,"category.buildai"));
         ClientTickEvents.END_CLIENT_TICK.register(client->{
             while(open.wasPressed())client.setScreen(new BuildAIScreen());
@@ -59,7 +76,8 @@ public final class BuildAIClient implements ClientModInitializer {
             if(!selecting||clickCount==0||!(client.crosshairTarget instanceof BlockHitResult hit))return false;
             if(!ClientPlayNetworking.canSend(PlacePayload.ID))return false;
             ClientPlayNetworking.send(new PlacePayload(hit.getBlockPos()));
-            selecting=false;
+            previewOrigin=new BlockPos(hit.getBlockPos().getX(),hit.getBlockPos().getY()+1-surfaceLayer,hit.getBlockPos().getZ());
+            selecting=false;surfacePending=true;previewLocked=false;
             message("Horizontal location selected. Sneak-right-click the desired surface block.");
             return true;
         });

@@ -31,9 +31,10 @@ public final class BuildAIClient implements ClientModInitializer {
     public static volatile boolean chatMode=false;
     private static volatile boolean uploadPending=false;
     private static String apiKey="";
-    private static KeyBinding open;
+    private static KeyBinding open, lockPlacement, retryPlacement;
     /** Hide the visual-only ghost without erasing a saved blueprint or built terrain. */
     public static void clearPreview() {
+        PlacementMode.stop();
         uploadPending=false;
         selecting=false;
         surfacePending=false;
@@ -63,6 +64,7 @@ public final class BuildAIClient implements ClientModInitializer {
             surfacePending=false;
             previewLocked=false;
             previewOrigin=null;
+            PlacementMode.start();
         }else{
             clearPreview();
         }
@@ -70,7 +72,7 @@ public final class BuildAIClient implements ClientModInitializer {
         MinecraftClient client=MinecraftClient.getInstance();
         if(client.currentScreen instanceof BuildAIScreen screen)
             screen.updateStatus(payload.accepted()
-                ? "Server accepted blueprint. Close F8 to choose X/Z."
+                ? "Blueprint accepted. Close F8, then Resume Placement Camera; Enter locks XYZ."
                 : payload.message());
     }
     public static void setKey(String key){apiKey=key==null?"":key.trim();}
@@ -122,6 +124,9 @@ public final class BuildAIClient implements ClientModInitializer {
         net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(com.hanco.buildai.build.BuildBlocks.CONSTRUCTION_BLOCK,net.minecraft.client.render.RenderLayer.getTranslucent());
         net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(com.hanco.buildai.build.BuildBlocks.CONSTRUCTION_SLAB,net.minecraft.client.render.RenderLayer.getTranslucent());
         PreviewRenderer.register();
+        ClientPlayNetworking.registerGlobalReceiver(com.hanco.buildai.net.PlacementReplyPayload.ID,
+            (payload,context)->context.client().execute(()->PlacementMode.receive(
+                payload.accepted(),payload.locked(),payload.origin(),payload.message())));
         ClientPlayNetworking.registerGlobalReceiver(com.hanco.buildai.net.BlueprintReadyPayload.ID,
             (payload,context)->context.client().execute(()->receiveUpload(payload)));
         ClientPlayNetworking.registerGlobalReceiver(
@@ -137,18 +142,26 @@ public final class BuildAIClient implements ClientModInitializer {
             }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler,client)->{ProjectHud.latest=null;chatMode=false;clearPreview();});
+        // Placement uses Enter/R, never right-click: prevent accidental world edits while flying.
         UseBlockCallback.EVENT.register((player,world,hand,hit)->{
-            if(world.isClient() && surfacePending && player.isSneaking()){
-                BlockPos surface=hit.getBlockPos();
-                previewOrigin=new BlockPos(previewOrigin.getX(),surface.getY()+1-surfaceLayer,previewOrigin.getZ());
-                surfacePending=false;previewLocked=true;
-                message("Preview anchored to selected surface. Inspect it and run /buildai confirm to build.");
-            }
+            if(world.isClient()&&PlacementMode.active())return ActionResult.SUCCESS;
             return ActionResult.PASS;
         });
         open=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.buildai.open",InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_F8,"category.buildai"));
+        lockPlacement=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.buildai.lock_placement",
+            InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_ENTER,"category.buildai"));
+        retryPlacement=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.buildai.retry_placement",
+            InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_R,"category.buildai"));
         ClientTickEvents.END_CLIENT_TICK.register(client->{
+            if(client.player==null)return;
             while(open.wasPressed())client.setScreen(new BuildAIScreen());
+            if(client.currentScreen==null){
+                while(lockPlacement.wasPressed())PlacementMode.lock();
+                while(retryPlacement.wasPressed()){
+                    if(selecting||previewLocked||PlacementMode.active())PlacementMode.retry();
+                }
+            }
+            PlacementMode.tick();
         });
         ClientSendMessageEvents.ALLOW_CHAT.register(message->{
             if(!chatMode)return true;
@@ -162,14 +175,7 @@ public final class BuildAIClient implements ClientModInitializer {
             generate(message);
             return false; // never leak private building prompts to public server chat
         });
-        ClientPreAttackCallback.EVENT.register((client,player,clickCount)->{
-            if(!selecting||clickCount==0||!(client.crosshairTarget instanceof BlockHitResult hit))return false;
-            if(!ClientPlayNetworking.canSend(PlacePayload.ID))return false;
-            ClientPlayNetworking.send(new PlacePayload(hit.getBlockPos()));
-            previewOrigin=new BlockPos(hit.getBlockPos().getX(),hit.getBlockPos().getY()+1-surfaceLayer,hit.getBlockPos().getZ());
-            selecting=false;surfacePending=true;previewLocked=false;
-            message("Horizontal location selected. Sneak-right-click the desired surface block.");
-            return true;
-        });
+        ClientPreAttackCallback.EVENT.register((client,player,clickCount)->
+            PlacementMode.active()); // Detached camera cannot punch/excavate blocks or entities.
     }
 }

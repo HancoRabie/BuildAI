@@ -44,13 +44,13 @@ public final class BuildAIHelpScreen extends Screen {
         },
         {
             "Choose the blueprint surface Y layer with the +/- controls. This indicates which level of the design meets the ground.",
-            "Upload Blueprint, then left-click a block to choose the horizontal X/Z location. This is an initial selection, not final construction approval.",
-            "A colored outline shows the candidate volume. This early version does not yet provide a detached flying camera or 90-degree rotation.",
-            "Sneak-right-click the intended surface block to set the final vertical alignment.",
+            "Upload and Preview sends the design to the server. Once accepted, close F8 to enter a persistent detached observer camera. The actual player stays stationary.",
+            "The preview starts in front of you. Move with WASD, Space, and Shift; mouse wheel offsets world Z. The camera stays active while F8 and Minecraft chat are open.",
+            "Point the preview camera toward the intended surface block and press G to snap the blueprint elevation. Press Enter to request server XYZ validation. Use R or /buildai retry after a misclick.",
             "The project remains in review until you explicitly confirm it."
         },
         {
-            "The selected X/Z location and the sneak-clicked world surface fix the entire blueprint's real-world bounding volume.",
+            "Enter locks the entire XYZ blueprint origin for review, not construction. R or /buildai retry returns to editable placement; /buildai confirm starts excavation only after successful server validation.",
             "Anything in the approved construction volume can be excavated when you run /buildai confirm, including where the finished design contains air.",
             "BuildAI reports collisions; it blocks existing block entities and bedrock in its initial prototype.",
             "Excavation creates no collectible blocks. Test only on disposable terrain: a basic blockstate undo does not guarantee recovery of containers or player changes."

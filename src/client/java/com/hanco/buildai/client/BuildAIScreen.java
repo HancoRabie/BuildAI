@@ -27,24 +27,13 @@ public final class BuildAIScreen extends Screen {
         key=new TextFieldWidget(textRenderer,x,top+80,content,20,Text.literal("OpenAI API key"));
         key.setMaxLength(500);
         key.setText(BuildAIClient.getKey());addDrawableChild(key);
-        int gap=5,w=(content-gap)/2;
-        addDrawableChild(ButtonWidget.builder(Text.literal("Generate with AI"),b->{
-            if(busy)return;
-            BuildAIClient.setKey(key.getText());
-            if(prompt.getText().isBlank()){status="Enter a building description first.";return;}
-            busy=true;status="Generating, please wait...";
-            CompletableFuture.supplyAsync(()->{
-                try{return AIArchitect.generate(BuildAIClient.getKey(),prompt.getText());}
-                catch(Exception ex){throw new RuntimeException(ex);}
-            }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
-                busy=false;
-                if(error!=null){status="AI error: "+error.getCause();return;}
-                BuildAIClient.draft=result;surfaceLayer=0;
-                status="Generated "+result.name+" | "+result.solidCount()+" blocks";
-            }));
-        }).dimensions(x,top+111,w,20).build());
+        int gap=5,w=(content-gap)/2,third=(content-gap*2)/3;
+        addDrawableChild(ButtonWidget.builder(Text.literal("Generate New"),b->requestAI(false))
+            .dimensions(x,top+111,third,20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Revise Existing"),b->requestAI(true))
+            .dimensions(x+third+gap,top+111,third,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Import File"),b->browse())
-            .dimensions(x+w+gap,top+111,w,20).build());
+            .dimensions(x+2*(third+gap),top+111,content-2*(third+gap),20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Surface Y -"),b->surfaceLayer=Math.max(0,surfaceLayer-1))
             .dimensions(x,top+139,w,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Surface Y +"),b->{
@@ -70,7 +59,38 @@ public final class BuildAIScreen extends Screen {
         }).dimensions(x,top+197,content,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Export Blueprint as .schem"),b->exportSchematic())
             .dimensions(x,top+224,content,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Close"),b->close()).dimensions(x,top+251,content,20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("How To"),b->{
+            if(client!=null)client.setScreen(new BuildAIHelpScreen(this));
+        }).dimensions(x,top+251,w,20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Close"),b->close())
+            .dimensions(x+w+gap,top+251,w,20).build());
+    }
+    private void requestAI(boolean revise) {
+        if(busy)return;
+        String description=prompt.getText().trim();
+        if(description.isBlank()){status="Describe the building or requested change first.";return;}
+        String previous=BuildAIClient.designSpecification;
+        if(revise&&(previous==null||previous.isBlank())){
+            status="Generate a new AI blueprint first, then revise it.";return;
+        }
+        final String currentKey=key.getText();
+        BuildAIClient.setKey(currentKey);
+        busy=true;
+        status=revise?"Revising existing blueprint...":"Generating new blueprint...";
+        CompletableFuture.supplyAsync(()->{
+            try {
+                return revise
+                    ? AIArchitect.reviseDesign(currentKey,description,previous)
+                    : AIArchitect.generateDesign(currentKey,description);
+            }catch(Exception ex){throw new RuntimeException(ex);}
+        }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
+            busy=false;
+            if(error!=null){status="AI error: "+error.getCause();return;}
+            BuildAIClient.acceptGenerated(result);
+            surfaceLayer=Math.min(surfaceLayer,result.blueprint().height-1);
+            status=(revise?"Revised: ":"Generated: ")+result.blueprint().name+
+                " | "+result.blueprint().solidCount()+" blocks. Review before placement.";
+        }));
     }
     private void browse(){
         if(busy)return;
@@ -91,7 +111,7 @@ public final class BuildAIScreen extends Screen {
             if(loaded==null){status="Import canceled";return;}
             try {
                 BlockStates.validate(loaded);
-                BuildAIClient.draft=loaded;surfaceLayer=0;
+                BuildAIClient.acceptImport(loaded);surfaceLayer=0;
                 status="Imported "+loaded.name+" | "+loaded.solidCount()+" blocks | "+loaded.warnings.size()+" notes";
             }catch(Exception ex){status="Invalid block states: "+ex.getMessage();}
         }));

@@ -50,23 +50,28 @@ public final class ConstructionProject {
         this.surfaceLayer=surfaceLayer;
         this.order=blueprint.ordered();
     }
-    public void selectXZ(BlockPos pos) {
-        if(phase!=Phase.SELECT_XZ && phase!=Phase.SELECT_SURFACE)return;
-        origin=new BlockPos(pos.getX(),0,pos.getZ());
-        phase=Phase.SELECT_SURFACE;
+    public void retryPlacement() {
+        if (phase!=Phase.SELECT_XZ && phase!=Phase.SELECT_SURFACE && phase!=Phase.REVIEW)
+            throw new IllegalStateException("Cannot reposition after excavation has begun");
+        origin=BlockPos.ORIGIN;collisions=0;phase=Phase.SELECT_XZ;
     }
-    public void selectSurface(BlockPos surface) {
-        if(phase!=Phase.SELECT_SURFACE)return;
-        origin=new BlockPos(origin.getX(),surface.getY()+1-surfaceLayer,origin.getZ());
-        collisions=0;
+    /** Preview is free to move client-side; only this method locks a server-approved XYZ origin. */
+    public void selectOrigin(BlockPos proposal) {
+        if(phase!=Phase.SELECT_XZ && phase!=Phase.SELECT_SURFACE && phase!=Phase.REVIEW)
+            throw new IllegalStateException("Placement cannot change once construction begins");
+        int count=0;
+        // Validate all cells first. A failed selection must never overwrite the prior approved preview.
         for(int y=0;y<blueprint.height;y++)for(int z=0;z<blueprint.length;z++)for(int x=0;x<blueprint.width;x++){
-            BlockPos pos=origin.add(x,y,z);
-            if(!world.isInBuildLimit(pos))throw new IllegalArgumentException("Part of the structure is outside world height");
+            BlockPos pos=proposal.add(x,y,z);
+            if(!world.isInBuildLimit(pos)||!world.isChunkLoaded(pos))
+                throw new IllegalArgumentException("Entire blueprint must be inside loaded world limits");
             BlockState previous=world.getBlockState(pos);
-            if(!previous.isAir())collisions++;
+            if(!previous.isAir())count++;
             if(previous.hasBlockEntity()||previous.isOf(Blocks.BEDROCK))
-                throw new IllegalArgumentException("Structure overlaps protected block entity or bedrock at "+pos.toShortString());
+                throw new IllegalArgumentException("Blocked by protected inventory/bedrock at "+pos.toShortString());
         }
+        origin=proposal.toImmutable();
+        collisions=count;
         phase=Phase.REVIEW;
     }
     public void confirm() {

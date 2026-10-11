@@ -1,0 +1,39 @@
+package com.hanco.buildai.build;
+import java.util.*;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.math.BlockPos;
+import com.hanco.buildai.blueprint.*;
+
+/** Initial per-player projects; persistent project journals planned after in-world verification. */
+public final class ConstructionManager {
+    private static final Map<UUID,ConstructionProject> PROJECTS=new HashMap<>();
+    private ConstructionManager(){}
+    public static ConstructionProject get(ServerPlayerEntity player){return PROJECTS.get(player.getUuid());}
+    public static void begin(ServerPlayerEntity player,Blueprint b,int surfaceLayer){
+        if(surfaceLayer<0||surfaceLayer>=b.height)throw new IllegalArgumentException("Invalid local surface level");
+        if(PROJECTS.containsKey(player.getUuid())){
+            ConstructionProject previous=PROJECTS.get(player.getUuid());
+            if(previous.phase!=ConstructionProject.Phase.COMPLETE&&previous.phase!=ConstructionProject.Phase.CANCELLED)
+                throw new IllegalStateException("Cancel active project before importing another");
+        }
+        BlockStates.validate(b);
+        PROJECTS.put(player.getUuid(),new ConstructionProject(player,b,surfaceLayer));
+    }
+    public static void tick(MinecraftServer server){
+        for(ConstructionProject project:new ArrayList<>(PROJECTS.values())) {
+            try{project.tick();}catch(RuntimeException e){
+                project.phase=ConstructionProject.Phase.WAITING_SUPPLIES;
+                server.getPlayerManager().getPlayer(project.owner);
+                System.err.println("[BuildAI] Project paused: "+e.getMessage());
+            }
+        }
+    }
+    public static boolean protectedChest(BlockPos pos,net.minecraft.world.World world){
+        for(ConstructionProject project:PROJECTS.values()){
+            if(project.world==world&&project.phase!=ConstructionProject.Phase.CANCELLED&&
+               project.phase!=ConstructionProject.Phase.COMPLETE&&project.protectedChest(pos))return true;
+        }
+        return false;
+    }
+}

@@ -30,9 +30,14 @@ public final class ConstructionManager {
                         com.hanco.buildai.net.ProjectStatusPayload.ID))
                     net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(owner,project.status());
             }catch(RuntimeException e){
-                project.phase=ConstructionProject.Phase.WAITING_SUPPLIES;
-                server.getPlayerManager().getPlayer(project.owner);
-                System.err.println("[BuildAI] Project paused: "+e.getMessage());
+                // Unexpected failures must never turn into a material-shortage
+                // resume, which could skip unfinished excavation and corrupt the build.
+                project.phase=ConstructionProject.Phase.PAUSED_ERROR;
+                ServerPlayerEntity player=server.getPlayerManager().getPlayer(project.owner);
+                if(player!=null)player.sendMessage(net.minecraft.text.Text.literal(
+                    "[BuildAI] Construction halted for safety: "+e.getMessage()+
+                    ". Use /buildai cancel or /buildai undo after inspecting."),false);
+                System.err.println("[BuildAI] Project safely halted: "+e.getMessage());
             }
         }
     }

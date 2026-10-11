@@ -18,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
 public final class BuildAIScreen extends Screen {
     private TextFieldWidget prompt,key;
     private String promptValue="", keyValue="";
-    private int tab=0, surfaceLayer=0;
+    private int tab=0, surfaceLayer=BuildAIClient.surfaceLayer;
     private String status="Create a design, import a schematic, or load the offline demo.";
     private boolean busy=false, showApiKey=false;
     private int left,panelWidth,top,lineHeight;
@@ -106,11 +106,13 @@ public final class BuildAIScreen extends Screen {
             add("Surface Y -",left,row(4),half,buttonHeight,b->{
                 if(BuildAIClient.draft==null){status="Load a blueprint first.";return;}
                 surfaceLayer=Math.max(0,surfaceLayer-1);
+                BuildAIClient.surfaceLayer=surfaceLayer;
                 status="Surface reference layer: "+surfaceLayer;
             });
             add("Surface Y +",left+half+gap,row(4),half,buttonHeight,b->{
                 if(BuildAIClient.draft==null){status="Load a blueprint first.";return;}
                 surfaceLayer=Math.min(BuildAIClient.draft.height-1,surfaceLayer+1);
+                BuildAIClient.surfaceLayer=surfaceLayer;
                 status="Surface reference layer: "+surfaceLayer;
             });
             add("Upload & Preview",left,row(6),panelWidth,buttonHeight,b->{
@@ -164,7 +166,7 @@ public final class BuildAIScreen extends Screen {
             busy=false;
             if(error!=null){status="Generation failed: "+message(error);return;}
             BuildAIClient.acceptGenerated(result);
-            surfaceLayer=Math.min(surfaceLayer,result.blueprint().height-1);
+            surfaceLayer=BuildAIClient.surfaceLayer;
             status=(revise?"Revised: ":"Created: ")+result.blueprint().name+
                 " ("+result.blueprint().solidCount()+" blocks). Open Placement / Export.";
         }));

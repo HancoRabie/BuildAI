@@ -3,23 +3,21 @@ package com.hanco.buildai.build;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.PaneBlock;
+import net.minecraft.block.FenceBlock;
+import net.minecraft.block.WallBlock;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 
 /**
- * Restores naturally-connected pane shapes after force-state schematic placement.
+ * Restores naturally connected fence, wall, pane, and iron-bar states after FORCE_STATE placement.
  *
  * Does not "place" an item, change the pane block ID, or touch other world
- * positions. Uses the pane's own vanilla neighbor-state logic (including
- * glass panes, stained panes, and iron bars).
+ * positions. Uses each block's own vanilla neighbor-state logic (including
+ * wooden fences, fence gates' neighbors, walls, stained panes, and iron bars).
  */
 public final class PaneNormalizer {
     private PaneNormalizer() {}
-
-    private static final Direction[] SIDES = {
-        Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST
-    };
 
     /**
      * Manual repair for existing builds from older mod versions that no longer
@@ -40,9 +38,13 @@ public final class PaneNormalizer {
     public static boolean normalize(ServerWorld world, BlockPos pos) {
         if (!world.isChunkLoaded(pos)) return false;
         BlockState before = world.getBlockState(pos);
-        if (!(before.getBlock() instanceof PaneBlock)) return false;
+        if (!(before.getBlock() instanceof PaneBlock ||
+              before.getBlock() instanceof FenceBlock ||
+              before.getBlock() instanceof WallBlock)) return false;
         BlockState next = before;
-        for (Direction side : SIDES) {
+        // Walls also depend on the block above for low/tall/post shapes.
+        // Use all six directions for native block-state recomputation.
+        for (Direction side : Direction.values()) {
             BlockPos adjacent = pos.offset(side);
             if (!world.isChunkLoaded(adjacent)) return false;
             next = next.getStateForNeighborUpdate(side, world.getBlockState(adjacent),

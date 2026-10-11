@@ -21,6 +21,22 @@ public final class PaneNormalizer {
         Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST
     };
 
+    /**
+     * Manual repair for existing builds from older mod versions that no longer
+     * have an in-memory ConstructionProject after relaunch. Server op only.
+     */
+    public static int normalizeNearby(ServerWorld world, BlockPos center) {
+        final int horizontal=20, vertical=14;
+        int repaired=0;
+        for(int dy=-vertical;dy<=vertical;dy++)
+            for(int dz=-horizontal;dz<=horizontal;dz++)
+                for(int dx=-horizontal;dx<=horizontal;dx++) {
+                    BlockPos pos=center.add(dx,dy,dz);
+                    if(!world.isInBuildLimit(pos)||!world.isChunkLoaded(pos))continue;
+                    if(normalize(world,pos))repaired++;
+                }
+        return repaired;
+    }
     public static boolean normalize(ServerWorld world, BlockPos pos) {
         if (!world.isChunkLoaded(pos)) return false;
         BlockState before = world.getBlockState(pos);

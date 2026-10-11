@@ -17,8 +17,6 @@ final class ChatGPTIdentity {
     private ChatGPTIdentity() {}
     private static final String ISSUER="https://auth.openai.com";
     private static final URI DISCOVERY=URI.create(ISSUER+"/.well-known/openid-configuration");
-    private static final HttpClient HTTP=HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(12)).build();
 
     static JsonObject validate(String jwt,String clientId,String nonce) throws Exception {
         String[] parts=jwt.split("\\.");
@@ -26,17 +24,17 @@ final class ChatGPTIdentity {
         JsonObject header=parseSegment(parts[0]);
         if(!"RS256".equals(field(header,"alg")))throw new SecurityException("Unsupported ID token signature");
         String kid=field(header,"kid");
-        HttpResponse<String> metadata=HTTP.send(
+        HttpResponse<String> metadata=ChatGPTNetwork.send(
             HttpRequest.newBuilder(DISCOVERY).timeout(Duration.ofSeconds(15)).GET().build(),
-            HttpResponse.BodyHandlers.ofString());
+            HttpResponse.BodyHandlers.ofString(),"discovering OpenAI's identity signing keys");
         if(metadata.statusCode()!=200)throw new SecurityException("OpenAI identity discovery failed");
         String keyUrl=field(JsonParser.parseString(metadata.body()).getAsJsonObject(),"jwks_uri");
         URI keys=URI.create(keyUrl);
         if(!"https".equals(keys.getScheme())||!"auth.openai.com".equalsIgnoreCase(keys.getHost()))
             throw new SecurityException("Unexpected OpenAI key source");
-        HttpResponse<String> keyResponse=HTTP.send(
+        HttpResponse<String> keyResponse=ChatGPTNetwork.send(
             HttpRequest.newBuilder(keys).timeout(Duration.ofSeconds(15)).GET().build(),
-            HttpResponse.BodyHandlers.ofString());
+            HttpResponse.BodyHandlers.ofString(),"verifying the signed ChatGPT ID token");
         if(keyResponse.statusCode()!=200)throw new SecurityException("Cannot verify ChatGPT identity");
         JsonArray available=JsonParser.parseString(keyResponse.body()).getAsJsonObject().getAsJsonArray("keys");
         boolean verified=false;

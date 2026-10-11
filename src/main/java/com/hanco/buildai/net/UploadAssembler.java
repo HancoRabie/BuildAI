@@ -7,12 +7,12 @@ import java.nio.charset.StandardCharsets;
 
 /** Per-player bounded upload buffers; rejects malformed duplicate and excess packets. */
 public final class UploadAssembler {
-    private static final int MAX_CHUNKS=256,MAX_COMPRESSED=4_500_000,MAX_PLAIN=8_000_000;
+    private static final int MAX_CHUNKS=2048,MAX_COMPRESSED=33_600_000,MAX_PLAIN=80_000_000;
     private final Map<UUID,Pending> pending=new HashMap<>();
     private record Pending(String id,byte[][] chunks,int surface,long created) {}
     public synchronized String accept(UUID user,BlueprintChunkPayload p) throws IOException {
         if(p.count()<1||p.count()>MAX_CHUNKS||p.index()<0||p.index()>=p.count()||p.bytes().length>20480
-            ||p.surfaceLayer()<0||p.surfaceLayer()>255)throw new IOException("Invalid upload packet");
+            ||p.surfaceLayer()<0||p.surfaceLayer()>511)throw new IOException("Invalid upload packet");
         Pending q=pending.get(user);
         if(q==null||!q.id.equals(p.uploadId())||System.currentTimeMillis()-q.created>120000L) {
             q=new Pending(p.uploadId(),new byte[p.count()][],p.surfaceLayer(),System.currentTimeMillis());

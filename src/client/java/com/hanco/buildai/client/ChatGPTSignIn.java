@@ -23,7 +23,7 @@ public final class ChatGPTSignIn {
     private static final String SCOPES="openid profile email offline_access resource.invoke chatgpt.tokens.use.direct";
     private static final Path DIR=Path.of(System.getProperty("user.home"),".buildai");
     private static final Path HOST=DIR.resolve("host-id.txt"), SESSION=DIR.resolve("chatgpt-account.json");
-    private static final HttpClient HTTP=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(12)).build();
+    // Use one HTTPS transport for token exchange, model discovery and precise network diagnostics.
     private static final SecureRandom SECURE=new SecureRandom();
     private static volatile Account account;
     private static volatile boolean loaded=false;
@@ -133,12 +133,9 @@ public final class ChatGPTSignIn {
         return parsed;
     }
     private static JsonObject tokenRequest(Map<String,String> params) throws Exception {
-        HttpRequest request=HttpRequest.newBuilder(TOKEN).timeout(Duration.ofSeconds(30))
-            .header("Content-Type","application/x-www-form-urlencoded")
-            .POST(HttpRequest.BodyPublishers.ofString(form(params),StandardCharsets.UTF_8)).build();
-        HttpResponse<String> response=HTTP.send(request,HttpResponse.BodyHandlers.ofString());
-        if(response.statusCode()!=200)throw new IOException("OpenAI authorization HTTP "+response.statusCode()+
-            "; reconnect if the token expired or consent was declined");
+        ChatGPTNetwork.TextReply response=ChatGPTNetwork.exchangeCode(TOKEN,form(params));
+        if(response.status()!=200)throw new IOException("OpenAI rejected the code exchange (HTTP "+response.status()+
+            "). Retry the browser sign-in; if it repeats, check account permissions.");
         return JsonParser.parseString(response.body()).getAsJsonObject();
     }
     public static synchronized CompletableFuture<String> connect(){
@@ -160,7 +157,7 @@ public final class ChatGPTSignIn {
                 server.createContext("/auth/callback",exchange->{
                     Map<String,String> values=query(exchange.getRequestURI().getRawQuery());
                     boolean valid=state.equals(values.get("state"));
-                    byte[] body=(valid?"BuildAI received your authorization. Return to Minecraft.":
+                    byte[] body=(valid?"BuildAI received the sign-in response and is verifying it with OpenAI. Return to Minecraft.":
                         "BuildAI rejected an invalid authorization.").getBytes(StandardCharsets.UTF_8);
                     exchange.getResponseHeaders().set("Content-Type","text/plain; charset=utf-8");
                     exchange.getResponseHeaders().set("Cache-Control","no-store");
@@ -187,6 +184,7 @@ public final class ChatGPTSignIn {
                     ? "Browser launched. Approve BuildAI there, then return to Minecraft."
                     : "Browser could not open automatically. Click Copy Sign-in Link below.";
                 Map<String,String> result=callback.get(300,TimeUnit.SECONDS);
+                browserStatus="Authorization received; exchanging the code with OpenAI securely...";
                 if(!state.equals(result.get("state")))throw new SecurityException("OAuth callback state mismatch");
                 if(result.containsKey("error"))throw new IOException("Authorization denied: "+result.get("error"));
                 String clientId=previous==null?result.get("client_id"):previous.clientId;
@@ -199,6 +197,7 @@ public final class ChatGPTSignIn {
                 JsonObject response=tokenRequest(Map.of("grant_type","authorization_code",
                     "client_id",clientId,"code",code,"code_verifier",verifier,
                     "redirect_uri",redirect,"resource",RESOURCE));
+                browserStatus="Code exchanged; validating signed ChatGPT identity...";
                 String idToken=field(response,"id_token");
                 JsonObject identity=ChatGPTIdentity.validate(idToken,clientId,nonce);
                 String subject=field(identity,"sub");
@@ -210,6 +209,7 @@ public final class ChatGPTSignIn {
                     Instant.now().getEpochSecond()+response.get("expires_in").getAsLong(),hostId);
                 if(!connected.canGenerate())throw new IOException("ChatGPT plan usage was not authorized for BuildAI");
                 if(connected.access.isBlank())throw new IOException("OpenAI returned no inference token");
+                browserStatus="Account verified; saving the authorized session...";
                 save(connected);account=connected;loaded=true;
                 return "ChatGPT connected: "+accountLabel();
             }catch(Exception e){throw new CompletionException(e);}
@@ -244,7 +244,8 @@ public final class ChatGPTSignIn {
         String bearer=token();
         HttpRequest req=HttpRequest.newBuilder(URI.create(RESOURCE+"/models"))
             .timeout(Duration.ofSeconds(25)).header("Authorization","Bearer "+bearer).GET().build();
-        HttpResponse<String> res=HTTP.send(req,HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> res=ChatGPTNetwork.send(req,HttpResponse.BodyHandlers.ofString(),
+            "listing the models available to your ChatGPT account");
         if(res.statusCode()!=200)throw new IOException("ChatGPT model list HTTP "+res.statusCode());
         JsonObject catalog=JsonParser.parseString(res.body()).getAsJsonObject();
         JsonArray models=catalog.getAsJsonArray("models");

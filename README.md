@@ -92,6 +92,16 @@ In a disposable Minecraft 1.21.1 Fabric world, press **F8 → Continue with Chat
 
 The flow uses dynamic OAuth client registration with a stable local host ID, loopback PKCE, cryptographic ID-token verification, authorized plan scopes, account-model discovery, and streaming Responses API requests with `store:false`. **This has compiled, but real login and inference require in-game acceptance testing by a user with eligible ChatGPT Plus or Pro access.** User credentials are not sent through the Minecraft server. The mod saves authorized OAuth credentials in an owner-restricted local file under `~/.buildai/`; users can disconnect in F8 and revoke plan usage from ChatGPT Settings. Do not share that file or your ChatGPT password.
 
+## Full-scale designs and reliable observer placement
+
+BuildAI no longer asks the AI to compress a building into the former 48×32×48 target. Generated architecture uses approximate real-world proportions at roughly **one horizontal Minecraft block per meter**, with a 1.8-block-tall avatar as human-scale reference. It must **not silently downscale** to fit a prompt budget. Full historical accuracy still requires measurements and in-world review.
+
+The single-blueprint engine currently accommodates up to **4,000,000 cells** and up to 512 blocks along any axis (subject to the volume cap), with palette run-length upload compression. This is a **per-project runtime safety limit**, not unlimited megastructure support; unbounded architectures require future sectioned generation, streaming construction and persistent project journals. Oversized projects now report a clear error instead of claiming to have generated a miniature at full scale.
+
+Observer placement holds the client's dedicated camera until an explicit exit. Once the server accepts **Upload & Preview**, close F8: the ghost appears in front of your character and the camera remains detached. Fly with WASD/Space/Shift; scroll offsets the blueprint along **world Z**, not the local look direction. Press **G** while targeting terrain to snap surface elevation, **Enter** to lock the full XYZ for collision review, and **R** to retry any unconfirmed selection. F8 menus and chat should no longer force a return to the player's eyes. Use `/buildai confirm` only after the server reports a locked, reviewed position; `/buildai retry` resets placement without excavation. `/buildai hide` hides the ghost without canceling the project.
+
+**The camera mixin and large-blueprint pipeline still need actual Minecraft click-through testing.** Passing CI means compilation and Java-level geometry tests, not proof of renderer stability, proper observer raycasting or safe large-world construction. Use a disposable backed-up world. This prototype cannot safely recover ongoing projects after restart.
+
 ## First in-world test (creative, throwaway world)
 
 1. Press **F8** to open BuildAI.

@@ -10,7 +10,7 @@ BuildAI is a freestanding Minecraft building mod: describe a structure to an AI,
 
 BuildAI is licensed under **GNU GPL-3.0-only**. You can inspect, fork and contribute to this project under the terms in [LICENSE](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
-The source repository is public, but **Continue with ChatGPT has not been implemented yet**. The current Minecraft Chat Mode works with an OpenAI developer API key. The planned user-consented, browser-based ChatGPT sign-in and eligible ChatGPT-plan usage are documented in [docs/OPEN_SOURCE_AND_CHATGPT.md](docs/OPEN_SOURCE_AND_CHATGPT.md). Public visibility alone does not automatically connect ChatGPT accounts.
+The source repository is public, but **Continue with ChatGPT has not been implemented yet**. Minecraft Chat Mode now routes generation through an authorized ChatGPT account when connected, or through an optional OpenAI API key otherwise. The planned user-consented, browser-based ChatGPT sign-in and eligible ChatGPT-plan usage are documented in [docs/OPEN_SOURCE_AND_CHATGPT.md](docs/OPEN_SOURCE_AND_CHATGPT.md). Public visibility alone does not automatically connect ChatGPT accounts.
 
 ## Requirements
 
@@ -37,7 +37,7 @@ BuildAI now supports an initial AI revision session. **Generate New** compiles a
 
 In private **Chat Mode** enabled from F8, ordinary chat messages create a new design when there is no earlier AI design, or revise the active AI design when present. Type `new <description>` to force a fresh building, `reset` to clear the AI design, and `exit` to disable chat interception. This is still an experimental, one-previous-design workflow, not a persistent ChatGPT conversation.
 
-**Direct ChatGPT account sign-in is NOT implemented**. See [authentication plan](docs/AUTHENTICATION.md) for eligibility, consent, and security constraints. The v0.1 development path requires a separately billed OpenAI developer API key if AI generation is used.
+**Continue with ChatGPT** now has a client-only browser OAuth implementation. It's not yet proven against a real ChatGPT login or response; validate in a test world. An optional separately billed developer API key remains the fallback. See [docs/OPEN_SOURCE_AND_CHATGPT.md](docs/OPEN_SOURCE_AND_CHATGPT.md).
 
 ## Launch BuildAI directly from IntelliJ
 
@@ -54,7 +54,13 @@ The last command starts a separate **Minecraft 1.21.1 Fabric development client*
 
 For the safest immediate smoke test, create a **brand-new Creative world** and press **F8 → Load Demo Cottage**. The demo produces real blueprint blocks with no OpenAI account, API key, internet, or extra building mods. Select **Export Blueprint as .schem** to verify serialization; **Upload Blueprint** to preview it. Pick X/Z with a left click, sneak-right-click the chosen surface block, then inspect collision warnings carefully. Only in a disposable world run `/buildai confirm` (server operator permission is required in this prototype).
 
-**ChatGPT sign-in is not implemented**. Opening the repo to the public makes it *eligible to pursue* the documented open-source sign-in flow but does not automatically authorize accounts. AI-generated designs still require an optional OpenAI developer API key.
+**ChatGPT sign-in is now implemented in source but NOT yet live user-verified**. Open F8 → Continue with ChatGPT; approve plan usage in the browser and return to Minecraft. If login or account entitlements fail, use the optional OpenAI API-key fallback or offline demo.
+
+## ChatGPT login (test implementation)
+
+In a disposable Minecraft 1.21.1 Fabric world, press **F8 → Continue with ChatGPT**. BuildAI opens your system browser on OpenAI's authorization site. Sign in with your own account and allow **ChatGPT plan usage**, then return to Minecraft. The F8 interface should display the connected account. You can then type a building request into F8 → Generate New, or turn on Chat Mode and type building requests into ordinary Minecraft chat. Follow-up prompts revise the active blueprint; type `new <prompt>` to start over, `reset` to clear the draft, or `exit` to return to normal chat.
+
+The flow uses dynamic OAuth client registration with a stable local host ID, loopback PKCE, cryptographic ID-token verification, authorized plan scopes, account-model discovery, and streaming Responses API requests with `store:false`. **This has compiled, but real login and inference require in-game acceptance testing by a user with eligible ChatGPT Plus or Pro access.** User credentials are not sent through the Minecraft server. The mod saves authorized OAuth credentials in an owner-restricted local file under `~/.buildai/`; users can disconnect in F8 and revoke plan usage from ChatGPT Settings. Do not share that file or your ChatGPT password.
 
 ## First in-world test (creative, throwaway world)
 

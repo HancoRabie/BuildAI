@@ -27,6 +27,7 @@ public final class BuildAIMod implements ModInitializer {
     private static final UploadAssembler UPLOADS=new UploadAssembler();
     private static void reply(ServerPlayerEntity p,String msg){p.sendMessage(Text.literal("[BuildAI] "+msg),false);}
     @Override public void onInitialize() {
+        com.hanco.buildai.build.BuildBlocks.register();
         PayloadTypeRegistry.playC2S().register(BlueprintChunkPayload.ID,BlueprintChunkPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(PlacePayload.ID,PlacePayload.CODEC);
 

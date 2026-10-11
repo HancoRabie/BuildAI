@@ -125,6 +125,18 @@ public final class BuildAIMod implements ModInitializer {
                             return 1;
                         }catch(Exception e){reply(player,"Replacement rejected: "+e.getMessage());return 0;}
                     })))
+                .then(literal("cinematic").requires(s->s.hasPermissionLevel(2)).executes(c->{
+                    ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                    ConstructionProject p=ConstructionManager.get(player);
+                    if(p==null){reply(player,"No project");return 0;}
+                    p.setCinematic(true);reply(player,"Cinematic placement and particles enabled.");return 1;
+                }))
+                .then(literal("fast").requires(s->s.hasPermissionLevel(2)).executes(c->{
+                    ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                    ConstructionProject p=ConstructionManager.get(player);
+                    if(p==null){reply(player,"No project");return 0;}
+                    p.setCinematic(false);reply(player,"Fast placement (256 blocks/tick) enabled.");return 1;
+                }))
                 .then(literal("confirm").requires(s->s.hasPermissionLevel(2)).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);

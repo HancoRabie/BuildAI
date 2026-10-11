@@ -84,14 +84,13 @@ public final class ConstructionProject {
     }
     private void recordOriginal(BlockPos position) {
         BlockPos key=position.toImmutable();
-        if(modified.contains(key))return;
         BlockState previous=world.getBlockState(position);
-        // Do not add protected cells to 'modified' before validation: a later
-        // undo must never replace an untouched new chest or bedrock with AIR.
+        // Every attempted mutation is checked, including cells excavated earlier
+        // and revisited during placement. Only accepted edits enter the undo set.
         if(previous.hasBlockEntity()||previous.isOf(Blocks.BEDROCK))
             throw new IllegalStateException("Protected block appeared during construction at "+
                 position.toShortString()+". Project halted before altering it.");
-        modified.add(key);
+        if(!modified.add(key))return;
         if(!previous.isAir())originals.put(key,previous);
     }
     /** Re-run normalization against the already-built project footprint, without excavation. */

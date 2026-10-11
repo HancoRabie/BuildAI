@@ -22,7 +22,8 @@ public final class BuildAIHelpScreen extends Screen {
             "This is an early test build. Use a disposable world before experimenting with excavation or undo."
         },
         {
-            "Press F8, then Continue with ChatGPT. Your system browser opens OpenAI authorization. Sign in and approve BuildAI plan usage; return to Minecraft afterward.",
+            "Press F8, then Continue with ChatGPT. BuildAI tries to open the secure OpenAI login in your default browser. Approve permission and return to Minecraft.",
+            "If Java cannot launch your browser, use the sign-in modal's Open Browser or Copy Sign-in Link button. Paste the copied link into Chrome or Edge while the modal's sign-in session is active.",
             "Connected eligible ChatGPT users can generate with their plan. A separate OpenAI developer API key remains an optional fallback; it is not saved by the game.",
             "BuildAI never asks for ChatGPT passwords or cookies. Browser permission is distinct from ordinary ChatGPT account sign-in; plan access depends on eligible account usage limits.",
             "A first-time open-source OAuth registration issues a reusable client ID. Sign-in uses PKCE, ID token signature verification and a locally stored session. Disconnect from F8 when needed.",

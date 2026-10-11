@@ -14,6 +14,7 @@ public final class SchematicWriter {
             throw new IOException("Export filename must end in .schem");
         NbtCompound schematic=new NbtCompound();
         schematic.putInt("Version",3);
+        schematic.putInt("DataVersion",3955); // Minecraft Java 1.21.1
         schematic.putShort("Width",(short)blueprint.width);
         schematic.putShort("Height",(short)blueprint.height);
         schematic.putShort("Length",(short)blueprint.length);

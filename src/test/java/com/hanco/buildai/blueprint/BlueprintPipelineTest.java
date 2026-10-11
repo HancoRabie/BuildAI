@@ -127,6 +127,36 @@ public class BlueprintPipelineTest {
         assertTrue(warnings.stream().anyMatch(x->x.contains("opening")),warnings.toString());
     }
 
+    @Test void completedAIDoorsHavePairedHalvesWithoutOverwritingObstructions(){
+        Blueprint b=new Blueprint("Door Test",8,6,8);
+        b.set(2,1,2,"minecraft:dark_oak_door[facing=east,half=lower,hinge=left,open=false,powered=false]");
+        b.set(4,1,2,"minecraft:oak_door");
+        b.set(4,2,2,"minecraft:stone_bricks");
+        var warnings=DoorPlanner.completeSafePairs(b);
+        assertTrue(b.get(2,2,2).contains("half=upper"));
+        assertTrue(b.get(2,1,2).contains("half=lower"));
+        assertEquals("minecraft:stone_bricks",b.get(4,2,2),
+            "Never overwrite a wall to force a missing door half");
+        assertTrue(warnings.stream().anyMatch(s->s.contains("collides")));
+    }
+
+    @Test void organicCanopyIsNotARectangularSlabAndPreservesTrunk(){
+        String json="""
+            {"name":"Jungle Tree","width":17,"height":13,"length":17,"operations":[
+                {"kind":"line","block":"minecraft:jungle_log","x1":8,"y1":0,"z1":8,"x2":8,"y2":9,"z2":8},
+                {"kind":"organic_canopy","block":"minecraft:jungle_leaves","seed":19,
+                 "x1":2,"y1":5,"z1":2,"x2":14,"y2":12,"z2":14}
+            ]}
+            """;
+        Blueprint b=ProceduralGenerator.compile(json);
+        assertTrue(b.get(8,8,8).contains("jungle_log"),"Tree trunk must remain intact");
+        assertEquals("minecraft:air",b.get(2,5,2),"Rounded crowns should not fill box corners");
+        long leaves=0;
+        for(int y=5;y<13;y++)for(int z=2;z<=14;z++)for(int x=2;x<=14;x++)
+            if(Blueprint.id(b.get(x,y,z)).equals("minecraft:jungle_leaves"))leaves++;
+        assertTrue(leaves>100 && leaves<1000,"Organic canopy should be full but not a solid cube");
+    }
+
     @Test void invalidBlueprintDataIsRejected() {
         assertThrows(IllegalArgumentException.class,()->new Blueprint("bad",500,500,500));
         Blueprint a=DemoBlueprint.cottage();

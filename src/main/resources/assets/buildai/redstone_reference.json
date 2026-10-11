@@ -1,0 +1,258 @@
+{
+  "version": "minecraft-java-1.21.1",
+  "usage": "Design guidance only; do not assert functional test success without Minecraft GameTest simulation.",
+  "items": [
+    {
+      "name": "Redstone Dust",
+      "block": "minecraft:redstone_wire",
+      "purpose": "Carries powered signal; power level 0-15 and attenuation",
+      "rules": [
+        "Use connected wire shape and supports",
+        "Not all solid blocks conduct signal identically",
+        "Keep wires clear of unintended joins"
+      ]
+    },
+    {
+      "name": "Repeater",
+      "block": "minecraft:repeater",
+      "purpose": "Directional one-way signal refresh and delay",
+      "rules": [
+        "Input rear; output front",
+        "delay=1-4 redstone ticks",
+        "side locking can hold current output"
+      ]
+    },
+    {
+      "name": "Comparator",
+      "block": "minecraft:comparator",
+      "purpose": "Compare, subtract and container signal reading",
+      "rules": [
+        "Rear main input; side signal used for compare/subtract",
+        "mode=compare|subtract",
+        "Reads analog states of many inventories"
+      ]
+    },
+    {
+      "name": "Observer",
+      "block": "minecraft:observer",
+      "purpose": "Detect adjacent block changes and produce brief pulse",
+      "rules": [
+        "Observed side is opposite output",
+        "facing property determines orientation",
+        "Pulse on recognized state change"
+      ]
+    },
+    {
+      "name": "Piston",
+      "block": "minecraft:piston",
+      "purpose": "Extend head and push limited attached line of blocks",
+      "rules": [
+        "Push limit 12 movable blocks",
+        "Cannot push bedrock or obsidian",
+        "Correct facing and head clearance"
+      ]
+    },
+    {
+      "name": "Sticky Piston",
+      "block": "minecraft:sticky_piston",
+      "purpose": "Extend/retract, pull one movable block",
+      "rules": [
+        "Retract pulling constrained by block mobility",
+        "Quasi connectivity and update order can change behavior"
+      ]
+    },
+    {
+      "name": "Hopper",
+      "block": "minecraft:hopper",
+      "purpose": "Transfers and collects item entities/inventory items",
+      "rules": [
+        "facing property identifies outgoing destination",
+        "Powered hopper is locked",
+        "Transfer delay and storage fullness affect rates"
+      ]
+    },
+    {
+      "name": "Dropper",
+      "block": "minecraft:dropper",
+      "purpose": "Ejects or transfers an item on pulse",
+      "rules": [
+        "facing points where output goes",
+        "Does not use special item behavior"
+      ]
+    },
+    {
+      "name": "Dispenser",
+      "block": "minecraft:dispenser",
+      "purpose": "Uses or dispenses item on pulse",
+      "rules": [
+        "facing matters",
+        "Behavior depends on item",
+        "Power edge required to activate"
+      ]
+    },
+    {
+      "name": "Redstone Torch",
+      "block": "minecraft:redstone_torch",
+      "purpose": "Inverted redstone signal",
+      "rules": [
+        "Wall variant has facing property",
+        "Rapid repeated activation can burn out"
+      ]
+    },
+    {
+      "name": "Lever",
+      "block": "minecraft:lever",
+      "purpose": "Persistent manually toggled power",
+      "rules": [
+        "face=floor|wall|ceiling",
+        "facing changes placement",
+        "powered boolean determines output"
+      ]
+    },
+    {
+      "name": "Stone Button",
+      "block": "minecraft:stone_button",
+      "purpose": "Temporary manually pressed signal",
+      "rules": [
+        "powered is transient",
+        "wall or floor/ceiling mounting"
+      ]
+    },
+    {
+      "name": "Weighted Pressure Plate",
+      "block": "minecraft:heavy_weighted_pressure_plate",
+      "purpose": "Analog signal from entity count",
+      "rules": [
+        "Must have floor support",
+        "Threshold differs from light plate"
+      ]
+    },
+    {
+      "name": "Daylight Detector",
+      "block": "minecraft:daylight_detector",
+      "purpose": "Daylight-dependent analog output",
+      "rules": [
+        "Power depends on sky light",
+        "inverted flag changes behavior"
+      ]
+    },
+    {
+      "name": "Target Block",
+      "block": "minecraft:target",
+      "purpose": "Power pulse when struck by projectile",
+      "rules": [
+        "Output depends on hit accuracy",
+        "Requires valid interaction from projectile"
+      ]
+    },
+    {
+      "name": "Redstone Lamp",
+      "block": "minecraft:redstone_lamp",
+      "purpose": "Emits light when powered",
+      "rules": [
+        "Lit flag changes with nearby signal",
+        "Light level affects nearby environment"
+      ]
+    },
+    {
+      "name": "Sculk Sensor",
+      "block": "minecraft:sculk_sensor",
+      "purpose": "Detects vibrations for power outputs",
+      "rules": [
+        "Wool can occlude vibration paths",
+        "Signal strength depends on vibration event"
+      ]
+    },
+    {
+      "name": "Powered Rail",
+      "block": "minecraft:powered_rail",
+      "purpose": "Accelerates/decelerates minecarts when powered",
+      "rules": [
+        "Shape and slope must connect",
+        "Rail travel relies on vanilla minecart physics"
+      ]
+    },
+    {
+      "name": "Detector Rail",
+      "block": "minecraft:detector_rail",
+      "purpose": "Signal from minecart presence",
+      "rules": [
+        "Shape must connect",
+        "Triggers when cart passes"
+      ]
+    },
+    {
+      "name": "Activator Rail",
+      "block": "minecraft:activator_rail",
+      "purpose": "Triggers supported minecart functions",
+      "rules": [
+        "Must receive power",
+        "Distinct from powered/detector rails"
+      ]
+    },
+    {
+      "name": "Iron Door",
+      "block": "minecraft:iron_door",
+      "purpose": "Redstone-operated entry",
+      "rules": [
+        "Lower and upper halves align",
+        "facing and hinge must match",
+        "Needs external power"
+      ]
+    },
+    {
+      "name": "Iron Trapdoor",
+      "block": "minecraft:iron_trapdoor",
+      "purpose": "Redstone-operated horizontal/vertical hatch",
+      "rules": [
+        "half and facing must match",
+        "Waterlogged property where supported"
+      ]
+    },
+    {
+      "name": "Note Block",
+      "block": "minecraft:note_block",
+      "purpose": "Plays musical note on power transition",
+      "rules": [
+        "instrument depends on block underneath",
+        "note state 0-24",
+        "Blocks overhead can suppress sound"
+      ]
+    },
+    {
+      "name": "Tripwire Hook",
+      "block": "minecraft:tripwire_hook",
+      "purpose": "Detects entity crossing taut tripwire",
+      "rules": [
+        "Connected hooks with supported tripwire span",
+        "Powered and attached states"
+      ]
+    },
+    {
+      "name": "Crafter",
+      "block": "minecraft:crafter",
+      "purpose": "Automated recipe crafting when triggered",
+      "rules": [
+        "Correct recipe grid and disabled slots",
+        "Consumes supplied ingredients",
+        "Output direction matters"
+      ]
+    },
+    {
+      "name": "Copper Bulb",
+      "block": "minecraft:copper_bulb",
+      "purpose": "Pulse-toggled light, retains on/off state",
+      "rules": [
+        "Oxidation changes timing properties",
+        "waxing controls oxidation",
+        "Toggle behavior differs from redstone lamp"
+      ]
+    }
+  ],
+  "verification_levels": [
+    "syntactic",
+    "geometry",
+    "dependency",
+    "mechanical-functional"
+  ]
+}

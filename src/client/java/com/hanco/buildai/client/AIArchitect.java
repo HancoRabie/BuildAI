@@ -62,6 +62,77 @@ public final class AIArchitect {
         }catch(Exception ignored){return "";}
     }
 
+    /** ChatGPT plan usage requires an authorized OAuth token and the streaming Responses API. */
+    public static DesignResult generateWithChatGPT(String prompt,String previous) throws Exception {
+        if(prompt==null||prompt.isBlank()||prompt.length()>4000)
+            throw new IllegalArgumentException("Describe your building in 1-4000 characters");
+        if(previous!=null&&previous.length()>110_000)
+            throw new IllegalArgumentException("Prior design is too large for revision");
+        String model=ChatGPTSignIn.model();
+        String token=ChatGPTSignIn.token();
+        JsonObject body=new JsonObject();
+        body.addProperty("model",model);
+        body.addProperty("store",false);
+        body.addProperty("stream",true);
+        JsonArray input=new JsonArray();
+        JsonObject system=new JsonObject();
+        system.addProperty("role","developer");
+        String rules=INSTRUCTIONS+"\n"+REDSTONE+"\n"+loadReference();
+        if(previous!=null)rules+="\nRevise the existing blueprint. Return COMPLETE replacement JSON, not a diff. "+
+            "Keep existing geometry unless the player explicitly asks for changes.";
+        system.addProperty("content",rules);
+        input.add(system);
+        if(previous!=null){
+            JsonObject old=new JsonObject();old.addProperty("role","assistant");
+            old.addProperty("content",previous);input.add(old);
+        }
+        JsonObject user=new JsonObject();user.addProperty("role","user");user.addProperty("content",prompt);
+        input.add(user);body.add("input",input);
+        HttpRequest request=HttpRequest.newBuilder(URI.create("https://api.openai.com/v1/responses"))
+            .timeout(Duration.ofSeconds(180))
+            .header("Content-Type","application/json")
+            .header("Accept","text/event-stream")
+            .header("Authorization","Bearer "+token)
+            .POST(HttpRequest.BodyPublishers.ofString(body.toString(),StandardCharsets.UTF_8)).build();
+        HttpResponse<java.io.InputStream> response=HttpClient.newHttpClient()
+            .send(request,HttpResponse.BodyHandlers.ofInputStream());
+        if(response.statusCode()!=200){
+            try(var stream=response.body()){
+                throw new java.io.IOException("ChatGPT generation HTTP "+response.statusCode()+
+                    " — check plan permission, model limits or reconnect in F8");
+            }
+        }
+        StringBuilder generated=new StringBuilder();
+        boolean completed=false;
+        try(var reader=new java.io.BufferedReader(new java.io.InputStreamReader(response.body(),
+                StandardCharsets.UTF_8))){
+            String line;
+            while((line=reader.readLine())!=null) {
+                if(!line.startsWith("data: "))continue;
+                String json=line.substring(6);
+                if(json.equals("[DONE]"))break;
+                JsonObject event;
+                try{event=JsonParser.parseString(json).getAsJsonObject();}
+                catch(RuntimeException invalidEvent){continue;}
+                String type=event.has("type")?event.get("type").getAsString():"";
+                if(type.equals("response.output_text.delta")){
+                    if(event.has("delta")){
+                        generated.append(event.get("delta").getAsString());
+                        if(generated.length()>120_000)throw new java.io.IOException("AI blueprint exceeded 120 KB");
+                    }
+                }else if(type.equals("response.failed")||type.equals("response.incomplete")||type.equals("error")){
+                    throw new java.io.IOException("ChatGPT stopped before completing the design ("+type+
+                        "). Check plan usage or try a smaller building.");
+                }else if(type.equals("response.completed")){
+                    completed=true;
+                }
+            }
+        }
+        if(!completed)throw new java.io.IOException("ChatGPT stream ended without response.completed; no blueprint was applied");
+        String spec=generated.toString().trim();
+        return new DesignResult(ProceduralGenerator.compile(spec),spec);
+    }
+
     private static DesignResult requestDesign(String key,String prompt,String previous) throws Exception {
         if(key==null||key.isBlank())throw new IllegalArgumentException("Enter an OpenAI API key (v0.1).");
         if(prompt==null||prompt.isBlank()||prompt.length()>4000)throw new IllegalArgumentException("Prompt length 1-4000 required");

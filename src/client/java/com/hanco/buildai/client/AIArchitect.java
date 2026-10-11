@@ -30,8 +30,18 @@ public final class AIArchitect {
         Minecraft air can carve voids, windows and doorways.
         Make fully recognizable, attractive buildings including actual usable entrances and rooms.
         Use only valid Minecraft 1.21.1 block IDs and property states.
-        Target <= 48x32x48 and <= 220 operations. Do not invent imaginary redstone machines.
-        If machinery needs later testing, include that in the project name.
+        NEVER compress, shrink, miniature-scale or omit requested rooms, wings or floors merely
+        to fit an arbitrary response size. One horizontal Minecraft block represents roughly 1 meter;
+        a Minecraft avatar is approximately 1.8 blocks tall. Preserve human-scale room heights,
+        entrances and real-world facade proportions. For historical architecture, estimate dimensions
+        when exact measurements were not supplied and label the result appropriately.
+        The current voxel engine supports dimensions up to 512 along each axis and at most 4,000,000
+        cells per single blueprint. If an exact requested design exceeds this single-project budget,
+        return {"error":"The requested structure requires section-based construction rather than
+        a silently shrunken model"}; do not fabricate a compressed replica.
+        Favor a complete, recognizable architecture with correct entrances and interior voids.
+        Do not invent imaginary redstone machines. If machinery needs later testing, note that
+        explicitly in the project name.
         """;
     public record DesignResult(Blueprint blueprint, String specification) {}
 
@@ -57,8 +67,8 @@ public final class AIArchitect {
                                             GenerationProgress progress) throws Exception {
         if(existingSpecification==null||existingSpecification.isBlank())
             throw new IllegalArgumentException("Only an AI-generated design can be revised in this version.");
-        if(existingSpecification.length()>110_000)
-            throw new IllegalArgumentException("This design is too large for conversational revisions.");
+        if(existingSpecification.length()>1_500_000)
+            throw new IllegalArgumentException("Design exceeds one-request revision budget; section-based generation is needed.");
         return requestDesign(key,request,existingSpecification,progress);
     }
 
@@ -81,8 +91,8 @@ public final class AIArchitect {
                                                     GenerationProgress progress) throws Exception {
         if(prompt==null||prompt.isBlank()||prompt.length()>4000)
             throw new IllegalArgumentException("Describe your building in 1-4000 characters");
-        if(previous!=null&&previous.length()>110_000)
-            throw new IllegalArgumentException("Prior design is too large for revision");
+        if(previous!=null&&previous.length()>1_500_000)
+            throw new IllegalArgumentException("Revision history exceeds current single-request budget; use section-based generation.");
         report(progress,"Checking account access","Looking up the models available to your connected ChatGPT account.");
         String model=ChatGPTSignIn.model();
         report(progress,"Preparing secure request","Using your authorized account and model "+model+".");
@@ -147,7 +157,8 @@ public final class AIArchitect {
                         }
                         generated.append(delta);
                         if(progress!=null)progress.receivedCharacters(delta.length());
-                        if(generated.length()>120_000)throw new java.io.IOException("AI blueprint exceeded 120 KB");
+                        if(generated.length()>1_500_000)
+                            throw new java.io.IOException("AI response exceeded the single-request output budget. The design was NOT resized; section-based generation is required.");
                     }
                 }else if(type.equals("response.failed")||type.equals("response.incomplete")||type.equals("error")){
                     throw new java.io.IOException("ChatGPT stopped before completing the design ("+type+

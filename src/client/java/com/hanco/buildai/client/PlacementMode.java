@@ -29,6 +29,18 @@ public final class PlacementMode {
 
     public static boolean active(){return active;}
     public static boolean following(){return active && following;}
+    /** Prevent Minecraft's per-tick camera restoration while placement owns the view. */
+    public static boolean mustKeepCamera(net.minecraft.entity.Entity requested) {
+        MinecraftClient mc=MinecraftClient.getInstance();
+        return active && camera!=null && mc.player!=null && mc.world!=null
+            && requested!=camera && !mc.player.isDead();
+    }
+    public static void enforceCamera(){
+        if(!active||camera==null)return;
+        MinecraftClient mc=MinecraftClient.getInstance();
+        if(mc.player!=null&&mc.world!=null&&mc.getCameraEntity()!=camera)
+            mc.setCameraEntity(camera);
+    }
 
     public static void start(){start(false);}
     public static void inspect(){start(true);}
@@ -44,12 +56,14 @@ public final class PlacementMode {
         camera.setPitch(mc.player.getPitch());
         oldPerspective=mc.options.getPerspective();
         mc.options.setPerspective(Perspective.FIRST_PERSON);
+        // Placement owns the camera until explicit release. The mixin prevents
+        // vanilla from switching the view back to the real player mid-tick.
+        active=true;
         mc.setCameraEntity(camera);
         startCamera=camera.getPos();
         scrollZ=0;
         following=!lockedReview;
         waitingLock=false;
-        active=true;
         if(!lockedReview)centerInFront();
         BuildAIClient.selecting=!lockedReview;
         BuildAIClient.surfacePending=false;
@@ -88,11 +102,13 @@ public final class PlacementMode {
         if(mc.player==null||mc.world==null||camera==null||mc.player.isDead()){
             stop();BuildAIClient.clearPreview();return;
         }
-        // Menus temporarily return to the actual player, leaving the preview at its last XYZ.
-        if(mc.currentScreen!=null){stop();return;}
-        float yaw=mc.player.getYaw(),pitch=mc.player.getPitch();
-        camera.setYaw(yaw);
-        camera.setPitch(pitch);
+        // F8, chat and pause menus do not end observer mode or reset its viewpoint.
+        // Rebind if vanilla refreshed the active view while we were in a menu.
+        enforceCamera();
+        if(mc.currentScreen!=null)return;
+        // The mouse turns the detached camera, NOT the real player. Never overwrite
+        // its orientation from mc.player, which caused oscillation and flicker.
+        float yaw=camera.getYaw();
         // Camera uses key state directly; KeyboardInput mixin suppresses real body movement.
         int forward=(mc.options.forwardKey.isPressed()?1:0)-(mc.options.backKey.isPressed()?1:0);
         int strafe=(mc.options.rightKey.isPressed()?1:0)-(mc.options.leftKey.isPressed()?1:0);
@@ -160,9 +176,11 @@ public final class PlacementMode {
     }
     public static void stop(){
         MinecraftClient mc=MinecraftClient.getInstance();
-        if(active && mc.player!=null && mc.getCameraEntity()==camera)mc.setCameraEntity(mc.player);
+        // Disable the camera lock BEFORE returning to the genuine player.
+        boolean wasActive=active;
+        active=false;following=false;waitingLock=false;
+        if(wasActive && mc.player!=null)mc.setCameraEntity(mc.player);
         if(oldPerspective!=null){mc.options.setPerspective(oldPerspective);oldPerspective=null;}
         camera=null;startCamera=null;startOrigin=null;
-        active=false;following=false;waitingLock=false;
     }
 }

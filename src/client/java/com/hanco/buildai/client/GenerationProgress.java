@@ -10,9 +10,16 @@ import java.util.List;
 public final class GenerationProgress {
     public record Snapshot(String stage, String detail, List<String> milestones,
                            long elapsedSeconds, long secondsSinceActivity,
-                           int receivedCharacters, boolean finished, boolean failed) {}
+                           int receivedCharacters, boolean finished, boolean failed,
+                           double charactersPerSecond) {}
 
+    private final String category;
     private final long startedNanos=System.nanoTime();
+    private long firstCharactersNanos=0L;
+
+    public GenerationProgress(){this(null);}
+    public GenerationProgress(String prompt){category=GenerationHistory.category(prompt);}
+    public String category(){return category;}
     private long lastActivityNanos=startedNanos;
     private String stage="Preparing request";
     private String detail="Connecting to the model service.";
@@ -33,8 +40,10 @@ public final class GenerationProgress {
     }
     public synchronized void receivedCharacters(int count) {
         if(finished || count<=0)return;
+        long now=System.nanoTime();
+        if(firstCharactersNanos==0)firstCharactersNanos=now;
         receivedCharacters+=count;
-        lastActivityNanos=System.nanoTime();
+        lastActivityNanos=now;
     }
     public synchronized void success(String explanation) {
         stage="Blueprint ready";
@@ -55,9 +64,11 @@ public final class GenerationProgress {
     }
     public synchronized Snapshot snapshot() {
         long now=System.nanoTime();
+        double rate=firstCharactersNanos==0?0.0:
+            receivedCharacters/Math.max(1.0,(now-firstCharactersNanos)/1_000_000_000.0);
         return new Snapshot(stage,detail,List.copyOf(milestones),
             Math.max(0,(now-startedNanos)/1_000_000_000L),
             Math.max(0,(now-lastActivityNanos)/1_000_000_000L),
-            receivedCharacters,finished,failed);
+            receivedCharacters,finished,failed,rate);
     }
 }

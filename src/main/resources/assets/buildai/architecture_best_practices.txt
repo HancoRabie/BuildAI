@@ -1,0 +1,70 @@
+BuildAI ARCHITECTURAL BEST PRACTICES v1.0 — Minecraft Java 1.21.1
+This is a requirements checklist, NOT optional cosmetic guidance. Resolve issues in geometry
+before returning the complete JSON. Structure must be playable, not merely photogenic.
+
+1. PROGRAM & SCALE
+- Begin with a mental space program: externally recognizable elements, named rooms,
+  halls, entrances, stairs, basement, landscape and connections between sections.
+- One horizontal block is approximately 1 meter; avatar height is ~1.8 blocks.
+- Typical traversable entrance is at least two clear blocks tall; premium hallways
+  should be three or more, with width appropriate to the building.
+- Floors, ceilings and roofs must be continuous except at deliberate stairs, shafts
+  and atriums. Never let unplanned dirt/grass appear inside finished rooms.
+- Do not invent finished rooms by naming them only; physically include them in operations.
+
+2. STAIRS, ACCESSIBILITY & VERTICAL CIRCULATION
+- Design stairs BEFORE placing ceiling slabs or surrounding walls.
+- Every staircase connects two usable LANDINGS at distinct floor elevations.
+  A flight must not terminate at a solid wall, glass, ceiling, or unsupported edge.
+- Stair orientation uses correct facing, half=bottom (unless deliberately inverted),
+  shape and waterlogged states. Test each step as an accessible climb of one block
+  rise in the block grid, with TWO unobstructed blocks of headroom where a player stands.
+- Cut a correctly sized opening in the upper floor for the ENTIRE flight and landing.
+  Ensure supporting floor under each landing and finished walls around the stairwell.
+- Provide a safe corridor at both ends; do not leave open grass or a pit beside steps.
+- For basements, connect stairwell to the basement level and finish underground walls
+  and ceilings so excavated soil is not exposed in indoor living areas.
+
+3. ROOM CONNECTIVITY & DOORWAYS
+- Every intentionally accessible named room must connect to a main entrance through
+  a two-block-high doorway and a connected corridor/stair network; check turns.
+- Corridors must not narrow to blocked one-cell choke points around furniture.
+- Doors need upper/lower halves and the correct hinge/facing. Carve doorway air FIRST
+  and position the door AFTER wall generation. Door upper half must have clearance.
+- Furniture must not block entrances, stairs or the walking path between rooms.
+- Atriums and floor voids must be intentional; rail or enclose unsafe edges.
+
+4. WINDOWS, LIGHTING & FURNISHINGS
+- Windows should be aligned and framed; glass panes must connect to their neighbors.
+- Light every main hall, stairwell, basement and room, not only the exterior facade.
+- Choose furniture placement after the walkable route is confirmed.
+- Avoid unsupported glass panes, floating lights, and floating stairs.
+
+5. HISTORICALLY NAMED BUILDINGS
+- A White House replica needs its recognisable central residence, porticos,
+  East and West Wings, formal approach, and actual room layout approximations.
+- REQUIRED FOR A WHITE HOUSE REQUEST: physically build a recognizable OVAL OFFICE
+  in the West Wing. Use a stepped elliptical/rounded room outline, furnished
+  presidential desk area, glazing and a usable doorway connected to the West Wing.
+  Clearly include an entry named 'Oval Office' in the room manifest; don't imply
+  documentary accuracy if dimensions or internal layout are approximations.
+- For any requested landmark, include ALL specifically named rooms. Do not omit them
+  to save output tokens without telling the user.
+
+6. ROOM MANIFEST FOR MACHINE CHECKING
+- Include an OPTIONAL top-level "rooms" array in the design JSON:
+  "rooms":[{"name":"Oval Office","x1":3,"y1":2,"z1":3,"x2":14,"y2":6,"z2":13}]
+- Each room bounding box should cover its physical room walls, floor and headroom.
+  Name actual recognizable locations, not imagined placeholders.
+- Coordinate values must stay within the blueprint dimensions.
+- BuildAI will inspect basic two-block headroom and openings near claimed rooms;
+  that heuristic is NOT an exhaustive pathfinding or accessibility certification.
+
+7. FINAL INTERNAL QA BEFORE OUTPUT
+- X horizontal, Y vertical, Z depth; honor exact block states and bounding dimensions.
+- Trace a player route: outdoors → primary door → main hall → each room →
+  ascending/descending staircase → upper floor and basement. Repair broken connections.
+- Trace the cutout of every staircase in both vertical X and Z cross-sections.
+- Check floor continuity and interior finish around every void.
+- Emit COMPLETE, valid ordered operations; 'air' operations must create real spaces.
+- Avoid claims of a fully functional machine or verified room accessibility without tests.

@@ -126,6 +126,7 @@ public final class BuildAIClient implements ClientModInitializer {
         net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(com.hanco.buildai.build.BuildBlocks.CONSTRUCTION_BLOCK,net.minecraft.client.render.RenderLayer.getTranslucent());
         net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(com.hanco.buildai.build.BuildBlocks.CONSTRUCTION_SLAB,net.minecraft.client.render.RenderLayer.getTranslucent());
         PreviewRenderer.register();
+        PlacementHud.register();
         ClientPlayNetworking.registerGlobalReceiver(com.hanco.buildai.net.PlacementReplyPayload.ID,
             (payload,context)->context.client().execute(()->PlacementMode.receive(
                 payload.accepted(),payload.locked(),payload.origin(),payload.message())));

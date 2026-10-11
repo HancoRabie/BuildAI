@@ -141,26 +141,21 @@ public final class BuildAIScreen extends Screen {
                 if(BuildAIClient.draft==null){status="Create or import a blueprint first.";return;}
                 try{
                     BuildAIClient.beginUpload(BuildAIClient.draft,surfaceLayer);
-                    status="Sending blueprint to server; wait for acceptance, then close F8 for placement.";
+                    status="Sending blueprint. Close F8 to select ground using your NORMAL player view (G).";
                 }catch(Exception ex){status="Upload failed: "+ex.getMessage();}
             });
-            add("Resume Flight Camera",left,row(7),half,buttonHeight,b->{
+            add("Preview in World (Close F8)",left,row(7),half,buttonHeight,b->{
                 if(BuildAIClient.draft==null||(!BuildAIClient.selecting&&!BuildAIClient.previewLocked)){
-                    status="Upload and get server approval first.";return;
+                    status="Upload the blueprint and wait for server approval first.";return;
                 }
-                if(PlacementMode.active()){
-                    close(); // already attached: keep the exact camera transform and locked XYZ
-                }else{
-                    close();
-                    if(BuildAIClient.previewLocked)PlacementMode.inspect();
-                    else PlacementMode.start();
-                }
+                close();
             });
             add("Lock XYZ (Enter)",left+half+gap,row(7),half,buttonHeight,b->{
-                if(!PlacementMode.active()){
-                    status="First click Resume Flight Camera, then press Enter while in the world.";return;
+                if(!BuildAIClient.selecting){
+                    status="Upload your design or press R to choose a new placement.";return;
                 }
                 PlacementMode.lock();
+                status="Lock requested. First aim at the intended ground block and press G in the world.";
             });
             add("Save Blueprint to Library",left,row(8),panelWidth,buttonHeight,b->exportSchematic());
             add("Hide Preview",left,row(9),half,buttonHeight,b->{
@@ -179,9 +174,15 @@ public final class BuildAIScreen extends Screen {
                 PlacementMode.retry();
                 status="Retry requested: no excavation will begin.";
             });
-            add("Return to Player",left+half+gap,row(10),half,buttonHeight,b->{
-                PlacementMode.stop();
-                status="Returned to your real character. Preview remains until hidden or canceled.";
+            add("Confirm & Build",left+half+gap,row(10),half,buttonHeight,b->{
+                if(!BuildAIClient.previewLocked){
+                    status="Aim at ground and press G, then Enter to lock XYZ before building.";return;
+                }
+                if(client==null||client.getNetworkHandler()==null){
+                    status="Join a world before confirming.";return;
+                }
+                client.getNetworkHandler().sendChatCommand("buildai confirm");
+                status="Construction requested; watch server status and the BuildAI HUD.";
             });
         }
         add("Close",left,row(11),panelWidth,buttonHeight,b->close());

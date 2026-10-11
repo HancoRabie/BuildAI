@@ -86,7 +86,7 @@ public final class BuildAIScreen extends Screen {
             }
             add("Generate New",left,row(8),half,buttonHeight,b->requestAI(false));
             add("Revise Existing",left+half+gap,row(8),half,buttonHeight,b->requestAI(true));
-            add("Import File",left,row(9),half,buttonHeight,b->browse());
+            add("Import File / My Builds",left,row(9),half,buttonHeight,b->browse());
             add("Load Demo Cottage",left+half+gap,row(9),half,buttonHeight,b->{
                 if(busy){status="Wait for the current operation to finish.";return;}
                 Blueprint demo=DemoBlueprint.cottage();
@@ -158,7 +158,7 @@ public final class BuildAIScreen extends Screen {
                 }
                 PlacementMode.lock();
             });
-            add("Export Blueprint as .schem",left,row(8),panelWidth,buttonHeight,b->exportSchematic());
+            add("Save Blueprint to Library",left,row(8),panelWidth,buttonHeight,b->exportSchematic());
             add("Hide Preview",left,row(9),half,buttonHeight,b->{
                 BuildAIClient.clearPreview();
                 status="Ghost grid hidden. Existing blocks are unchanged.";
@@ -208,7 +208,7 @@ public final class BuildAIScreen extends Screen {
             status="Connect with ChatGPT, or open the optional API key field.";
             return;
         }
-        GenerationProgress progress=new GenerationProgress();
+        GenerationProgress progress=new GenerationProgress(description);
         if(!BuildAIClient.beginGeneration(progress)){
             status="Another blueprint is already being generated.";
             return;
@@ -240,6 +240,7 @@ public final class BuildAIScreen extends Screen {
             surfaceLayer=BuildAIClient.surfaceLayer;
             progress.success("Generated "+result.blueprint().solidCount()+
                 " blocks. The blueprint is available for inspection.");
+            GenerationHistory.record(progress);
             status=(revise?"Revised: ":"Created: ")+result.blueprint().name+
                 " ("+result.blueprint().solidCount()+" blocks). Inspect layers or upload for placement.";
             switchTab(1);

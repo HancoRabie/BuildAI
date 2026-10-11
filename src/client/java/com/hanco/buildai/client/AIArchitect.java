@@ -24,7 +24,19 @@ public final class AIArchitect {
         Shape: {"name":"Title","width":25,"height":14,"length":20,"operations":[
           {"kind":"fill","block":"minecraft:stone_bricks","x1":0,"y1":0,"z1":0,"x2":24,"y2":0,"z2":19}
         ]}.
-        Allowed kinds: fill, box, walls (vertical perimeter), shell (six faces), line.
+        Allowed kinds: fill, box, walls (vertical perimeter), shell (six faces), line,
+        ellipsoid (solid smooth oval bounded by x1..z2), organic_canopy (irregular rounded foliage,
+        accepts optional integer seed=0..1000000, preserves non-leaf structures and trunk blocks).
+        Use line operations for tree trunks and angled limbs, followed by several partially
+        overlapping organic_canopy clusters for foliage; avoid square leaf slabs and flat tops.
+        For windows choose glass panes for framed vertical window arrays whenever suitable, not
+        full glass blocks by default; retain solid glass where load, shape or roof geometry requires it.
+        For fences, wall blocks and panes, author real adjoining segments; BuildAI will normalize
+        their neighbor-connection states after placing the final layer.
+        For doors, generate one matched lower/upper pair with matching facing/hinge and an open
+        two-block high passage. Position the hinge against a wall jamb, ensure a walkable landing
+        on both sides, and choose open=false unless a deliberately open door is requested.
+        Don't invent a door to decorate a solid wall or block the walkway.
         X is width, Y height, Z depth. All coordinates zero-based and within dimensions.
         Operations execute in order, and later operations override earlier ones.
         Minecraft air can carve voids, windows and doorways.
@@ -179,6 +191,7 @@ public final class AIArchitect {
         String spec=generated.toString().trim();
         report(progress,"Compiling 3D blueprint","Converting AI design operations into exact block positions.");
         Blueprint compiled=ProceduralGenerator.compile(spec);
+        DoorPlanner.completeSafePairs(compiled);
         report(progress,"Validating Minecraft blocks","Checking block IDs and states before displaying the blueprint.");
         BlockStates.validate(compiled);
         report(progress,"Architectural QA","Checking stairs, floor openings, room declarations and interior access warnings.");
@@ -232,6 +245,7 @@ public final class AIArchitect {
         if(progress!=null)progress.receivedCharacters(json.length());
         report(progress,"Compiling 3D blueprint","Converting AI design operations into exact block positions.");
         Blueprint compiled=ProceduralGenerator.compile(json);
+        DoorPlanner.completeSafePairs(compiled);
         report(progress,"Validating Minecraft blocks","Checking block IDs and states before displaying the blueprint.");
         BlockStates.validate(compiled);
         report(progress,"Architectural QA","Checking stairs, floor openings, room declarations and interior access warnings.");

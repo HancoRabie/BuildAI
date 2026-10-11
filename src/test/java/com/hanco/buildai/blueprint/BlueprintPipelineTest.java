@@ -67,6 +67,30 @@ public class BlueprintPipelineTest {
             ProceduralGenerator.compile(json.replace("\"x2\":4","\"x2\":500")));
     }
 
+    @Test void largeFootprintsUseCompressedRunsAndRetainExactDimensions() {
+        Blueprint large=new Blueprint("Full-sized facade",160,24,90);
+        large.set(0,0,0,"minecraft:stone_bricks");
+        large.set(159,23,89,"minecraft:quartz_block");
+        large.set(80,12,45,"minecraft:glass_pane[north=true,south=true,east=false,west=false,waterlogged=false]");
+        JsonObject encoded=BlueprintJson.encode(large);
+        assertTrue(encoded.has("runs"),"Large blueprints should use compact run-length encoding");
+        assertFalse(encoded.has("cells"));
+        Blueprint roundTrip=BlueprintJson.decode(encoded);
+        assertEquals(160,roundTrip.width);
+        assertEquals(24,roundTrip.height);
+        assertEquals(90,roundTrip.length);
+        assertEquals(3,roundTrip.solidCount());
+        assertEquals(large.get(80,12,45),roundTrip.get(80,12,45));
+        assertEquals(large.get(159,23,89),roundTrip.get(159,23,89));
+    }
+
+    @Test void oversizedArchitectureIsExplainedNotShrunk() {
+        IllegalArgumentException error=assertThrows(IllegalArgumentException.class,
+            ()->ProceduralGenerator.compile("{\"error\":\"Needs multiple full-scale sections\"}"));
+        assertTrue(error.getMessage().contains("multiple full-scale sections"));
+        assertThrows(IllegalArgumentException.class,()->new Blueprint("Huge",512,512,512));
+    }
+
     @Test void invalidBlueprintDataIsRejected() {
         assertThrows(IllegalArgumentException.class,()->new Blueprint("bad",500,500,500));
         Blueprint a=DemoBlueprint.cottage();

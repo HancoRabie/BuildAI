@@ -30,6 +30,8 @@ public final class BuildAIMod implements ModInitializer {
         com.hanco.buildai.build.BuildBlocks.register();
         PayloadTypeRegistry.playC2S().register(BlueprintChunkPayload.ID,BlueprintChunkPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(PlacePayload.ID,PlacePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(com.hanco.buildai.net.ProjectStatusPayload.ID,
+            com.hanco.buildai.net.ProjectStatusPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(BlueprintChunkPayload.ID,(payload,context)->{
             ServerPlayerEntity player=context.player();

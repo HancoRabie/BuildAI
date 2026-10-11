@@ -31,7 +31,7 @@ public final class BuildAIClient implements ClientModInitializer {
     public static volatile boolean chatMode=false;
     private static volatile boolean uploadPending=false;
     private static String apiKey="";
-    private static KeyBinding open, lockPlacement, retryPlacement;
+    private static KeyBinding open, lockPlacement, retryPlacement, snapGround;
     /** Hide the visual-only ghost without erasing a saved blueprint or built terrain. */
     public static void clearPreview() {
         PlacementMode.stop();
@@ -152,11 +152,14 @@ public final class BuildAIClient implements ClientModInitializer {
             InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_ENTER,"category.buildai"));
         retryPlacement=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.buildai.retry_placement",
             InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_R,"category.buildai"));
+        snapGround=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.buildai.snap_ground",
+            InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_G,"category.buildai"));
         ClientTickEvents.END_CLIENT_TICK.register(client->{
             if(client.player==null)return;
             while(open.wasPressed())client.setScreen(new BuildAIScreen());
             if(client.currentScreen==null){
                 while(lockPlacement.wasPressed())PlacementMode.lock();
+                while(snapGround.wasPressed())PlacementMode.snapGround();
                 while(retryPlacement.wasPressed()){
                     if(selecting||previewLocked||PlacementMode.active())PlacementMode.retry();
                 }

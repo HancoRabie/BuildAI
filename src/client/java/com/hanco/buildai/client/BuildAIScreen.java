@@ -64,7 +64,9 @@ public final class BuildAIScreen extends Screen {
             b.setMessage(Text.literal("Chat Mode: "+(BuildAIClient.chatMode?"ON":"OFF")));
             status="Chat Mode "+(BuildAIClient.chatMode?"enabled - chat now goes privately to AI. Type exit to leave.":"disabled.");
         }).dimensions(x,top+197,content,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Close"),b->close()).dimensions(x,top+224,content,20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Export Blueprint as .schem"),b->exportSchematic())
+            .dimensions(x,top+224,content,20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Close"),b->close()).dimensions(x,top+251,content,20).build());
     }
     private void browse(){
         if(busy)return;
@@ -90,6 +92,27 @@ public final class BuildAIScreen extends Screen {
             }catch(Exception ex){status="Invalid block states: "+ex.getMessage();}
         }));
     }
+    private void exportSchematic(){
+        if(BuildAIClient.draft==null){status="Generate or import a blueprint first.";return;}
+        Blueprint blueprint=BuildAIClient.draft;
+        busy=true;status="Select .schem export location...";
+        CompletableFuture.supplyAsync(()->{
+            try {
+                JFileChooser chooser=new JFileChooser();
+                chooser.setDialogTitle("Save BuildAI schematic");
+                chooser.setSelectedFile(new java.io.File(blueprint.name.replaceAll("[^a-zA-Z0-9_-]","_")+".schem"));
+                if(chooser.showSaveDialog(null)!=JFileChooser.APPROVE_OPTION)return null;
+                java.io.File selected=chooser.getSelectedFile();
+                String filename=selected.getAbsolutePath();
+                if(!filename.toLowerCase(java.util.Locale.ROOT).endsWith(".schem"))filename+=".schem";
+                return SchematicWriter.write(blueprint,java.nio.file.Path.of(filename));
+            }catch(Exception e){throw new RuntimeException(e);}
+        }).whenComplete((saved,error)->MinecraftClient.getInstance().execute(()->{
+            busy=false;
+            if(error!=null){status="Export failed: "+error.getCause();return;}
+            status=saved==null?"Export canceled":"Saved "+saved.getFileName();
+        }));
+    }
     @Override public void render(DrawContext context,int mouseX,int mouseY,float delta){
         super.render(context,mouseX,mouseY,delta);
         int content=Math.min(470,width-28),x=(width-content)/2,top=Math.max(35,height/2-135);
@@ -99,7 +122,7 @@ public final class BuildAIScreen extends Screen {
         String level="Blueprint surface layer: "+surfaceLayer;
         if(BuildAIClient.draft!=null)level+=" / "+(BuildAIClient.draft.height-1);
         context.drawTextWithShadow(textRenderer,level,x,top+129,0xCCCCCC);
-        context.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(status,content),x,top+252,0xA5F4CF);
+        context.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(status,content),x,top+278,0xA5F4CF);
     }
     @Override public void close(){if(client!=null)client.setScreen(null);}
     @Override public boolean shouldPause(){return false;}

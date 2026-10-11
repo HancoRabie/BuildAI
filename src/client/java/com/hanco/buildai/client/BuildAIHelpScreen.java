@@ -67,6 +67,8 @@ public final class BuildAIHelpScreen extends Screen {
             "/buildai substitute <original> <replacement> - allow compatible material substitutions before construction.",
             "/buildai cinematic - show slower construction and particles.",
             "/buildai fast - place many blocks per tick; may cause lag.",
+            "/buildai normalize - repair glass pane and iron bar connections, including older completed builds near you.",
+            "/buildai hide - dismiss the visual placement grid without modifying the real building.",
             "/buildai confirm - after inspection, excavate and start construction.",
             "/buildai cancel - stop and keep already placed blocks.",
             "/buildai undo - attempt ordinary blockstate restoration. Used supplies are NOT automatically refunded."

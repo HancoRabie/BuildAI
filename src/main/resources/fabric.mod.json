@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "buildai",
+  "version": "${version}",
+  "name": "BuildAI",
+  "description": "Standalone blueprint importer and progressive construction engine",
+  "authors": [
+    "Hanco"
+  ],
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.hanco.buildai.BuildAIMod"
+    ],
+    "client": [
+      "com.hanco.buildai.client.BuildAIClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.7",
+    "minecraft": "=1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

@@ -16,7 +16,7 @@ import net.minecraft.util.math.*;
  * This first version deliberately refuses excavating block entities and bedrock.
  */
 public final class ConstructionProject {
-    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, COMPLETE, CANCELLED }
+    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, COMPLETE, CANCELLED, PAUSED_ERROR }
     public final Blueprint blueprint;
     public final UUID owner;
     public final boolean creative;
@@ -86,6 +86,9 @@ public final class ConstructionProject {
         BlockPos key=position.toImmutable();
         if(!modified.add(key))return;
         BlockState previous=world.getBlockState(position);
+        if(previous.hasBlockEntity()||previous.isOf(Blocks.BEDROCK))
+            throw new IllegalStateException("Protected block appeared during construction at "+
+                position.toShortString()+". Project halted before altering it.");
         if(!previous.isAir())originals.put(key,previous);
     }
     /** Re-run normalization against the already-built project footprint, without excavation. */

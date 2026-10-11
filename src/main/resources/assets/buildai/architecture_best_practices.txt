@@ -1,4 +1,4 @@
-BuildAI ARCHITECTURAL BEST PRACTICES v1.0 — Minecraft Java 1.21.1
+BuildAI ARCHITECTURAL BEST PRACTICES v1.1 — Minecraft Java 1.21.1
 This is a requirements checklist, NOT optional cosmetic guidance. Resolve issues in geometry
 before returning the complete JSON. Structure must be playable, not merely photogenic.
 
@@ -68,3 +68,40 @@ before returning the complete JSON. Structure must be playable, not merely photo
 - Check floor continuity and interior finish around every void.
 - Emit COMPLETE, valid ordered operations; 'air' operations must create real spaces.
 - Avoid claims of a fully functional machine or verified room accessibility without tests.
+
+8. DOOR PLACEMENT & HINGE QA
+- Fit every wooden or iron door into an intentionally cut 1x2 opening, never into a 1-high
+  slot or embedded in an adjacent solid panel. A standard door uses exactly two block
+  states sharing (X,Z): half=lower at the floor and half=upper one level above.
+- Facing and hinge must match across both halves; set open=false and powered=false
+  unless the design calls for a specific door state. Single-width doors should close
+  into their jamb. Two-wide openings need either two coordinated doors or a deliberate
+  door-free archway. Do NOT leave a lonely off-center door in a broad opening.
+- Include walkable full-height clearance for the player immediately on BOTH sides;
+  furniture and tables do not belong in the door swing or landing.
+- If an upper door half is missing and its cell is empty, BuildAI can add it safely;
+  colliding geometry is warned about, never silently replaced.
+
+9. CONNECTED RAILINGS & NATURAL MATERIALS
+- Balconies, stairs and decks should have continuous railings (especially open edges)
+  and corners, with consistent fence or wall material rather than scattered fence posts.
+  BuildAI recomputes their north/east/south/west connections on final placement.
+- Prefer glass panes in upright window walls where panes preserve the intended
+  proportions; panes need neighboring panes or framing on the correct sides.
+  Solid glass blocks remain appropriate for skylights, domes, flush roofs, and
+  special facade treatments, so do not globally substitute glass types.
+- For premium architecture, use contrast between structural timber/log beams, wooden
+  plank surfaces, trimmed facades, supports, railing, glazing and furnishings,
+  rather than arbitrarily scattering random block palettes.
+
+10. ORGANIC TREES AND JUNGLE CANOPIES
+- Build tapered visible log trunks with distinct roots and multiple asymmetric
+  branch lines that reach the leaf clusters and support the crown visually.
+- Use overlapping organic_canopy operations, each with x1/y1/z1/x2/y2/z2,
+  a valid leaves block, and an optional seed integer, to create uneven
+  ellipsoidal foliage clumps; adjust cluster sizes across crown levels.
+- NO giant axis-aligned rectangular leaf roof, no perfectly flat crown,
+  and no unsupported levitating foliage disconnected from the branch system.
+- Leave believable gaps for sun and windows; vary height and density of clusters.
+- For treehouses, roof/branches should integrate so the dwelling looks supported
+  by the tree rather than a house with a flat leaf box hovering above it.

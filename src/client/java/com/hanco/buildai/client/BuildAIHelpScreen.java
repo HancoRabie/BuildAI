@@ -66,8 +66,8 @@ public final class BuildAIHelpScreen extends Screen {
             "/buildai status - report active project phase and construction count.",
             "/buildai materials - show required, used and currently supplied materials.",
             "/buildai substitute <original> <replacement> - allow compatible material substitutions before construction.",
-            "/buildai cinematic - show slower construction and particles.",
-            "/buildai fast - place many blocks per tick; may cause lag.",
+            "/buildai cinematic - conceal chunk-safe excavation behind a void shroud, then show blocks spiraling into the central black hole. Construction starts afterward."
+            "/buildai fast - skip the cinematic wait and use faster construction. Large excavations are still batched to protect server performance."
             "/buildai normalize - repair glass pane and iron bar connections, including older completed builds near you.",
             "/buildai hide - dismiss the visual placement grid without modifying the real building.",
             "/buildai confirm - after inspection, excavate and start construction.",

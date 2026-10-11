@@ -26,10 +26,15 @@ import static net.minecraft.server.command.CommandManager.literal;
 public final class BuildAIMod implements ModInitializer {
     private static final UploadAssembler UPLOADS=new UploadAssembler();
     private static void reply(ServerPlayerEntity p,String msg){p.sendMessage(Text.literal("[BuildAI] "+msg),false);}
+    public static void clearGhost(ServerPlayerEntity player) {
+        if(ServerPlayNetworking.canSend(player,ClearPreviewPayload.ID))
+            ServerPlayNetworking.send(player,new ClearPreviewPayload());
+    }
     @Override public void onInitialize() {
         com.hanco.buildai.build.BuildBlocks.register();
         PayloadTypeRegistry.playC2S().register(BlueprintChunkPayload.ID,BlueprintChunkPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(PlacePayload.ID,PlacePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ClearPreviewPayload.ID, ClearPreviewPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(com.hanco.buildai.net.ProjectStatusPayload.ID,
             com.hanco.buildai.net.ProjectStatusPayload.CODEC);
 
@@ -151,25 +156,31 @@ public final class BuildAIMod implements ModInitializer {
                     if(p==null){reply(player,"No project");return 0;}
                     p.setCinematic(false);reply(player,"Fast placement (256 blocks/tick) enabled.");return 1;
                 }))
+                .then(literal("hide").executes(c->{
+                    ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                    clearGhost(player);
+                    reply(player,"Placement preview hidden. Blueprint and built blocks unchanged.");
+                    return 1;
+                }))
                 .then(literal("confirm").requires(s->s.hasPermissionLevel(2)).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project");return 0;}
-                    try{p.confirm();reply(player,"Construction approved. Excavation and progressive building started.");return 1;}
+                    try{p.confirm();clearGhost(player);reply(player,"Construction approved. Excavation and progressive building started.");return 1;}
                     catch(Exception e){reply(player,"Cannot confirm: "+e.getMessage());return 0;}
                 }))
                 .then(literal("cancel").requires(s->s.hasPermissionLevel(2)).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project");return 0;}
-                    try{p.cancel(false);reply(player,"Project stopped; partial build retained.");return 1;}
+                    try{p.cancel(false);clearGhost(player);reply(player,"Project stopped; partial build retained.");return 1;}
                     catch(Exception e){reply(player,"Cancel failed: "+e.getMessage());return 0;}
                 }))
                 .then(literal("undo").requires(s->s.hasPermissionLevel(2)).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project");return 0;}
-                    try{p.cancel(true);reply(player,"Blockstate rollback completed. Used materials are NOT automatically refunded in v0.1.");return 1;}
+                    try{p.cancel(true);clearGhost(player);reply(player,"Blockstate rollback completed. Used materials are NOT automatically refunded in v0.1.");return 1;}
                     catch(Exception e){reply(player,"Undo failed: "+e.getMessage());return 0;}
                 }))
             )

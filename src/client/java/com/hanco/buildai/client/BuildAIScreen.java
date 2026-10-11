@@ -103,9 +103,15 @@ public final class BuildAIScreen extends Screen {
                 status="Ghost grid hidden; placed blocks remain untouched.";
             });
         }else{
-            add("Surface Y -",left,row(4),half,buttonHeight,b->surfaceLayer=Math.max(0,surfaceLayer-1));
+            add("Surface Y -",left,row(4),half,buttonHeight,b->{
+                if(BuildAIClient.draft==null){status="Load a blueprint first.";return;}
+                surfaceLayer=Math.max(0,surfaceLayer-1);
+                status="Surface reference layer: "+surfaceLayer;
+            });
             add("Surface Y +",left+half+gap,row(4),half,buttonHeight,b->{
-                if(BuildAIClient.draft!=null)surfaceLayer=Math.min(BuildAIClient.draft.height-1,surfaceLayer+1);
+                if(BuildAIClient.draft==null){status="Load a blueprint first.";return;}
+                surfaceLayer=Math.min(BuildAIClient.draft.height-1,surfaceLayer+1);
+                status="Surface reference layer: "+surfaceLayer;
             });
             add("Upload & Preview",left,row(6),panelWidth,buttonHeight,b->{
                 if(busy){status="Wait for the current operation to finish.";return;}
@@ -116,9 +122,16 @@ public final class BuildAIScreen extends Screen {
                 }catch(Exception ex){status="Upload failed: "+ex.getMessage();}
             });
             add("Export Blueprint as .schem",left,row(8),panelWidth,buttonHeight,b->exportSchematic());
-            add("Hide Preview",left,row(9),panelWidth,buttonHeight,b->{
+            add("Hide Preview",left,row(9),half,buttonHeight,b->{
                 BuildAIClient.clearPreview();
-                status="Ghost grid hidden. Type /buildai hide to hide it from the server too.";
+                status="Ghost grid hidden. Existing blocks are unchanged.";
+            });
+            add("Cancel Project",left+half+gap,row(9),half,buttonHeight,b->{
+                if(client==null||client.getNetworkHandler()==null){
+                    status="Join a Minecraft world first.";return;
+                }
+                client.getNetworkHandler().sendChatCommand("buildai cancel");
+                status="Cancellation requested. Already placed blocks remain; see chat for result.";
             });
             add("Build commands in How To",left,row(10),panelWidth,buttonHeight,b->{
                 saveFields();client.setScreen(new BuildAIHelpScreen(this));
@@ -161,17 +174,35 @@ public final class BuildAIScreen extends Screen {
         while(t.getCause()!=null)t=t.getCause();
         return t.getMessage()==null?t.toString():t.getMessage();
     }
+    /**
+     * Swing file pickers must be created and shown on Swing's event thread,
+     * while Minecraft rendering and file parsing remain asynchronous.
+     */
+    private static <T> T onSwing(java.util.concurrent.Callable<T> action) throws Exception {
+        if(SwingUtilities.isEventDispatchThread())return action.call();
+        java.util.concurrent.atomic.AtomicReference<T> result=new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<Exception> error=new java.util.concurrent.atomic.AtomicReference<>();
+        SwingUtilities.invokeAndWait(()->{
+            try{result.set(action.call());}
+            catch(Exception e){error.set(e);}
+        });
+        if(error.get()!=null)throw error.get();
+        return result.get();
+    }
     private void browse(){
         if(busy){status="Wait for the current operation to finish.";return;}
         busy=true;status="Choose a schematic...";
         CompletableFuture.supplyAsync(()->{
             try{
-                JFileChooser chooser=new JFileChooser();
-                chooser.setDialogTitle("Import Minecraft schematic");
-                chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                    "Minecraft schematics","schem","schematic","litematic","nbt"));
-                if(chooser.showOpenDialog(null)!=JFileChooser.APPROVE_OPTION)return null;
-                return SchematicReader.read(chooser.getSelectedFile().toPath());
+                java.io.File chosen=onSwing(()->{
+                    JFileChooser chooser=new JFileChooser();
+                    chooser.setDialogTitle("Import Minecraft schematic");
+                    chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                        "Minecraft schematics","schem","schematic","litematic","nbt"));
+                    return chooser.showOpenDialog(null)==JFileChooser.APPROVE_OPTION
+                        ?chooser.getSelectedFile():null;
+                });
+                return chosen==null?null:SchematicReader.read(chosen.toPath());
             }catch(Exception e){throw new RuntimeException(e);}
         }).whenComplete((loaded,error)->MinecraftClient.getInstance().execute(()->{
             busy=false;
@@ -191,11 +222,15 @@ public final class BuildAIScreen extends Screen {
         busy=true;status="Choose .schem destination...";
         CompletableFuture.supplyAsync(()->{
             try{
-                JFileChooser chooser=new JFileChooser();
-                chooser.setDialogTitle("Export BuildAI schematic");
-                chooser.setSelectedFile(new java.io.File(bp.name.replaceAll("[^a-zA-Z0-9_-]","_")+".schem"));
-                if(chooser.showSaveDialog(null)!=JFileChooser.APPROVE_OPTION)return null;
-                String path=chooser.getSelectedFile().getAbsolutePath();
+                java.io.File chosen=onSwing(()->{
+                    JFileChooser chooser=new JFileChooser();
+                    chooser.setDialogTitle("Export BuildAI schematic");
+                    chooser.setSelectedFile(new java.io.File(bp.name.replaceAll("[^a-zA-Z0-9_-]","_")+".schem"));
+                    return chooser.showSaveDialog(null)==JFileChooser.APPROVE_OPTION
+                        ?chooser.getSelectedFile():null;
+                });
+                if(chosen==null)return null;
+                String path=chosen.getAbsolutePath();
                 if(!path.toLowerCase(Locale.ROOT).endsWith(".schem"))path+=".schem";
                 java.nio.file.Path output=java.nio.file.Path.of(path);
                 if(java.nio.file.Files.exists(output))
@@ -224,8 +259,10 @@ public final class BuildAIScreen extends Screen {
             String level="Blueprint surface layer: "+surfaceLayer+(bp==null?"":" / "+(bp.height-1));
             ctx.drawTextWithShadow(textRenderer,level,x,row(3),0xCDD3DC);
         }
-        ctx.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(status,panelWidth),
-            x,Math.min(height-10,row(13)),0x79EBBD);
+        var messages=textRenderer.wrapLines(text(status),panelWidth);
+        for(int line=0;line<Math.min(2,messages.size());line++)
+            ctx.drawTextWithShadow(textRenderer,messages.get(line),
+                x,Math.min(height-10,row(12+line)),0x79EBBD);
     }
     @Override public void close(){if(client!=null)client.setScreen(null);}
     @Override public boolean shouldPause(){return false;}

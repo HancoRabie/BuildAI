@@ -51,12 +51,18 @@ public final class BuildAIScreen extends Screen {
                 status="Uploaded. Close GUI; left-click horizontal placement point.";
             }catch(Exception ex){status="Upload failed: "+ex.getMessage();}
         }).dimensions(x,top+168,content,20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Load Demo Cottage"),b->{
+            Blueprint sample=DemoBlueprint.cottage();
+            BuildAIClient.acceptImport(sample);
+            surfaceLayer=0;
+            status="Demo cottage loaded ("+sample.solidCount()+" blocks). Upload or export; no AI key needed.";
+        }).dimensions(x,top+197,w,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Chat Mode: "+(BuildAIClient.chatMode?"ON":"OFF")),b->{
             BuildAIClient.setKey(key.getText());
             BuildAIClient.chatMode=!BuildAIClient.chatMode;
             b.setMessage(Text.literal("Chat Mode: "+(BuildAIClient.chatMode?"ON":"OFF")));
             status="Chat Mode "+(BuildAIClient.chatMode?"enabled - chat now goes privately to AI. Type exit to leave.":"disabled.");
-        }).dimensions(x,top+197,content,20).build());
+        }).dimensions(x+w+gap,top+197,w,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Export Blueprint as .schem"),b->exportSchematic())
             .dimensions(x,top+224,content,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("How To"),b->{

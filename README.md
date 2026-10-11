@@ -78,6 +78,14 @@ If your selected default browser doesn't open, keep the Minecraft **Connect with
 
 This only repairs local browser launching; account eligibility and OpenAI permission still need successful live testing.
 
+## Live in-game AI generation status
+
+When you press **Generate New** or **Revise Existing**, BuildAI opens a Minecraft-native generation monitor. It reports the **real** phases of generation: checking account/model availability, opening the HTTPS request, receiving model responses, compiling JSON operations into voxels, and validating block IDs. For streaming ChatGPT responses it also counts design characters actually received; developer API key calls report their milestones when the response arrives.
+
+The monitor shows elapsed time and the time since the most recent activity. Its moving progress stripe is **indeterminate**, not a fabricated completion percentage. No claim is made about the model's internal chain of thought, research or unobservable steps. You can hide the monitor and play while generation runs; reopen F8 and press Generate to return to that same active monitor. A successful generation opens Placement / Export with the completed blueprint, while an error leaves the previous blueprint intact and displays the failure.
+
+**Scale limitation for testing:** the current parametric compiler permits up to 96 blocks along each axis and 250,000 bounding cells. The prompt intentionally targets buildings around 48 × 32 × 48 or smaller; a historically faithful, furnished full-size White House may exceed the present geometry or model-output budget. A lengthy or failed generation is not evidence that a large building has been verified or rendered.
+
 ## ChatGPT login (test implementation)
 
 In a disposable Minecraft 1.21.1 Fabric world, press **F8 → Continue with ChatGPT**. BuildAI opens your system browser on OpenAI's authorization site. Sign in with your own account and allow **ChatGPT plan usage**, then return to Minecraft. The F8 interface should display the connected account. You can then type a building request into F8 → Generate New, or turn on Chat Mode and type building requests into ordinary Minecraft chat. Follow-up prompts revise the active blueprint; type `new <prompt>` to start over, `reset` to clear the draft, or `exit` to return to normal chat.

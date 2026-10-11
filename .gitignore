@@ -1,0 +1,9 @@
+.gradle/
+.gradle-bootstrap/
+build/
+out/
+run/
+.idea/
+*.iml
+*.log
+.DS_Store

@@ -41,6 +41,7 @@ public final class BuildAIMod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(PlacePayload.ID,PlacePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ClearPreviewPayload.ID, ClearPreviewPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(BlueprintReadyPayload.ID,BlueprintReadyPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(CinematicExcavationPayload.ID,CinematicExcavationPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(PlacementReplyPayload.ID,PlacementReplyPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(com.hanco.buildai.net.ProjectStatusPayload.ID,
             com.hanco.buildai.net.ProjectStatusPayload.CODEC);
@@ -156,7 +157,7 @@ public final class BuildAIMod implements ModInitializer {
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project");return 0;}
-                    p.setCinematic(true);reply(player,"Cinematic placement and particles enabled.");return 1;
+                    p.setCinematic(true);reply(player,"Cinematic enabled. The site is visually masked while excavated, then a black-hole suction animation plays before building.");return 1;
                 }))
                 .then(literal("normalize").requires(s->s.hasPermissionLevel(2)).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
@@ -205,7 +206,9 @@ public final class BuildAIMod implements ModInitializer {
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project");return 0;}
-                    try{p.confirm();clearGhost(player);reply(player,"Construction approved. Excavation and progressive building started.");return 1;}
+                    try{p.confirm();clearGhost(player);reply(player,
+                        p.cinematic?"Construction approved. Preparing cinematic excavation; the site will clear together, then blocks spiral into a black hole before construction.":
+                            "Construction approved. Fast excavation and progressive building started.");return 1;}
                     catch(Exception e){reply(player,"Cannot confirm: "+e.getMessage());return 0;}
                 }))
                 .then(literal("cancel").requires(s->s.hasPermissionLevel(2)).executes(c->{

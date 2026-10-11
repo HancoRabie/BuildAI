@@ -108,11 +108,13 @@ public final class BuildAIClient implements ClientModInitializer {
     public static void acceptGenerated(AIArchitect.DesignResult result) {
         clearPreview();
         draft=result.blueprint();
+        surfaceLayer=Math.max(0,Math.min(surfaceLayer,draft.height-1));
         designSpecification=result.specification();
     }
     public static void acceptImport(Blueprint imported) {
         clearPreview();
         draft=imported;
+        surfaceLayer=0;
         designSpecification=null; // importing a schematic does not create an AI design history
     }
     private static String rootCause(Throwable t){while(t.getCause()!=null)t=t.getCause();return String.valueOf(t.getMessage());}
@@ -134,7 +136,7 @@ public final class BuildAIClient implements ClientModInitializer {
                     clearPreview();
             }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
-            (handler,client)->{ProjectHud.latest=null;clearPreview();});
+            (handler,client)->{ProjectHud.latest=null;chatMode=false;clearPreview();});
         UseBlockCallback.EVENT.register((player,world,hand,hit)->{
             if(world.isClient() && surfacePending && player.isSneaking()){
                 BlockPos surface=hit.getBlockPos();

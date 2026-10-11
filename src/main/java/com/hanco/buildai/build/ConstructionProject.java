@@ -29,6 +29,7 @@ public final class ConstructionProject {
     private final Map<BlockPos,BlockState> originals=new LinkedHashMap<>();
     private final Set<BlockPos> modified=new HashSet<>();
     private final Map<String,Integer> consumed=new TreeMap<>();
+    private final Map<String,String> substitutions=new LinkedHashMap<>();
     private final List<BlockPos> supplies=new ArrayList<>();
     private long lastChestScan=0;
     private boolean hasSnapshot=false;
@@ -96,7 +97,7 @@ public final class ConstructionProject {
             BlockPos local=order.get(constructionIndex);
             BlockPos pos=origin.add(local);
             if(!world.isChunkLoaded(pos))return;
-            String stateText=blueprint.get(local.getX(),local.getY(),local.getZ());
+            String stateText=effective(local);
             BlockState target=BlockStates.parse(stateText);
             if(!creative && !blueprint.secondHalf(stateText)) {
                 Item item=target.getBlock().asItem();
@@ -111,11 +112,32 @@ public final class ConstructionProject {
         if(constructionIndex==order.size())phase=Phase.COMPLETE;
     }
     public Map<String,Integer> consumed(){return Collections.unmodifiableMap(consumed);}
+    public void substitute(String from,String to) {
+        if(phase!=Phase.SELECT_XZ && phase!=Phase.SELECT_SURFACE && phase!=Phase.REVIEW)
+            throw new IllegalStateException("Substitutions locked after construction begins");
+        if(!blueprint.materials().containsKey(from))throw new IllegalArgumentException("Blueprint does not use "+from);
+        SubstitutionPolicy.validateMapping(from,to,world);
+        Map<String,String> candidate=new LinkedHashMap<>(substitutions);
+        candidate.put(from,to);
+        for(int y=0;y<blueprint.height;y++)for(int z=0;z<blueprint.length;z++)for(int x=0;x<blueprint.width;x++)
+            BlockStates.parse(SubstitutionPolicy.apply(blueprint,x,y,z,candidate));
+        substitutions.put(from,to);
+    }
+    private String effective(net.minecraft.util.math.BlockPos local) {
+        return SubstitutionPolicy.apply(blueprint,local.getX(),local.getY(),local.getZ(),substitutions);
+    }
     public int placed(){return constructionIndex;}
     public int total(){return order.size();}
     public int excavated(){return excavationIndex;}
     public int cells(){return blueprint.width*blueprint.height*blueprint.length;}
-    public Map<String,Integer> requirements(){return blueprint.materials();}
+    public Map<String,Integer> requirements(){
+        Map<String,Integer> result=new TreeMap<>();
+        for(BlockPos local:order){
+            String value=effective(local);
+            if(!blueprint.secondHalf(value))result.merge(Blueprint.id(value),1,Integer::sum);
+        }
+        return result;
+    }
 
     private boolean consume(Item item) {
         if(world.getTime()-lastChestScan>=40||supplies.isEmpty())refreshChests();

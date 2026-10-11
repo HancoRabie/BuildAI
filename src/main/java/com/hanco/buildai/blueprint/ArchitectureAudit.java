@@ -24,7 +24,8 @@ public final class ArchitectureAudit {
         String prompt=requestedPrompt==null?"":requestedPrompt.toLowerCase(Locale.ROOT);
         String building=b.name.toLowerCase(Locale.ROOT);
         boolean whiteHouse=prompt.contains("white house")||building.contains("white house");
-        JsonArray rooms=root==null?null:root.getAsJsonArray("rooms");
+        JsonArray rooms=root!=null && root.has("rooms") && root.get("rooms").isJsonArray()
+            ?root.getAsJsonArray("rooms"):null;
         if(whiteHouse&&!declaresRoom(rooms,"oval office"))
             results.add("White House blueprint does not declare a verified Oval Office. Ask ChatGPT to add it to the West Wing with an accessible entrance.");
 
@@ -114,6 +115,7 @@ public final class ArchitectureAudit {
         if(rooms==null)return false;
         for(JsonElement e:rooms){
             if(e.isJsonObject()&&e.getAsJsonObject().has("name") &&
+                e.getAsJsonObject().get("name").isJsonPrimitive() &&
                 e.getAsJsonObject().get("name").getAsString().equalsIgnoreCase(label))
                 return true;
         }

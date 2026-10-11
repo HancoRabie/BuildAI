@@ -29,8 +29,32 @@ public final class ChatGPTConnectScreen extends Screen {
         int panel=Math.min(450,Math.max(150,width-24));
         int x=(width-panel)/2;
         int center=height/2;
+        int gap=6,half=(panel-gap)/2;
+        addDrawableChild(ButtonWidget.builder(Text.literal("Open Browser"),
+            b->{
+                String url=ChatGPTSignIn.pendingSignInUrl();
+                if(url.isBlank()){
+                    status="Sign-in link not ready yet.";
+                    return;
+                }
+                boolean started=BrowserLauncher.openOpenAiAuthorization(url);
+                status=started?"Browser launch requested. Complete authorization there.":
+                    "Browser is unavailable. Use Copy Sign-in Link.";
+            }).dimensions(x,Math.min(height-52,center+48),half,20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Copy Sign-in Link"),
+            b->{
+                String url=ChatGPTSignIn.pendingSignInUrl();
+                if(url.isBlank()){
+                    status="Sign-in link not ready yet. Please wait.";
+                    return;
+                }
+                if(client!=null){
+                    client.keyboard.setClipboard(url);
+                    status="Sign-in link copied. Paste it into Chrome or Edge.";
+                }
+            }).dimensions(x+half+gap,Math.min(height-52,center+48),half,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Return to BuildAI"),
-            b->close()).dimensions(x,Math.min(height-27,center+49),panel,20).build());
+            b->close()).dimensions(x,Math.min(height-27,center+74),panel,20).build());
         if(!started)startSignIn();
     }
 
@@ -67,22 +91,23 @@ public final class ChatGPTConnectScreen extends Screen {
         int panel=Math.min(450,Math.max(150,width-24));
         int x=(width-panel)/2;
         int center=height/2;
-        context.fill(x-10,center-84,x+panel+10,center+83,0xDB111B27);
+        context.fill(x-10,center-94,x+panel+10,center+111,0xDB111B27);
         super.render(context,mouseX,mouseY,delta);
         context.drawCenteredTextWithShadow(textRenderer,"BuildAI  |  Connect with ChatGPT",
             width/2,center-72,0x70ECC6);
         context.drawCenteredTextWithShadow(textRenderer,"Secure one-time sign-in",width/2,center-50,0xFFFFFF);
         context.drawCenteredTextWithShadow(textRenderer,
             textRenderer.trimToWidth(status,panel-12),width/2,center-24,0xD6E6F1);
+        String hint=waiting?ChatGPTSignIn.browserStatus():details;
         context.drawCenteredTextWithShadow(textRenderer,
-            textRenderer.trimToWidth(details,panel-12),width/2,center-8,0xA4B8C8);
+            textRenderer.trimToWidth(hint,panel-12),width/2,center-8,0xA4B8C8);
         context.drawCenteredTextWithShadow(textRenderer,
-            waiting?"Waiting for browser authorization...":
-                "Return to BuildAI to retry the connection or use the offline mode.",
+            waiting?"Waiting for browser approval — or copy the link into your browser.":
+                "You can return to BuildAI, then retry or use the offline demo.",
             width/2,center+16,0xE4C58C);
         context.drawCenteredTextWithShadow(textRenderer,
-            "Your password and browser session never enter Minecraft.",
-            width/2,center+32,0xB1D7C9);
+            "Only sign in at auth.openai.com. Keep authorization links private.",
+            width/2,center+34,0xB1D7C9);
     }
 
     @Override public boolean shouldPause(){return false;}

@@ -53,6 +53,12 @@ public final class BuildAIClient implements ClientModInitializer {
         net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(com.hanco.buildai.build.BuildBlocks.CONSTRUCTION_BLOCK,net.minecraft.client.render.RenderLayer.getTranslucent());
         net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(com.hanco.buildai.build.BuildBlocks.CONSTRUCTION_SLAB,net.minecraft.client.render.RenderLayer.getTranslucent());
         PreviewRenderer.register();
+        ProjectHud.register();
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            com.hanco.buildai.net.ProjectStatusPayload.ID,
+            (payload,context)->context.client().execute(()->ProjectHud.latest=payload));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+            (handler,client)->{ProjectHud.latest=null;selecting=false;surfacePending=false;previewLocked=false;});
         UseBlockCallback.EVENT.register((player,world,hand,hit)->{
             if(world.isClient() && surfacePending && player.isSneaking()){
                 BlockPos surface=hit.getBlockPos();

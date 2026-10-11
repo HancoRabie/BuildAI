@@ -5,7 +5,8 @@
   "client": [
     "PlacementMouseMixin",
     "PlacementKeyboardInputMixin",
-    "PlacementCameraLockMixin"
+    "PlacementCameraLockMixin",
+    "PlacementLookMixin"
   ],
   "injectors": {
     "defaultRequire": 1

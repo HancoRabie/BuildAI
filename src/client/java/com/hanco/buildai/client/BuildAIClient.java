@@ -31,6 +31,13 @@ public final class BuildAIClient implements ClientModInitializer {
     public static volatile boolean chatMode=false;
     private static String apiKey="";
     private static KeyBinding open;
+    /** Hide the visual-only ghost without erasing a saved blueprint or built terrain. */
+    public static void clearPreview() {
+        selecting=false;
+        surfacePending=false;
+        previewLocked=false;
+        previewOrigin=null;
+    }
     public static void setKey(String key){apiKey=key;}
     public static String getKey(){return apiKey;}
     public static void message(String message){
@@ -64,10 +71,12 @@ public final class BuildAIClient implements ClientModInitializer {
         }));
     }
     public static void acceptGenerated(AIArchitect.DesignResult result) {
+        clearPreview();
         draft=result.blueprint();
         designSpecification=result.specification();
     }
     public static void acceptImport(Blueprint imported) {
+        clearPreview();
         draft=imported;
         designSpecification=null; // importing a schematic does not create an AI design history
     }
@@ -76,12 +85,19 @@ public final class BuildAIClient implements ClientModInitializer {
         net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(com.hanco.buildai.build.BuildBlocks.CONSTRUCTION_BLOCK,net.minecraft.client.render.RenderLayer.getTranslucent());
         net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(com.hanco.buildai.build.BuildBlocks.CONSTRUCTION_SLAB,net.minecraft.client.render.RenderLayer.getTranslucent());
         PreviewRenderer.register();
+        ClientPlayNetworking.registerGlobalReceiver(
+            com.hanco.buildai.net.ClearPreviewPayload.ID,
+            (payload,context)->context.client().execute(BuildAIClient::clearPreview));
         ProjectHud.register();
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
             com.hanco.buildai.net.ProjectStatusPayload.ID,
-            (payload,context)->context.client().execute(()->ProjectHud.latest=payload));
+            (payload,context)->context.client().execute(()->{
+                ProjectHud.latest=payload;
+                if(payload.phase().equals("COMPLETE") || payload.phase().equals("CANCELLED"))
+                    clearPreview();
+            }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
-            (handler,client)->{ProjectHud.latest=null;selecting=false;surfacePending=false;previewLocked=false;});
+            (handler,client)->{ProjectHud.latest=null;clearPreview();});
         UseBlockCallback.EVENT.register((player,world,hand,hit)->{
             if(world.isClient() && surfacePending && player.isSneaking()){
                 BlockPos surface=hit.getBlockPos();

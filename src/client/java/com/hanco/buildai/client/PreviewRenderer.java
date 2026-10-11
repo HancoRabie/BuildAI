@@ -20,8 +20,6 @@ public final class PreviewRenderer {
             if(context.matrixStack()==null||context.consumers()==null)return;
             if(cached!=b)rebuild(b);
             BlockPos base=BuildAIClient.previewOrigin;
-            if(BuildAIClient.selecting&&net.minecraft.client.MinecraftClient.getInstance().crosshairTarget instanceof BlockHitResult hit)
-                base=hit.getBlockPos().up().down(BuildAIClient.surfaceLayer);
             if(base==null)return;
             Vec3d cam=context.camera().getPos();
             MatrixStack matrices=context.matrixStack();

@@ -36,6 +36,11 @@ public final class ConstructionProject {
     private boolean hasSnapshot=false;
     public int collisions=0;
     public int constructionSpeed=16;
+    public boolean cinematic=true;
+    public void setCinematic(boolean enabled) {
+        cinematic=enabled;
+        constructionSpeed=enabled?16:256;
+    }
 
     public ConstructionProject(ServerPlayerEntity player,Blueprint blueprint,int surfaceLayer) {
         this.blueprint=blueprint;this.owner=player.getUuid();this.world=player.getServerWorld();
@@ -87,6 +92,8 @@ public final class ConstructionProject {
                 if(!world.getBlockState(p).isAir()) {
                     modified.add(p.toImmutable());
                     world.setBlockState(p,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
+                    if(cinematic)world.spawnParticles(net.minecraft.particle.ParticleTypes.PORTAL,
+                        p.getX()+0.5,p.getY()+0.6,p.getZ()+0.5,2,0.25,0.25,0.25,0.04);
                 }
             }
             if(excavationIndex==total)phase=Phase.BUILD;
@@ -108,6 +115,8 @@ public final class ConstructionProject {
             }
             modified.add(pos.toImmutable());
             world.setBlockState(pos,target,Block.NOTIFY_ALL|Block.FORCE_STATE);
+            if(cinematic)world.spawnParticles(net.minecraft.particle.ParticleTypes.END_ROD,
+                pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5,1,0.2,0.3,0.2,0.01);
             constructionIndex++;
         }
         if(constructionIndex==order.size())phase=Phase.COMPLETE;

@@ -6,6 +6,12 @@ BuildAI is a freestanding Minecraft building mod: describe a structure to an AI,
 
 **Status: v0.1 developer prototype. Test on a backup or disposable world only.** Features not yet complete are listed in [docs/ROADMAP.md](docs/ROADMAP.md).
 
+## Open source
+
+BuildAI is licensed under **GNU GPL-3.0-only**. You can inspect, fork and contribute to this project under the terms in [LICENSE](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+
+The source repository is public, but **Continue with ChatGPT has not been implemented yet**. The current Minecraft Chat Mode works with an OpenAI developer API key. The planned user-consented, browser-based ChatGPT sign-in and eligible ChatGPT-plan usage are documented in [docs/OPEN_SOURCE_AND_CHATGPT.md](docs/OPEN_SOURCE_AND_CHATGPT.md). Public visibility alone does not automatically connect ChatGPT accounts.
+
 ## Requirements
 
 Minecraft Java 1.21.1, Fabric Loader 0.16.7+, Fabric API, JDK 21 for development. No WorldEdit, Litematica, ChainFrames or PinLock dependency.

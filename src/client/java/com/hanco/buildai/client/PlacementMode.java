@@ -1,208 +1,134 @@
 package com.hanco.buildai.client;
 
-import com.mojang.authlib.GameProfile;
 import com.hanco.buildai.blueprint.Blueprint;
 import com.hanco.buildai.net.PlacePayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.OtherClientPlayerEntity;
-import net.minecraft.client.option.Perspective;
+import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import java.util.UUID;
 
 /**
- * Client-only detached placement camera, never inserted into world entity lists.
- * Real player's position, inventory, game mode, collisions and chunks remain authoritative.
- * The moving blueprint is a ghost until a server-reviewed lock and /buildai confirm.
+ * Normal-player placement. BuildAI NEVER creates a spectator entity, redirects
+ * mouse look, freezes keyboard input, or changes Minecraft's camera/perspective.
+ *
+ * Creative: use vanilla flight. Survival: walk to/aim at the intended ground.
+ * Until G is pressed the ghost follows the player (approximate site preview).
+ * G anchors the blueprint around the actual targeted ground block at its chosen
+ * surface layer. The ghost STAYS at that spot while the player moves to inspect.
+ * Enter asks the server to validate XYZ; R resets without excavating anything.
  */
 public final class PlacementMode {
-    private PlacementMode() {}
-    private static final double MAX_CAMERA_DISTANCE=48.0;
-    private static OtherClientPlayerEntity camera;
-    private static Perspective oldPerspective;
-    private static Vec3d startCamera;
-    private static BlockPos startOrigin;
-    private static int scrollZ;
-    private static boolean following=false,waitingLock=false;
-    private static boolean active=false;
+    private PlacementMode(){}
+    private static boolean prepared=false,groundSelected=false,waitingLock=false;
 
-    public static boolean active(){return active;}
-    public static boolean following(){return active && following;}
-    /** Called by the Entity mouse-look mixin, with vanilla-smoothed raw deltas. */
-    public static void turnCamera(double deltaX,double deltaY){
-        if(!active||camera==null)return;
-        camera.changeLookDirection(deltaX,deltaY);
-        // This is not an entity ticked by the world. Keep interpolation anchors
-        // current to avoid lerping against stale yaw/pitch (the view flicker).
-        camera.prevYaw=camera.getYaw();
-        camera.prevPitch=camera.getPitch();
+    public static boolean active(){
+        return prepared && (BuildAIClient.selecting || BuildAIClient.previewLocked);
     }
-    /** Prevent Minecraft's per-tick camera restoration while placement owns the view. */
-    public static boolean mustKeepCamera(net.minecraft.entity.Entity requested) {
-        MinecraftClient mc=MinecraftClient.getInstance();
-        return active && camera!=null && mc.player!=null && mc.world!=null
-            && requested!=camera && !mc.player.isDead();
-    }
-    public static void enforceCamera(){
-        if(!active||camera==null)return;
-        MinecraftClient mc=MinecraftClient.getInstance();
-        if(mc.player!=null&&mc.world!=null&&mc.getCameraEntity()!=camera)
-            mc.setCameraEntity(camera);
-    }
-
+    public static boolean following(){return active() && BuildAIClient.selecting && !groundSelected;}
     public static void start(){start(false);}
     public static void inspect(){start(true);}
     private static void start(boolean lockedReview){
         MinecraftClient mc=MinecraftClient.getInstance();
-        Blueprint b=BuildAIClient.draft;
-        if(mc.player==null||mc.world==null||b==null)return;
-        if(active){
-            // Reopening F8 / resuming a flight must NOT replace the observer.
-            if(lockedReview){following=false;BuildAIClient.previewLocked=true;}
-            enforceCamera();
-            return;
+        if(mc.player==null||mc.world==null||BuildAIClient.draft==null)return;
+        if(!prepared) {
+            prepared=true;
+            groundSelected=lockedReview;
+            waitingLock=false;
         }
-        camera=new OtherClientPlayerEntity(mc.world,
-            new GameProfile(UUID.randomUUID(),"BuildAICamera"));
-        camera.setPosition(mc.player.getX(),mc.player.getY(),mc.player.getZ());
-        camera.prevX=camera.getX();
-        camera.prevY=camera.getY();
-        camera.prevZ=camera.getZ();
-        camera.setYaw(mc.player.getYaw());
-        camera.setPitch(mc.player.getPitch());
-        camera.prevYaw=camera.getYaw();
-        camera.prevPitch=camera.getPitch();
-        oldPerspective=mc.options.getPerspective();
-        mc.options.setPerspective(Perspective.FIRST_PERSON);
-        // Placement owns the camera until explicit release. The mixin prevents
-        // vanilla from switching the view back to the real player mid-tick.
-        active=true;
-        mc.setCameraEntity(camera);
-        startCamera=camera.getPos();
-        scrollZ=0;
-        following=!lockedReview;
-        waitingLock=false;
-        if(!lockedReview)centerInFront();
-        BuildAIClient.selecting=!lockedReview;
-        BuildAIClient.surfacePending=false;
-        BuildAIClient.previewLocked=lockedReview;
+        if(lockedReview){
+            BuildAIClient.previewLocked=true;
+            BuildAIClient.selecting=false;
+        }else if(!groundSelected&&!BuildAIClient.previewLocked){
+            BuildAIClient.selecting=true;
+            updatePlayerPreview();
+        }
         BuildAIClient.message(lockedReview
-            ? "Review camera: WASD/Space/Shift to inspect fixed build; R retries placement; /buildai confirm builds."
-            : "Placement: WASD/Space/Shift move ghost, wheel shifts world Z, G snaps ground, Enter locks XYZ, R retries.");
-    }
-    private static void centerInFront(){
-        MinecraftClient mc=MinecraftClient.getInstance();
-        Blueprint b=BuildAIClient.draft;
-        if(b==null||mc.player==null||camera==null)return;
-        double radians=Math.toRadians(mc.player.getYaw());
-        double fx=-Math.sin(radians),fz=Math.cos(radians);
-        // The build begins 14 blocks in front, not pinned at the crosshair or a clicked block.
-        startOrigin=new BlockPos(
-            (int)Math.floor(camera.getX()+fx*14-b.width/2.0),
-            (int)Math.floor(camera.getY()+1-BuildAIClient.surfaceLayer),
-            (int)Math.floor(camera.getZ()+fz*14-b.length/2.0));
-        BuildAIClient.previewOrigin=startOrigin;
-    }
-    public static void scroll(double wheel){
-        if(!active||!following||waitingLock)return;
-        scrollZ=Math.max(-64,Math.min(64,scrollZ+(wheel>0?1:-1)));
-        updateFollowing();
-    }
-    private static void updateFollowing(){
-        if(!following||startCamera==null||startOrigin==null||camera==null)return;
-        Vec3d delta=camera.getPos().subtract(startCamera);
-        BuildAIClient.previewOrigin=startOrigin.add(
-            (int)Math.round(delta.x),(int)Math.round(delta.y),(int)Math.round(delta.z)+scrollZ);
+            ? "Position locked. Inspect in your normal view, then /buildai confirm; R retries."
+            : "Normal movement and camera enabled. Stand near site, aim at ground, press G; Enter locks, R retries.");
     }
     public static void tick(){
-        if(!active)return;
+        if(!active())return;
         MinecraftClient mc=MinecraftClient.getInstance();
-        if(mc.player==null||mc.world==null||camera==null||mc.player.isDead()){
+        if(mc.player==null||mc.world==null||mc.player.isDead()){
             stop();BuildAIClient.clearPreview();return;
         }
-        // F8, chat and pause menus do not end observer mode or reset its viewpoint.
-        // Rebind if vanilla refreshed the active view while we were in a menu.
-        enforceCamera();
-        if(mc.currentScreen!=null)return;
-        // The mouse turns the detached camera, NOT the real player. Never overwrite
-        // its orientation from mc.player, which caused oscillation and flicker.
-        float yaw=camera.getYaw();
-        // Camera uses key state directly; KeyboardInput mixin suppresses real body movement.
-        int forward=(mc.options.forwardKey.isPressed()?1:0)-(mc.options.backKey.isPressed()?1:0);
-        int strafe=(mc.options.rightKey.isPressed()?1:0)-(mc.options.leftKey.isPressed()?1:0);
-        int up=(mc.options.jumpKey.isPressed()?1:0)-(mc.options.sneakKey.isPressed()?1:0);
-        double radians=Math.toRadians(yaw);
-        double sin=Math.sin(radians),cos=Math.cos(radians);
-        Vec3d motion=new Vec3d(-sin*forward+cos*strafe,up,cos*forward+sin*strafe);
-        if(motion.lengthSquared()>0){
-            double step=mc.options.sprintKey.isPressed()?0.7:0.32;
-            Vec3d candidate=camera.getPos().add(motion.normalize().multiply(step));
-            // Never load chunks to follow the camera. In Survival this must not be a scouting hack.
-            if(candidate.squaredDistanceTo(mc.player.getPos())<=MAX_CAMERA_DISTANCE*MAX_CAMERA_DISTANCE &&
-                mc.world.isChunkLoaded(BlockPos.ofFloored(candidate)))
-                camera.setPosition(candidate);
-                camera.prevX=camera.getX();
-                camera.prevY=camera.getY();
-                camera.prevZ=camera.getZ();
-        }
-        if(following&&!waitingLock)updateFollowing();
+        // No camera changes. Vanilla movement, hotbar, look, flight and reach stay intact.
+        if(mc.currentScreen==null&&following()&&!waitingLock)updatePlayerPreview();
     }
-    /** Ground selection is editable; aim camera at ground and press G to snap blueprint's surface layer. */
-    public static void snapGround(){
-        if(!following||!active||waitingLock||camera==null||startOrigin==null)return;
+    private static void updatePlayerPreview(){
         MinecraftClient mc=MinecraftClient.getInstance();
-        if(!(mc.crosshairTarget instanceof net.minecraft.util.hit.BlockHitResult hit)){
-            BuildAIClient.message("Aim at a terrain block first, then press G again.");return;
+        Blueprint b=BuildAIClient.draft;
+        if(b==null||mc.player==null)return;
+        // Initial approximate footprint centered near the player's ground location.
+        BlockPos p=mc.player.getBlockPos();
+        BuildAIClient.previewOrigin=new BlockPos(
+            p.getX()-b.width/2,
+            p.getY()-BuildAIClient.surfaceLayer,
+            p.getZ()-b.length/2);
+    }
+    public static void snapGround(){
+        MinecraftClient mc=MinecraftClient.getInstance();
+        if(!active()||!BuildAIClient.selecting||waitingLock)return;
+        if(!(mc.crosshairTarget instanceof BlockHitResult hit) ||
+            hit.getType()!=net.minecraft.util.hit.HitResult.Type.BLOCK){
+            BuildAIClient.message("Aim directly at the ground block where the building should be centered; press G.");
+            return;
         }
-        BlockPos p=BuildAIClient.previewOrigin;
-        if(p==null)return;
-        int deltaY=hit.getBlockPos().getY()+1-BuildAIClient.surfaceLayer-p.getY();
-        startOrigin=startOrigin.up(deltaY);
-        updateFollowing();
-        BuildAIClient.message("Ground surface snapped to Y="+hit.getBlockPos().getY()+". Fly/scroll or press Enter to lock; R retries.");
+        Blueprint b=BuildAIClient.draft;
+        if(b==null)return;
+        BlockPos ground=hit.getBlockPos();
+        // Ground top is the selected schematic's surface layer.
+        BuildAIClient.previewOrigin=new BlockPos(
+            ground.getX()-b.width/2,
+            ground.getY()+1-BuildAIClient.surfaceLayer,
+            ground.getZ()-b.length/2);
+        groundSelected=true;
+        BuildAIClient.message("Surface selected at "+ground.toShortString()+
+            ". Move normally to inspect the fixed ghost; Enter locks XYZ, R retries.");
     }
     public static void lock(){
-        if(!active||!following||waitingLock||BuildAIClient.previewOrigin==null)return;
+        if(!active()||!BuildAIClient.selecting||waitingLock)return;
+        if(!groundSelected){
+            BuildAIClient.message("First aim at the chosen ground block and press G. Then press Enter.");
+            return;
+        }
+        if(BuildAIClient.previewOrigin==null)return;
         if(!ClientPlayNetworking.canSend(PlacePayload.ID)){
             BuildAIClient.message("Server does not support BuildAI placement.");return;
         }
         waitingLock=true;
         BlockPos proposal=BuildAIClient.previewOrigin.toImmutable();
         ClientPlayNetworking.send(new PlacePayload(proposal));
-        BuildAIClient.message("Checking proposed location "+proposal.toShortString()+" with server...");
+        BuildAIClient.message("Checking blueprint at "+proposal.toShortString()+" against world limits and protected blocks...");
     }
-    public static void receive(boolean accepted,boolean locked,BlockPos serverOrigin,String message){
-        if(!accepted){waitingLock=false;BuildAIClient.message(message);return;}
+    public static void receive(boolean accepted,boolean locked,BlockPos origin,String message){
         waitingLock=false;
+        if(!accepted){BuildAIClient.message(message);return;}
+        prepared=true;
         if(locked){
-            following=false;
             BuildAIClient.selecting=false;
             BuildAIClient.previewLocked=true;
-            BuildAIClient.surfacePending=false;
-            BuildAIClient.previewOrigin=serverOrigin.toImmutable();
-            BuildAIClient.message("XYZ LOCKED. Fly to inspect, press R to retry, or leave camera and type /buildai confirm.");
-        }else {
-            // A retry resumes the moving ghost even if the original camera was closed.
-            if(!active)start();
-            else {following=true;centerInFront();startCamera=camera.getPos();scrollZ=0;}
-            BuildAIClient.selecting=true;
+            groundSelected=true;
+            BuildAIClient.previewOrigin=origin.toImmutable();
+            BuildAIClient.message("Location locked. Inspect with your NORMAL player view and run /buildai confirm, or R to retry.");
+        }else{
+            groundSelected=false;
             BuildAIClient.previewLocked=false;
-            BuildAIClient.message("Retry ready. Move the preview again. Enter locks the new XYZ.");
+            BuildAIClient.selecting=true;
+            updatePlayerPreview();
+            BuildAIClient.message("Placement reset. Move normally, aim at ground and press G; Enter locks.");
         }
     }
     public static void retry(){
         MinecraftClient mc=MinecraftClient.getInstance();
-        if(mc.player==null||mc.getNetworkHandler()==null)return;
-        mc.getNetworkHandler().sendChatCommand("buildai retry");
+        if(mc.player!=null&&mc.getNetworkHandler()!=null)
+            mc.getNetworkHandler().sendChatCommand("buildai retry");
     }
+    /** Retained for legacy callsites; default hotbar scroll is NEVER intercepted. */
+    public static void scroll(double ignored){}
     public static void stop(){
-        MinecraftClient mc=MinecraftClient.getInstance();
-        // Disable the camera lock BEFORE returning to the genuine player.
-        boolean wasActive=active;
-        active=false;following=false;waitingLock=false;
-        if(wasActive && mc.player!=null)mc.setCameraEntity(mc.player);
-        if(oldPerspective!=null){mc.options.setPerspective(oldPerspective);oldPerspective=null;}
-        camera=null;startCamera=null;startOrigin=null;
+        prepared=false;
+        groundSelected=false;
+        waitingLock=false;
     }
 }

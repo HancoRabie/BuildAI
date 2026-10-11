@@ -54,6 +54,10 @@ public final class BuildAIScreen extends Screen {
             if(BuildAIClient.draft==null){status="Generate or import a blueprint first";return;}
             try {
                 ClientUpload.send(BuildAIClient.draft,surfaceLayer);
+                BuildAIClient.surfaceLayer=surfaceLayer;
+                BuildAIClient.previewLocked=false;
+                BuildAIClient.surfacePending=false;
+                BuildAIClient.previewOrigin=null;
                 BuildAIClient.selecting=true;
                 status="Uploaded. Close GUI; left-click horizontal placement point.";
             }catch(Exception ex){status="Upload failed: "+ex.getMessage();}

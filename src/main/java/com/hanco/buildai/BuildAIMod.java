@@ -26,6 +26,11 @@ import static net.minecraft.server.command.CommandManager.literal;
 public final class BuildAIMod implements ModInitializer {
     private static final UploadAssembler UPLOADS=new UploadAssembler();
     private static void reply(ServerPlayerEntity p,String msg){p.sendMessage(Text.literal("[BuildAI] "+msg),false);}
+    private static void uploadResult(ServerPlayerEntity p,boolean ok,String message){
+        if(ServerPlayNetworking.canSend(p,BlueprintReadyPayload.ID))
+            ServerPlayNetworking.send(p,new BlueprintReadyPayload(ok,message.length()>240?message.substring(0,240):message));
+        reply(p,message);
+    }
     public static void clearGhost(ServerPlayerEntity player) {
         if(ServerPlayNetworking.canSend(player,ClearPreviewPayload.ID))
             ServerPlayNetworking.send(player,new ClearPreviewPayload());
@@ -35,27 +40,31 @@ public final class BuildAIMod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(BlueprintChunkPayload.ID,BlueprintChunkPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(PlacePayload.ID,PlacePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ClearPreviewPayload.ID, ClearPreviewPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(BlueprintReadyPayload.ID,BlueprintReadyPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(com.hanco.buildai.net.ProjectStatusPayload.ID,
             com.hanco.buildai.net.ProjectStatusPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(BlueprintChunkPayload.ID,(payload,context)->{
             ServerPlayerEntity player=context.player();
-            // v0.1 restricts world modification to operators to protect unknown player builds.
-            if(!player.hasPermissionLevel(2)) {reply(player,"Operator permission required in initial release.");return;}
-            try {
-                String response=UPLOADS.accept(player.getUuid(),payload);
-                if(response!=null) {
-                    int newLine=response.indexOf('\n'),surface=Integer.parseInt(response.substring(0,newLine));
-                    Blueprint blueprint=BlueprintJson.decode(JsonParser.parseString(response.substring(newLine+1)).getAsJsonObject());
-                    context.server().execute(()->{
-                        try {
-                            ConstructionManager.begin(player,blueprint,surface);
-                            reply(player,"Blueprint loaded: "+blueprint.name+" ("+blueprint.solidCount()+
-                                " blocks). Left-click desired placement location, then sneak-right-click surface block.");
-                        }catch(Exception e){reply(player,"Blueprint rejected: "+e.getMessage());}
-                    });
+            context.server().execute(()->{
+                if(!player.hasPermissionLevel(2)){
+                    uploadResult(player,false,"Operator permission required to upload a building.");return;
                 }
-            }catch(Exception e){reply(player,"Upload error: "+e.getMessage());}
+                try{
+                    String response=UPLOADS.accept(player.getUuid(),payload);
+                    if(response==null)return; // multipart upload is still in progress
+                    int newLine=response.indexOf('\n');
+                    if(newLine<1)throw new IllegalArgumentException("Missing blueprint surface layer");
+                    int surface=Integer.parseInt(response.substring(0,newLine));
+                    Blueprint blueprint=BlueprintJson.decode(JsonParser.parseString(
+                        response.substring(newLine+1)).getAsJsonObject());
+                    ConstructionManager.begin(player,blueprint,surface);
+                    uploadResult(player,true,"Blueprint accepted: "+blueprint.name+
+                        " ("+blueprint.solidCount()+" blocks). Close F8; left-click X/Z, then sneak-right-click the surface.");
+                }catch(Exception e){
+                    uploadResult(player,false,"Blueprint rejected: "+String.valueOf(e.getMessage()));
+                }
+            });
         });
         ServerPlayNetworking.registerGlobalReceiver(PlacePayload.ID,(payload,context)->{
             ServerPlayerEntity player=context.player();

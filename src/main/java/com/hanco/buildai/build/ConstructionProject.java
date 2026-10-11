@@ -25,7 +25,7 @@ public final class ConstructionProject {
     public Phase phase=Phase.SELECT_XZ;
     public BlockPos origin=BlockPos.ORIGIN;
     private final List<BlockPos> order;
-    private int excavationIndex=0,constructionIndex=0,normalizeIndex=0,normalizedPanes=0;
+    private int excavationIndex=0,removedCount=0,constructionIndex=0,normalizeIndex=0,normalizedPanes=0;
     private final Map<BlockPos,BlockState> originals=new LinkedHashMap<>();
     private final Set<BlockPos> modified=new HashSet<>();
     private final Set<BlockPos> supports=new LinkedHashSet<>();
@@ -97,7 +97,7 @@ public final class ConstructionProject {
         // ORIGINAL states lazily, exactly before each excavation/placement.
         // A previously AIR cell is represented by absence from originals.
         hasSnapshot=true;
-        excavationSamples.clear();excavationSampleIds.clear();sampledRemovalCount=0;blackHoleTicks=0;
+        excavationSamples.clear();excavationSampleIds.clear();sampledRemovalCount=0;removedCount=0;blackHoleTicks=0;
         phase=Phase.EXCAVATE;
         if(cinematic && collisions>0)excavationCue(
             com.hanco.buildai.net.CinematicExcavationPayload.PREPARE,0);
@@ -188,11 +188,13 @@ public final class ConstructionProject {
                 BlockPos p=origin.add(x,y,z);
                 if(!world.isChunkLoaded(p)) {excavationIndex--;break;}
                 scanned++;
-                if(!world.getBlockState(p).isAir()) {
-                    BlockState removedState=world.getBlockState(p);
+                BlockState removedState=world.getBlockState(p);
+                // Already-air world cells are no-ops. Only the blueprint's
+                // positioned Y footprint is inspected; NEVER the world's max height.
+                if(!removedState.isAir()) {
                     recordOriginal(p);
                     world.setBlockState(p,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
-                    removed++;
+                    removed++;removedCount++;
                     if(cinematic && excavationSamples.size()<192 &&
                         sampledRemovalCount++%sampleStride==0){
                         excavationSamples.add(p.toImmutable());
@@ -265,7 +267,8 @@ public final class ConstructionProject {
                 .append(": ").append(used+available).append("/").append(e.getValue()).append("\n");
         }
         return new com.hanco.buildai.net.ProjectStatusPayload(blueprint.name,phase.toString(),
-            placed(),total(),suppliesTotal,needTotal,lines.toString(),statusChest());
+            placed(),total(),suppliesTotal,needTotal,lines.toString(),statusChest(),
+            excavationIndex,cells(),removedCount);
     }
     public void substitute(String from,String to) {
         if(phase!=Phase.SELECT_XZ && phase!=Phase.SELECT_SURFACE && phase!=Phase.REVIEW)
@@ -283,7 +286,24 @@ public final class ConstructionProject {
     }
     public int placed(){return constructionIndex;}
     public int total(){return order.size();}
+    /** Includes unchanged air cells inspected, never implies a block was mined. */
     public int excavated(){return excavationIndex;}
+    public int actuallyRemoved(){return removedCount;}
+    public String phaseDescription(){
+        return switch(phase){
+            case EXCAVATE->"Excavating only obstructing blocks; existing air is untouched";
+            case CINEMATIC_PULL->"Excavation complete; terrain spirals into black hole";
+            case BUILD->"Building blueprint in progressive layers";
+            case WAITING_SUPPLIES->"Waiting for supply chests to receive materials";
+            case CLEANUP->"Removing temporary construction supports";
+            case NORMALIZE->"Repairing glass-pane, iron-bar and adjacent connection states";
+            case COMPLETE->"Construction complete";
+            case PAUSED_ERROR->"Construction paused due to a safety issue";
+            case CANCELLED->"Project cancelled";
+            case REVIEW->"Placement locked; awaiting confirmation";
+            default->"Positioning blueprint";
+        };
+    }
     public int cells(){return blueprint.width*blueprint.height*blueprint.length;}
     public Map<String,Integer> requirements(){
         Map<String,Integer> result=new TreeMap<>();

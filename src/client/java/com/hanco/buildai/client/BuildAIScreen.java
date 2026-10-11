@@ -187,6 +187,11 @@ public final class BuildAIScreen extends Screen {
     }
     private void requestAI(boolean revise){
         if(busy){status="Wait for the current operation to finish.";return;}
+        GenerationProgress inProgress=BuildAIClient.currentGeneration();
+        if(inProgress!=null&&!inProgress.snapshot().finished()){
+            if(client!=null)client.setScreen(new BuildAIGenerationScreen(this,inProgress));
+            return;
+        }
         saveFields();
         String description=promptValue.trim();
         if(description.isBlank()){status="Enter your building description.";return;}
@@ -199,22 +204,46 @@ public final class BuildAIScreen extends Screen {
             status="Connect with ChatGPT, or open the optional API key field.";
             return;
         }
-        busy=true;status=revise?"Revising blueprint...":"Generating blueprint...";
+        GenerationProgress progress=new GenerationProgress();
+        if(!BuildAIClient.beginGeneration(progress)){
+            status="Another blueprint is already being generated.";
+            return;
+        }
+        busy=true;
+        status=revise?"Revising blueprint...":"Generating blueprint...";
+        String activeKey=BuildAIClient.getKey();
+        if(client!=null)client.setScreen(new BuildAIGenerationScreen(this,progress));
         CompletableFuture.supplyAsync(()->{
             try{
-                if(ChatGPTSignIn.connected())return AIArchitect.generateWithChatGPT(description,revise?previous:null);
+                if(ChatGPTSignIn.connected())return AIArchitect.generateWithChatGPT(
+                    description,revise?previous:null,progress);
                 return revise
-                    ? AIArchitect.reviseDesign(BuildAIClient.getKey(),description,previous)
-                    : AIArchitect.generateDesign(BuildAIClient.getKey(),description);
+                    ? AIArchitect.reviseDesign(activeKey,description,previous,progress)
+                    : AIArchitect.generateDesign(activeKey,description,progress);
             }catch(Exception ex){throw new RuntimeException(ex);}
         }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
             busy=false;
-            if(error!=null){status="Generation failed: "+message(error);return;}
+            BuildAIClient.endGeneration(progress);
+            if(error!=null){
+                String reason=message(error);
+                progress.failure(reason);
+                status="Generation failed: "+reason;
+                BuildAIClient.message(status);
+                // The progress screen remains visible so the player can read the failure.
+                return;
+            }
             BuildAIClient.acceptGenerated(result);
             surfaceLayer=BuildAIClient.surfaceLayer;
+            progress.success("Generated "+result.blueprint().solidCount()+
+                " blocks. The blueprint is available for inspection.");
             status=(revise?"Revised: ":"Created: ")+result.blueprint().name+
                 " ("+result.blueprint().solidCount()+" blocks). Inspect layers or upload for placement.";
             switchTab(1);
+            MinecraftClient mc=MinecraftClient.getInstance();
+            if(mc.currentScreen==null || mc.currentScreen instanceof BuildAIGenerationScreen ||
+                mc.currentScreen==this)
+                mc.setScreen(this);
+            else BuildAIClient.message("Your blueprint is ready. Open F8 → Placement / Export.");
         }));
     }
     private static String message(Throwable throwable){

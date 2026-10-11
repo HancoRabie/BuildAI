@@ -104,7 +104,7 @@ public final class BuildAIClient implements ClientModInitializer {
         final String description=text;
         final String key=apiKey;
         final String previous=newBuild?null:designSpecification;
-        GenerationProgress progress=new GenerationProgress();
+        GenerationProgress progress=new GenerationProgress(description);
         if(!beginGeneration(progress)){
             message("A blueprint is already being generated. Wait for it to finish.");
             GenerationProgress pending=currentGeneration();
@@ -132,6 +132,7 @@ public final class BuildAIClient implements ClientModInitializer {
             }
             acceptGenerated(result);
             progress.success("Generated "+draft.solidCount()+" blocks. Ready for inspection.");
+            GenerationHistory.record(progress);
             message((previous==null?"Generated ":"Revised ")+draft.name+" ("+
                 draft.width+"x"+draft.height+"x"+draft.length+", "+draft.solidCount()+
                 " blocks). Opening blueprint preview.");
@@ -146,6 +147,21 @@ public final class BuildAIClient implements ClientModInitializer {
         draft=result.blueprint();
         surfaceLayer=Math.max(0,Math.min(surfaceLayer,draft.height-1));
         designSpecification=result.specification();
+        // Autosave immediately after a successful AI blueprint compilation, even if
+        // the player closes F8 or never presses the manual Export control.
+        Blueprint completed=draft;
+        CompletableFuture.supplyAsync(()->{
+            try{return BlueprintLibrary.save(completed);}
+            catch(Exception e){throw new RuntimeException(e);}
+        }).whenComplete((saved,error)->MinecraftClient.getInstance().execute(()->{
+            if(error!=null){
+                message("Automatic blueprint save failed. Keep this world open and retry Export: "+
+                    rootCause(error));
+            }else{
+                message("Auto-saved: "+saved.getFileName()+
+                    " (F8 > Import File to reload later)");
+            }
+        }));
     }
     public static void acceptImport(Blueprint imported) {
         clearPreview();

@@ -110,7 +110,7 @@ public final class BuildAIClient implements ClientModInitializer {
                 draft.width+"x"+draft.height+"x"+draft.length+", "+
                 draft.solidCount()+" blocks). Review in F8 before placing.");
             MinecraftClient mc=MinecraftClient.getInstance();
-            if(mc.currentScreen==null)mc.setScreen(new BuildAIScreen());
+            if(mc.currentScreen==null)mc.setScreen(BuildAIScreen.generatedResult());
         }));
     }
     public static void acceptGenerated(AIArchitect.DesignResult result) {

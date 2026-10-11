@@ -29,22 +29,58 @@ public final class BuildAIClient implements ClientModInitializer {
     public static volatile int surfaceLayer=0;
     public static volatile BlockPos previewOrigin=null;
     public static volatile boolean chatMode=false;
+    private static volatile boolean uploadPending=false;
     private static String apiKey="";
     private static KeyBinding open;
     /** Hide the visual-only ghost without erasing a saved blueprint or built terrain. */
     public static void clearPreview() {
+        uploadPending=false;
         selecting=false;
         surfacePending=false;
         previewLocked=false;
         previewOrigin=null;
     }
-    public static void setKey(String key){apiKey=key;}
+    public static boolean uploadPending(){return uploadPending;}
+    public static void beginUpload(Blueprint blueprint,int layer) throws java.io.IOException {
+        if(uploadPending)throw new java.io.IOException("A blueprint upload is already awaiting server confirmation");
+        if(blueprint==null)throw new java.io.IOException("No blueprint selected");
+        if(layer<0||layer>=blueprint.height)throw new java.io.IOException("Surface layer out of range");
+        clearPreview();
+        surfaceLayer=layer;
+        uploadPending=true;
+        try{
+            ClientUpload.send(blueprint,layer);
+        }catch(java.io.IOException | RuntimeException e){
+            uploadPending=false;
+            throw e;
+        }
+    }
+    private static void receiveUpload(com.hanco.buildai.net.BlueprintReadyPayload payload){
+        if(!uploadPending)return;
+        uploadPending=false;
+        if(payload.accepted()){
+            selecting=true;
+            surfacePending=false;
+            previewLocked=false;
+            previewOrigin=null;
+        }else{
+            clearPreview();
+        }
+        message(payload.message());
+        MinecraftClient client=MinecraftClient.getInstance();
+        if(client.currentScreen instanceof BuildAIScreen screen)
+            screen.updateStatus(payload.accepted()
+                ? "Server accepted blueprint. Close F8 to choose X/Z."
+                : payload.message());
+    }
+    public static void setKey(String key){apiKey=key==null?"":key.trim();}
     public static String getKey(){return apiKey;}
     public static void message(String message){
         MinecraftClient mc=MinecraftClient.getInstance();
         if(mc.player!=null)mc.player.sendMessage(Text.literal("[BuildAI] "+message),false);
     }
     public static void generate(String prompt) {
+        if(apiKey.isBlank()){message("Connect an OpenAI developer API key in F8 before enabling AI building chat.");return;}
         String text=prompt==null?"":prompt.trim();
         if(text.isBlank()){message("Describe a building or revision.");return;}
         boolean newBuild=text.startsWith("new ")||text.startsWith("new:");
@@ -61,8 +97,7 @@ public final class BuildAIClient implements ClientModInitializer {
             }catch(Exception e){throw new RuntimeException(e);}
         }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
             if(error!=null){message("AI design failed: "+rootCause(error));return;}
-            draft=result.blueprint();
-            designSpecification=result.specification();
+            acceptGenerated(result);
             message((previous==null?"Generated ":"Revised ")+draft.name+" ("+
                 draft.width+"x"+draft.height+"x"+draft.length+", "+
                 draft.solidCount()+" blocks). Review in F8 before placing.");
@@ -85,6 +120,8 @@ public final class BuildAIClient implements ClientModInitializer {
         net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(com.hanco.buildai.build.BuildBlocks.CONSTRUCTION_BLOCK,net.minecraft.client.render.RenderLayer.getTranslucent());
         net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(com.hanco.buildai.build.BuildBlocks.CONSTRUCTION_SLAB,net.minecraft.client.render.RenderLayer.getTranslucent());
         PreviewRenderer.register();
+        ClientPlayNetworking.registerGlobalReceiver(com.hanco.buildai.net.BlueprintReadyPayload.ID,
+            (payload,context)->context.client().execute(()->receiveUpload(payload)));
         ClientPlayNetworking.registerGlobalReceiver(
             com.hanco.buildai.net.ClearPreviewPayload.ID,
             (payload,context)->context.client().execute(BuildAIClient::clearPreview));
@@ -117,7 +154,7 @@ public final class BuildAIClient implements ClientModInitializer {
                 chatMode=false;BuildAIClient.message("Chat Mode disabled.");return false;
             }
             if(message.trim().equalsIgnoreCase("reset")){
-                draft=null;designSpecification=null;
+                clearPreview();draft=null;designSpecification=null;
                 BuildAIClient.message("Previous AI design cleared. Describe a new building.");return false;
             }
             generate(message);

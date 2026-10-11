@@ -70,6 +70,14 @@ BuildAI keeps building creation and design inside Minecraft. The one-time authen
 
 Actual OAuth sign-in and the complete generate/preview/build flow still require in-game testing. Do not claim this code makes a fully functional chat account available without user consent and eligible plan access.
 
+## Troubleshooting ChatGPT browser launch on Windows
+
+In IntelliJ's Fabric development client, Java may report that AWT desktop/browser integration is unsupported even with Chrome or Edge installed. BuildAI now tries the Windows default-browser handlers directly after `Desktop.browse`.
+
+If Chrome/Edge still doesn't appear, keep the Minecraft **Connect with ChatGPT** screen open and click **Copy Sign-in Link**. Paste that temporary URL into your preferred browser. The original local callback remains listening and should finish login automatically when OpenAI redirects back to BuildAI. Alternatively click **Open Browser** to retry. The URL is unique to the sign-in attempt: do not post it publicly, and don't try a previously copied link after its sign-in session expires.
+
+This only repairs local browser launching; account eligibility and OpenAI permission still need successful live testing.
+
 ## ChatGPT login (test implementation)
 
 In a disposable Minecraft 1.21.1 Fabric world, press **F8 → Continue with ChatGPT**. BuildAI opens your system browser on OpenAI's authorization site. Sign in with your own account and allow **ChatGPT plan usage**, then return to Minecraft. The F8 interface should display the connected account. You can then type a building request into F8 → Generate New, or turn on Chat Mode and type building requests into ordinary Minecraft chat. Follow-up prompts revise the active blueprint; type `new <prompt>` to start over, `reset` to clear the draft, or `exit` to return to normal chat.

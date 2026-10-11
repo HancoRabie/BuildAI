@@ -21,6 +21,8 @@ import java.util.concurrent.CompletableFuture;
 
 public final class BuildAIClient implements ClientModInitializer {
     public static volatile Blueprint draft;
+    /** Complete last AI-authored geometry document; never retained for imported files. */
+    public static volatile String designSpecification;
     public static volatile boolean selecting=false;
     public static volatile boolean surfacePending=false;
     public static volatile boolean previewLocked=false;
@@ -36,17 +38,38 @@ public final class BuildAIClient implements ClientModInitializer {
         if(mc.player!=null)mc.player.sendMessage(Text.literal("[BuildAI] "+message),false);
     }
     public static void generate(String prompt) {
-        message("Generating architectural blueprint...");
-        String key=apiKey; // never logged, uploaded or persisted.
+        String text=prompt==null?"":prompt.trim();
+        if(text.isBlank()){message("Describe a building or revision.");return;}
+        boolean newBuild=text.startsWith("new ")||text.startsWith("new:");
+        if(newBuild)text=text.substring(4).trim();
+        final String description=text;
+        final String key=apiKey;
+        final String previous=newBuild?null:designSpecification;
+        message(previous==null?"Generating new architectural blueprint...":"Revising existing blueprint...");
         CompletableFuture.supplyAsync(()->{
-            try{return AIArchitect.generate(key,prompt);}
-            catch(Exception e){throw new RuntimeException(e);}
-        }).whenComplete((blueprint,error)->MinecraftClient.getInstance().execute(()->{
-            if(error!=null){message("Generation failed: "+rootCause(error));return;}
-            draft=blueprint;
-            message("Generated "+blueprint.name+" ("+blueprint.width+"x"+blueprint.height+"x"+blueprint.length+
-                ", "+blueprint.solidCount()+" blocks). Open F8 to upload or revise.");
+            try {
+                return previous==null
+                    ? AIArchitect.generateDesign(key,description)
+                    : AIArchitect.reviseDesign(key,description,previous);
+            }catch(Exception e){throw new RuntimeException(e);}
+        }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
+            if(error!=null){message("AI design failed: "+rootCause(error));return;}
+            draft=result.blueprint();
+            designSpecification=result.specification();
+            message((previous==null?"Generated ":"Revised ")+draft.name+" ("+
+                draft.width+"x"+draft.height+"x"+draft.length+", "+
+                draft.solidCount()+" blocks). Review in F8 before placing.");
+            MinecraftClient mc=MinecraftClient.getInstance();
+            if(mc.currentScreen==null)mc.setScreen(new BuildAIScreen());
         }));
+    }
+    public static void acceptGenerated(AIArchitect.DesignResult result) {
+        draft=result.blueprint();
+        designSpecification=result.specification();
+    }
+    public static void acceptImport(Blueprint imported) {
+        draft=imported;
+        designSpecification=null; // importing a schematic does not create an AI design history
     }
     private static String rootCause(Throwable t){while(t.getCause()!=null)t=t.getCause();return String.valueOf(t.getMessage());}
     @Override public void onInitializeClient(){
@@ -76,6 +99,10 @@ public final class BuildAIClient implements ClientModInitializer {
             if(!chatMode)return true;
             if(message.trim().equalsIgnoreCase("exit")){
                 chatMode=false;BuildAIClient.message("Chat Mode disabled.");return false;
+            }
+            if(message.trim().equalsIgnoreCase("reset")){
+                draft=null;designSpecification=null;
+                BuildAIClient.message("Previous AI design cleared. Describe a new building.");return false;
             }
             generate(message);
             return false; // never leak private building prompts to public server chat

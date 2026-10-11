@@ -7,152 +7,218 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
-import java.nio.file.Path;
 import javax.swing.*;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Responsive, paged Minecraft UI. Keep total height bounded by the current
+ * SCALED window height (not the physical monitor resolution or GUI scale).
+ */
 public final class BuildAIScreen extends Screen {
     private TextFieldWidget prompt,key;
-    private int surfaceLayer=0;
-    private String status="Describe a building, or import a schematic.";
-    private boolean busy=false;
+    private String promptValue="", keyValue="";
+    private int tab=0, surfaceLayer=0;
+    private String status="Create a design, import a schematic, or load the offline demo.";
+    private boolean busy=false, showApiKey=false;
+    private int left,panelWidth,top,lineHeight;
 
-    public BuildAIScreen(){super(Text.literal("BuildAI - Architect & Importer"));}
-    @Override protected void init(){
-        int content=Math.min(470,width-28),x=(width-content)/2,top=Math.max(35,height/2-135);
-        prompt=new TextFieldWidget(textRenderer,x,top+32,content,20,Text.literal("Describe your building"));
-        prompt.setMaxLength(4000);
-        prompt.setPlaceholder(Text.literal("Example: ornate white mansion with 4 columns, stairs, glass greenhouse"));
-        addDrawableChild(prompt);
-        key=new TextFieldWidget(textRenderer,x,top+80,content,20,Text.literal("OpenAI API key"));
-        key.setMaxLength(500);
-        key.setText(BuildAIClient.getKey());addDrawableChild(key);
-        int gap=5,w=(content-gap)/2,third=(content-gap*2)/3;
-        addDrawableChild(ButtonWidget.builder(Text.literal("Generate New"),b->requestAI(false))
-            .dimensions(x,top+111,third,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Revise Existing"),b->requestAI(true))
-            .dimensions(x+third+gap,top+111,third,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Import File"),b->browse())
-            .dimensions(x+2*(third+gap),top+111,content-2*(third+gap),20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Surface Y -"),b->surfaceLayer=Math.max(0,surfaceLayer-1))
-            .dimensions(x,top+139,w,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Surface Y +"),b->{
-            if(BuildAIClient.draft!=null)surfaceLayer=Math.min(BuildAIClient.draft.height-1,surfaceLayer+1);
-        }).dimensions(x+w+gap,top+139,w,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Upload Blueprint"),b->{
-            if(BuildAIClient.draft==null){status="Generate or import a blueprint first";return;}
-            try {
-                ClientUpload.send(BuildAIClient.draft,surfaceLayer);
-                BuildAIClient.surfaceLayer=surfaceLayer;
-                BuildAIClient.previewLocked=false;
-                BuildAIClient.surfacePending=false;
-                BuildAIClient.previewOrigin=null;
-                BuildAIClient.selecting=true;
-                status="Uploaded. Close GUI; left-click horizontal placement point.";
-            }catch(Exception ex){status="Upload failed: "+ex.getMessage();}
-        }).dimensions(x,top+168,content,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Load Demo Cottage"),b->{
-            Blueprint sample=DemoBlueprint.cottage();
-            BuildAIClient.acceptImport(sample);
-            surfaceLayer=0;
-            status="Demo cottage loaded ("+sample.solidCount()+" blocks). Upload or export; no AI key needed.";
-        }).dimensions(x,top+197,w,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Chat Mode: "+(BuildAIClient.chatMode?"ON":"OFF")),b->{
-            BuildAIClient.setKey(key.getText());
-            BuildAIClient.chatMode=!BuildAIClient.chatMode;
-            b.setMessage(Text.literal("Chat Mode: "+(BuildAIClient.chatMode?"ON":"OFF")));
-            status="Chat Mode "+(BuildAIClient.chatMode?"enabled - chat now goes privately to AI. Type exit to leave.":"disabled.");
-        }).dimensions(x+w+gap,top+197,w,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Export Blueprint as .schem"),b->exportSchematic())
-            .dimensions(x,top+224,content,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("How To"),b->{
-            if(client!=null)client.setScreen(new BuildAIHelpScreen(this));
-        }).dimensions(x,top+251,w,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Close"),b->close())
-            .dimensions(x+w+gap,top+251,w,20).build());
+    public BuildAIScreen(){super(Text.literal("BuildAI — Minecraft Architect"));}
+    private Text text(String s){return Text.literal(s);}
+    private void saveFields(){
+        if(prompt!=null)promptValue=prompt.getText();
+        if(key!=null)keyValue=key.getText();
     }
-    private void requestAI(boolean revise) {
+    private void switchTab(int index){
+        saveFields();tab=index;
+        clearChildren();
+        init();
+    }
+    private int row(int number){return top+number*lineHeight;}
+    private ButtonWidget add(String title,int x,int y,int w,int h,java.util.function.Consumer<ButtonWidget> action){
+        ButtonWidget widget=ButtonWidget.builder(text(title),action::accept)
+            .dimensions(x,y,Math.max(28,w),Math.max(12,h)).build();
+        addDrawableChild(widget);
+        return widget;
+    }
+    @Override protected void init(){
+        if(prompt!=null||key!=null)saveFields();
+        panelWidth=Math.min(510,Math.max(140,width-16));
+        left=(width-panelWidth)/2;
+        int available=Math.max(110,height-10);
+        // 12 compact slots guarantee last row stays inside a small GUI-scaled window.
+        lineHeight=Math.min(23,Math.max(12,available/12));
+        top=Math.max(3,(height-12*lineHeight)/2);
+        int buttonHeight=Math.max(12,lineHeight-3);
+        int gap=4;
+        int third=(panelWidth-gap*2)/3;
+        int half=(panelWidth-gap)/2;
+
+        add("Create / AI",left,row(1),third,buttonHeight,b->switchTab(0));
+        add("Placement / Export",left+third+gap,row(1),third,buttonHeight,b->switchTab(1));
+        add("How To",left+2*(third+gap),row(1),panelWidth-2*(third+gap),buttonHeight,
+            b->{saveFields();client.setScreen(new BuildAIHelpScreen(this));});
+
+        if(tab==0){
+            prompt=new TextFieldWidget(textRenderer,left,row(3),panelWidth,buttonHeight,text("Building description"));
+            prompt.setMaxLength(4000);prompt.setText(promptValue);
+            prompt.setPlaceholder(text("Describe a castle, house, factory, or a requested revision"));
+            addDrawableChild(prompt);
+            add("Continue with ChatGPT",left,row(5),half,buttonHeight,b->connect());
+            add("API key option",left+half+gap,row(5),half,buttonHeight,b->{
+                saveFields();showApiKey=!showApiKey;switchTab(0);
+            });
+            if(showApiKey){
+                key=new TextFieldWidget(textRenderer,left,row(7),panelWidth,buttonHeight,text("OpenAI developer API key"));
+                key.setMaxLength(500);key.setText(keyValue.isBlank()?BuildAIClient.getKey():keyValue);
+                addDrawableChild(key);
+            }
+            add("Generate New",left,row(8),half,buttonHeight,b->requestAI(false));
+            add("Revise Existing",left+half+gap,row(8),half,buttonHeight,b->requestAI(true));
+            add("Import File",left,row(9),half,buttonHeight,b->browse());
+            add("Load Demo Cottage",left+half+gap,row(9),half,buttonHeight,b->{
+                Blueprint demo=DemoBlueprint.cottage();
+                BuildAIClient.acceptImport(demo);surfaceLayer=0;
+                status="Demo cottage ready ("+demo.solidCount()+" blocks). Open Placement / Export.";
+            });
+            add("Chat Mode: "+(BuildAIClient.chatMode?"ON":"OFF"),left,row(10),half,buttonHeight,b->{
+                if(key!=null)BuildAIClient.setKey(key.getText());
+                BuildAIClient.chatMode=!BuildAIClient.chatMode;
+                b.setMessage(text("Chat Mode: "+(BuildAIClient.chatMode?"ON":"OFF")));
+                status=BuildAIClient.chatMode?"Private building chat enabled. Type exit to stop.":"Chat Mode disabled.";
+            });
+            add("Disconnect ChatGPT",left+half+gap,row(10),half,buttonHeight,b->{
+                ChatGPTSignIn.disconnect();
+                status="ChatGPT disconnected from this session.";
+            });
+        }else{
+            add("Surface Y -",left,row(4),half,buttonHeight,b->surfaceLayer=Math.max(0,surfaceLayer-1));
+            add("Surface Y +",left+half+gap,row(4),half,buttonHeight,b->{
+                if(BuildAIClient.draft!=null)surfaceLayer=Math.min(BuildAIClient.draft.height-1,surfaceLayer+1);
+            });
+            add("Upload & Preview",left,row(6),panelWidth,buttonHeight,b->{
+                if(BuildAIClient.draft==null){status="Create or import a blueprint first.";return;}
+                try{
+                    ClientUpload.send(BuildAIClient.draft,surfaceLayer);
+                    BuildAIClient.surfaceLayer=surfaceLayer;
+                    BuildAIClient.previewLocked=false;
+                    BuildAIClient.surfacePending=false;
+                    BuildAIClient.previewOrigin=null;
+                    BuildAIClient.selecting=true;
+                    status="Uploaded: close GUI, left-click X/Z, then sneak-right-click surface.";
+                }catch(Exception ex){status="Upload failed: "+ex.getMessage();}
+            });
+            add("Export Blueprint as .schem",left,row(8),panelWidth,buttonHeight,b->exportSchematic());
+            add("Build commands in How To",left,row(10),panelWidth,buttonHeight,b->{
+                saveFields();client.setScreen(new BuildAIHelpScreen(this));
+            });
+        }
+        add("Close",left,row(11),panelWidth,buttonHeight,b->close());
+    }
+    private void connect(){
         if(busy)return;
-        String description=prompt.getText().trim();
-        if(description.isBlank()){status="Describe the building or requested change first.";return;}
+        busy=true;status="Opening browser to connect ChatGPT...";
+        ChatGPTSignIn.connect().whenComplete((label,error)->MinecraftClient.getInstance().execute(()->{
+            busy=false;
+            status=error==null ? label : "Sign-in failed: "+message(error);
+        }));
+    }
+    private void requestAI(boolean revise){
+        if(busy)return;
+        saveFields();
+        String description=promptValue.trim();
+        if(description.isBlank()){status="Enter your building description.";return;}
         String previous=BuildAIClient.designSpecification;
         if(revise&&(previous==null||previous.isBlank())){
-            status="Generate a new AI blueprint first, then revise it.";return;
+            status="Generate a new design before requesting revisions.";return;
         }
-        final String currentKey=key.getText();
-        BuildAIClient.setKey(currentKey);
-        busy=true;
-        status=revise?"Revising existing blueprint...":"Generating new blueprint...";
+        if(key!=null)BuildAIClient.setKey(key.getText());
+        busy=true;status=revise?"Revising blueprint...":"Generating blueprint...";
         CompletableFuture.supplyAsync(()->{
-            try {
+            try{
+                if(ChatGPTSignIn.connected())
+                    return AIArchitect.generateWithChatGPT(description,revise?previous:null);
                 return revise
-                    ? AIArchitect.reviseDesign(currentKey,description,previous)
-                    : AIArchitect.generateDesign(currentKey,description);
+                    ? AIArchitect.reviseDesign(BuildAIClient.getKey(),description,previous)
+                    : AIArchitect.generateDesign(BuildAIClient.getKey(),description);
             }catch(Exception ex){throw new RuntimeException(ex);}
         }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
             busy=false;
-            if(error!=null){status="AI error: "+error.getCause();return;}
+            if(error!=null){status="Generation failed: "+message(error);return;}
             BuildAIClient.acceptGenerated(result);
             surfaceLayer=Math.min(surfaceLayer,result.blueprint().height-1);
-            status=(revise?"Revised: ":"Generated: ")+result.blueprint().name+
-                " | "+result.blueprint().solidCount()+" blocks. Review before placement.";
+            status=(revise?"Revised: ":"Created: ")+result.blueprint().name+
+                " ("+result.blueprint().solidCount()+" blocks). Open Placement / Export.";
         }));
+    }
+    private static String message(Throwable throwable){
+        Throwable t=throwable;
+        while(t.getCause()!=null)t=t.getCause();
+        return t.getMessage()==null?t.toString():t.getMessage();
     }
     private void browse(){
         if(busy)return;
-        busy=true;status="Select a .schem, .schematic, .litematic or .nbt file...";
+        busy=true;status="Choose a schematic...";
         CompletableFuture.supplyAsync(()->{
-            try {
+            try{
                 JFileChooser chooser=new JFileChooser();
                 chooser.setDialogTitle("Import Minecraft schematic");
                 chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
                     "Minecraft schematics","schem","schematic","litematic","nbt"));
-                int result=chooser.showOpenDialog(null);
-                if(result!=JFileChooser.APPROVE_OPTION)return null;
+                if(chooser.showOpenDialog(null)!=JFileChooser.APPROVE_OPTION)return null;
                 return SchematicReader.read(chooser.getSelectedFile().toPath());
             }catch(Exception e){throw new RuntimeException(e);}
         }).whenComplete((loaded,error)->MinecraftClient.getInstance().execute(()->{
             busy=false;
-            if(error!=null){status="Import failed: "+error.getCause();return;}
-            if(loaded==null){status="Import canceled";return;}
-            try {
+            if(error!=null){status="Import failed: "+message(error);return;}
+            if(loaded==null){status="Import canceled.";return;}
+            try{
                 BlockStates.validate(loaded);
                 BuildAIClient.acceptImport(loaded);surfaceLayer=0;
-                status="Imported "+loaded.name+" | "+loaded.solidCount()+" blocks | "+loaded.warnings.size()+" notes";
-            }catch(Exception ex){status="Invalid block states: "+ex.getMessage();}
+                status="Imported "+loaded.name+" ("+loaded.solidCount()+" blocks). Open Placement / Export.";
+            }catch(Exception e){status="Import rejected: "+e.getMessage();}
         }));
     }
     private void exportSchematic(){
-        if(BuildAIClient.draft==null){status="Generate or import a blueprint first.";return;}
-        Blueprint blueprint=BuildAIClient.draft;
-        busy=true;status="Select .schem export location...";
+        if(BuildAIClient.draft==null){status="No active blueprint to export.";return;}
+        Blueprint bp=BuildAIClient.draft;
+        busy=true;status="Choose .schem destination...";
         CompletableFuture.supplyAsync(()->{
-            try {
+            try{
                 JFileChooser chooser=new JFileChooser();
-                chooser.setDialogTitle("Save BuildAI schematic");
-                chooser.setSelectedFile(new java.io.File(blueprint.name.replaceAll("[^a-zA-Z0-9_-]","_")+".schem"));
+                chooser.setDialogTitle("Export BuildAI schematic");
+                chooser.setSelectedFile(new java.io.File(bp.name.replaceAll("[^a-zA-Z0-9_-]","_")+".schem"));
                 if(chooser.showSaveDialog(null)!=JFileChooser.APPROVE_OPTION)return null;
-                java.io.File selected=chooser.getSelectedFile();
-                String filename=selected.getAbsolutePath();
-                if(!filename.toLowerCase(java.util.Locale.ROOT).endsWith(".schem"))filename+=".schem";
-                return SchematicWriter.write(blueprint,java.nio.file.Path.of(filename));
+                String path=chooser.getSelectedFile().getAbsolutePath();
+                if(!path.toLowerCase(Locale.ROOT).endsWith(".schem"))path+=".schem";
+                return SchematicWriter.write(bp,java.nio.file.Path.of(path));
             }catch(Exception e){throw new RuntimeException(e);}
         }).whenComplete((saved,error)->MinecraftClient.getInstance().execute(()->{
             busy=false;
-            if(error!=null){status="Export failed: "+error.getCause();return;}
-            status=saved==null?"Export canceled":"Saved "+saved.getFileName();
+            status=error!=null?"Export failed: "+message(error):saved==null?"Export canceled.":"Saved "+saved.getFileName();
         }));
     }
-    @Override public void render(DrawContext context,int mouseX,int mouseY,float delta){
-        super.render(context,mouseX,mouseY,delta);
-        int content=Math.min(470,width-28),x=(width-content)/2,top=Math.max(35,height/2-135);
-        context.drawCenteredTextWithShadow(textRenderer,"BuildAI | 1.21.1 | Architect",width/2,top-1,0x65E5BD);
-        context.drawTextWithShadow(textRenderer,"Building description",x,top+20,0xFFFFFF);
-        context.drawTextWithShadow(textRenderer,"OpenAI API Key (temporary; not saved)",x,top+68,0xBBBBBB);
-        String level="Blueprint surface layer: "+surfaceLayer;
-        if(BuildAIClient.draft!=null)level+=" / "+(BuildAIClient.draft.height-1);
-        context.drawTextWithShadow(textRenderer,level,x,top+129,0xCCCCCC);
-        context.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(status,content),x,top+278,0xA5F4CF);
+    @Override public void render(DrawContext ctx,int mx,int my,float delta){
+        super.render(ctx,mx,my,delta);
+        int x=left;
+        ctx.drawCenteredTextWithShadow(textRenderer,"BuildAI | 1.21.1 | Architect",width/2,row(0),0x66ECC4);
+        if(tab==0){
+            ctx.drawTextWithShadow(textRenderer,"Describe your build or a revision",x,row(2),0xF1F6FA);
+            String account=ChatGPTSignIn.connected()?
+                "ChatGPT connected: "+ChatGPTSignIn.accountLabel():
+                "ChatGPT: not connected — no API key needed after sign-in";
+            ctx.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(account,panelWidth),x,row(4),0xA4C7DA);
+            if(showApiKey)ctx.drawTextWithShadow(textRenderer,"Optional developer API key (separate billing)",x,row(6),0xBFC6D2);
+        }else{
+            Blueprint bp=BuildAIClient.draft;
+            String label=bp==null?"No blueprint loaded. Open Create / AI.":bp.name+
+                " | "+bp.width+" × "+bp.height+" × "+bp.length+" | "+bp.solidCount()+" blocks";
+            ctx.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(label,panelWidth),x,row(2),0xD8E8F2);
+            String level="Blueprint surface layer: "+surfaceLayer+(bp==null?"":" / "+(bp.height-1));
+            ctx.drawTextWithShadow(textRenderer,level,x,row(3),0xCDD3DC);
+        }
+        ctx.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(status,panelWidth),
+            x,Math.min(height-11,row(12)-10),0x79EBBD);
     }
     @Override public void close(){if(client!=null)client.setScreen(null);}
     @Override public boolean shouldPause(){return false;}

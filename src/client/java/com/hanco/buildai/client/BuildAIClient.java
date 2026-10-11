@@ -1,0 +1,67 @@
+package com.hanco.buildai.client;
+
+import com.hanco.buildai.blueprint.Blueprint;
+import com.hanco.buildai.net.PlacePayload;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.event.client.player.ClientPreAttackCallback;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
+import net.minecraft.text.Text;
+import net.minecraft.util.hit.BlockHitResult;
+import org.lwjgl.glfw.GLFW;
+import java.util.concurrent.CompletableFuture;
+
+public final class BuildAIClient implements ClientModInitializer {
+    public static volatile Blueprint draft;
+    public static volatile boolean selecting=false;
+    public static volatile boolean chatMode=false;
+    private static String apiKey="";
+    private static KeyBinding open;
+    public static void setKey(String key){apiKey=key;}
+    public static String getKey(){return apiKey;}
+    public static void message(String message){
+        MinecraftClient mc=MinecraftClient.getInstance();
+        if(mc.player!=null)mc.player.sendMessage(Text.literal("[BuildAI] "+message),false);
+    }
+    public static void generate(String prompt) {
+        message("Generating architectural blueprint...");
+        String key=apiKey; // never logged, uploaded or persisted.
+        CompletableFuture.supplyAsync(()->{
+            try{return AIArchitect.generate(key,prompt);}
+            catch(Exception e){throw new RuntimeException(e);}
+        }).whenComplete((blueprint,error)->MinecraftClient.getInstance().execute(()->{
+            if(error!=null){message("Generation failed: "+rootCause(error));return;}
+            draft=blueprint;
+            message("Generated "+blueprint.name+" ("+blueprint.width+"x"+blueprint.height+"x"+blueprint.length+
+                ", "+blueprint.solidCount()+" blocks). Open F8 to upload or revise.");
+        }));
+    }
+    private static String rootCause(Throwable t){while(t.getCause()!=null)t=t.getCause();return String.valueOf(t.getMessage());}
+    @Override public void onInitializeClient(){
+        open=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.buildai.open",InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_F8,"category.buildai"));
+        ClientTickEvents.END_CLIENT_TICK.register(client->{
+            while(open.wasPressed())client.setScreen(new BuildAIScreen());
+        });
+        ClientSendMessageEvents.ALLOW_CHAT.register(message->{
+            if(!chatMode)return true;
+            if(message.trim().equalsIgnoreCase("exit")){
+                chatMode=false;BuildAIClient.message("Chat Mode disabled.");return false;
+            }
+            generate(message);
+            return false; // never leak private building prompts to public server chat
+        });
+        ClientPreAttackCallback.EVENT.register((client,player,clickCount)->{
+            if(!selecting||clickCount==0||!(client.crosshairTarget instanceof BlockHitResult hit))return false;
+            if(!ClientPlayNetworking.canSend(PlacePayload.ID))return false;
+            ClientPlayNetworking.send(new PlacePayload(hit.getBlockPos()));
+            selecting=false;
+            message("Horizontal location selected. Sneak-right-click the desired surface block.");
+            return true;
+        });
+    }
+}

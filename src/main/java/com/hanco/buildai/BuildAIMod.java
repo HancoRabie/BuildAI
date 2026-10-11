@@ -61,7 +61,7 @@ public final class BuildAIMod implements ModInitializer {
                         response.substring(newLine+1)).getAsJsonObject());
                     ConstructionManager.begin(player,blueprint,surface);
                     uploadResult(player,true,"Blueprint accepted: "+blueprint.name+
-                        " ("+blueprint.solidCount()+" blocks). Close F8; left-click X/Z, then sneak-right-click the surface.");
+                        " ("+blueprint.solidCount()+" blocks). Close F8 to fly the preview; G snaps ground, Enter locks XYZ, R retries.");
                 }catch(Exception e){
                     uploadResult(player,false,"Blueprint rejected: "+String.valueOf(e.getMessage()));
                 }

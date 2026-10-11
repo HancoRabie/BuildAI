@@ -29,6 +29,15 @@ public final class PlacementMode {
 
     public static boolean active(){return active;}
     public static boolean following(){return active && following;}
+    /** Called by the Entity mouse-look mixin, with vanilla-smoothed raw deltas. */
+    public static void turnCamera(double deltaX,double deltaY){
+        if(!active||camera==null)return;
+        camera.changeLookDirection(deltaX,deltaY);
+        // This is not an entity ticked by the world. Keep interpolation anchors
+        // current to avoid lerping against stale yaw/pitch (the view flicker).
+        camera.prevYaw=camera.getYaw();
+        camera.prevPitch=camera.getPitch();
+    }
     /** Prevent Minecraft's per-tick camera restoration while placement owns the view. */
     public static boolean mustKeepCamera(net.minecraft.entity.Entity requested) {
         MinecraftClient mc=MinecraftClient.getInstance();
@@ -48,12 +57,19 @@ public final class PlacementMode {
         MinecraftClient mc=MinecraftClient.getInstance();
         Blueprint b=BuildAIClient.draft;
         if(mc.player==null||mc.world==null||b==null)return;
-        if(active)stop();
+        if(active){
+            // Reopening F8 / resuming a flight must NOT replace the observer.
+            if(lockedReview){following=false;BuildAIClient.previewLocked=true;}
+            enforceCamera();
+            return;
+        }
         camera=new OtherClientPlayerEntity(mc.world,
             new GameProfile(UUID.randomUUID(),"BuildAICamera"));
         camera.setPosition(mc.player.getX(),mc.player.getY(),mc.player.getZ());
         camera.setYaw(mc.player.getYaw());
         camera.setPitch(mc.player.getPitch());
+        camera.prevYaw=camera.getYaw();
+        camera.prevPitch=camera.getPitch();
         oldPerspective=mc.options.getPerspective();
         mc.options.setPerspective(Perspective.FIRST_PERSON);
         // Placement owns the camera until explicit release. The mixin prevents
@@ -123,6 +139,9 @@ public final class PlacementMode {
             if(candidate.squaredDistanceTo(mc.player.getPos())<=MAX_CAMERA_DISTANCE*MAX_CAMERA_DISTANCE &&
                 mc.world.isChunkLoaded(BlockPos.ofFloored(candidate)))
                 camera.setPosition(candidate);
+                camera.prevX=camera.getX();
+                camera.prevY=camera.getY();
+                camera.prevZ=camera.getZ();
         }
         if(following&&!waitingLock)updateFollowing();
     }

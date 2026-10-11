@@ -40,7 +40,10 @@ public final class AIArchitect {
     }
 
     public static DesignResult generateDesign(String key,String prompt) throws Exception {
-        return requestDesign(key,prompt,null);
+        return generateDesign(key,prompt,null);
+    }
+    public static DesignResult generateDesign(String key,String prompt,GenerationProgress progress) throws Exception {
+        return requestDesign(key,prompt,null,progress);
     }
 
     /**
@@ -48,11 +51,15 @@ public final class AIArchitect {
      * A failed revision leaves the existing blueprint unchanged.
      */
     public static DesignResult reviseDesign(String key,String request,String existingSpecification) throws Exception {
+        return reviseDesign(key,request,existingSpecification,null);
+    }
+    public static DesignResult reviseDesign(String key,String request,String existingSpecification,
+                                            GenerationProgress progress) throws Exception {
         if(existingSpecification==null||existingSpecification.isBlank())
             throw new IllegalArgumentException("Only an AI-generated design can be revised in this version.");
         if(existingSpecification.length()>110_000)
             throw new IllegalArgumentException("This design is too large for conversational revisions.");
-        return requestDesign(key,request,existingSpecification);
+        return requestDesign(key,request,existingSpecification,progress);
     }
 
     private static String loadReference(){
@@ -62,13 +69,23 @@ public final class AIArchitect {
         }catch(Exception ignored){return "";}
     }
 
+    private static void report(GenerationProgress progress,String stage,String detail){
+        if(progress!=null)progress.stage(stage,detail);
+    }
+
     /** ChatGPT plan usage requires an authorized OAuth token and the streaming Responses API. */
     public static DesignResult generateWithChatGPT(String prompt,String previous) throws Exception {
+        return generateWithChatGPT(prompt,previous,null);
+    }
+    public static DesignResult generateWithChatGPT(String prompt,String previous,
+                                                    GenerationProgress progress) throws Exception {
         if(prompt==null||prompt.isBlank()||prompt.length()>4000)
             throw new IllegalArgumentException("Describe your building in 1-4000 characters");
         if(previous!=null&&previous.length()>110_000)
             throw new IllegalArgumentException("Prior design is too large for revision");
+        report(progress,"Checking account access","Looking up the models available to your connected ChatGPT account.");
         String model=ChatGPTSignIn.model();
+        report(progress,"Preparing secure request","Using your authorized account and model "+model+".");
         String token=ChatGPTSignIn.token();
         JsonObject body=new JsonObject();
         body.addProperty("model",model);
@@ -94,16 +111,19 @@ public final class AIArchitect {
             .header("Accept","text/event-stream")
             .header("Authorization","Bearer "+token)
             .POST(HttpRequest.BodyPublishers.ofString(body.toString(),StandardCharsets.UTF_8)).build();
-        HttpResponse<java.io.InputStream> response=HttpClient.newHttpClient()
-            .send(request,HttpResponse.BodyHandlers.ofInputStream());
+        report(progress,"Connecting to OpenAI","Sending the design instructions to the selected model.");
+        HttpResponse<java.io.InputStream> response=ChatGPTNetwork.send(
+            request,HttpResponse.BodyHandlers.ofInputStream(),"requesting a Minecraft blueprint");
         if(response.statusCode()!=200){
             try(var stream=response.body()){
                 throw new java.io.IOException("ChatGPT generation HTTP "+response.statusCode()+
                     " — check plan permission, model limits or reconnect in F8");
             }
         }
+        report(progress,"Waiting for model output","Request accepted; waiting for actual design data.");
         StringBuilder generated=new StringBuilder();
         boolean completed=false;
+        boolean startedReceiving=false;
         try(var reader=new java.io.BufferedReader(new java.io.InputStreamReader(response.body(),
                 StandardCharsets.UTF_8))){
             String line;
@@ -115,9 +135,18 @@ public final class AIArchitect {
                 try{event=JsonParser.parseString(json).getAsJsonObject();}
                 catch(RuntimeException invalidEvent){continue;}
                 String type=event.has("type")?event.get("type").getAsString():"";
-                if(type.equals("response.output_text.delta")){
+                if(type.equals("response.created") || type.equals("response.in_progress")) {
+                    report(progress,"AI generating design","OpenAI reports the model is processing the blueprint request.");
+                }else if(type.equals("response.output_text.delta")){
                     if(event.has("delta")){
-                        generated.append(event.get("delta").getAsString());
+                        String delta=event.get("delta").getAsString();
+                        if(!startedReceiving){
+                            report(progress,"Receiving building instructions",
+                                "Design data is arriving. Blueprint compilation starts after the response finishes.");
+                            startedReceiving=true;
+                        }
+                        generated.append(delta);
+                        if(progress!=null)progress.receivedCharacters(delta.length());
                         if(generated.length()>120_000)throw new java.io.IOException("AI blueprint exceeded 120 KB");
                     }
                 }else if(type.equals("response.failed")||type.equals("response.incomplete")||type.equals("error")){
@@ -125,15 +154,21 @@ public final class AIArchitect {
                         "). Check plan usage or try a smaller building.");
                 }else if(type.equals("response.completed")){
                     completed=true;
+                    report(progress,"Response completed","Received the final response; preparing to compile the structure.");
                 }
             }
         }
         if(!completed)throw new java.io.IOException("ChatGPT stream ended without response.completed; no blueprint was applied");
         String spec=generated.toString().trim();
-        return new DesignResult(ProceduralGenerator.compile(spec),spec);
+        report(progress,"Compiling 3D blueprint","Converting AI design operations into exact block positions.");
+        Blueprint compiled=ProceduralGenerator.compile(spec);
+        report(progress,"Validating Minecraft blocks","Checking block IDs and states before displaying the blueprint.");
+        BlockStates.validate(compiled);
+        return new DesignResult(compiled,spec);
     }
 
-    private static DesignResult requestDesign(String key,String prompt,String previous) throws Exception {
+    private static DesignResult requestDesign(String key,String prompt,String previous,
+                                              GenerationProgress progress) throws Exception {
         if(key==null||key.isBlank())throw new IllegalArgumentException("Enter an OpenAI API key (v0.1).");
         if(prompt==null||prompt.isBlank()||prompt.length()>4000)throw new IllegalArgumentException("Prompt length 1-4000 required");
         JsonObject body=new JsonObject();body.addProperty("model","gpt-4.1-mini");
@@ -160,12 +195,20 @@ public final class AIArchitect {
             .timeout(Duration.ofSeconds(120)).header("Content-Type","application/json")
             .header("Authorization","Bearer "+key.trim())
             .POST(HttpRequest.BodyPublishers.ofString(body.toString(),StandardCharsets.UTF_8)).build();
-        HttpResponse<String> response=HttpClient.newHttpClient().send(request,HttpResponse.BodyHandlers.ofString());
+        report(progress,"Connecting to OpenAI","Sending architectural instructions through the developer API.");
+        HttpResponse<String> response=ChatGPTNetwork.send(request,HttpResponse.BodyHandlers.ofString(),
+            "requesting a Minecraft blueprint with the developer API");
+        report(progress,"Response received","The AI response arrived; reading the design instructions.");
         if(response.statusCode()!=200)throw new IllegalStateException("OpenAI HTTP "+response.statusCode()+
             ": verify API key, model availability, and billing");
         JsonObject parsed=JsonParser.parseString(response.body()).getAsJsonObject();
         String json=parsed.getAsJsonArray("choices").get(0).getAsJsonObject().getAsJsonObject("message")
             .get("content").getAsString();
-        return new DesignResult(ProceduralGenerator.compile(json),json);
+        if(progress!=null)progress.receivedCharacters(json.length());
+        report(progress,"Compiling 3D blueprint","Converting AI design operations into exact block positions.");
+        Blueprint compiled=ProceduralGenerator.compile(json);
+        report(progress,"Validating Minecraft blocks","Checking block IDs and states before displaying the blueprint.");
+        BlockStates.validate(compiled);
+        return new DesignResult(compiled,json);
     }
 }

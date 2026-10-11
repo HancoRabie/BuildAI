@@ -32,15 +32,15 @@ public final class BuildAIHelpScreen extends Screen {
         {
             "Type your building request in F8 and click Generate New.",
             "Example: A 24x20 medieval cottage with a slate roof, two floors, porch, glass windows and an interior stairwell.",
-            "After generation, the editable blueprint is held locally. Describe a change such as 'Move the door to the east wall' and click Revise Existing.",
+            "After generation, BuildAI auto-saves the completed .schem in Minecraft's buildai/blueprints folder. The editable design is also kept in memory for revisions until the game closes.",
             "Changes re-generate a complete candidate blueprint from the previous AI instructions. Review every change before uploading; revisions are not guaranteed to preserve all details.",
             "Enable Chat Mode in F8 to send ordinary chat messages privately to the generator. Use 'new <description>' for a fresh design and 'exit' to stop intercepting chat."
         },
         {
-            "Import File opens your operating system file picker. Files are converted to a common, bounded blueprint with explicit block states.",
+            "Import File / My Builds opens the in-game blueprint library, even when Minecraft's Java runtime is headless. Select a saved file or paste a path to a .schem/.litematic/.nbt.",
             "Supported inputs: Sponge .schem, legacy .schematic (limited numeric IDs), Litematica .litematic, and Minecraft .nbt structures.",
             "Unknown IDs, missing blocks, unsupported NBT and oversized files may be rejected. It is safer to reject than to silently replace blocks.",
-            "Export Blueprint as .schem saves the currently generated or imported building as a Sponge v3 schematic for sharing or later use."
+            "Save Blueprint to Library creates a unique .schem without a Windows file dialog. Reload it any time using F8 > Import File / My Builds."
         },
         {
             "Choose the blueprint surface Y layer with the +/- controls. This indicates which level of the design meets the ground.",
@@ -78,7 +78,7 @@ public final class BuildAIHelpScreen extends Screen {
             "DO NOT test BuildAI on a valuable world without a backup.",
             "This test build includes detached placement flight and browser ChatGPT sign-in, but neither has been live user-verified. Still incomplete: durable crash recovery, full rollback/refunds, complete legacy conversions and tested arbitrary redstone.",
             "The AI can generate block geometry and write schematics, but does not yet simulate every redstone mechanism. Check machinery in Minecraft.",
-            "Save and reload frequently when designing, but remember ongoing construction sessions are not persisted across server restarts.",
+            "Generated designs are automatically saved after successful completion; check Minecraft/buildai/blueprints. Construction sessions are not yet persisted across server restarts.",
             "For bug reports include the schematic type, block count, Minecraft/Fabric versions, build log and reproducible steps."
         }
     };

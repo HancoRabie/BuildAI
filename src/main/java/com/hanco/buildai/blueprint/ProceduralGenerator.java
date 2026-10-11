@@ -36,6 +36,31 @@ public final class ProceduralGenerator {
                     for(int y=ay;y<=by;y++)for(int z=az;z<=bz;z++)for(int x=ax;x<=bx;x++)
                         if(x==ax||x==bx||z==az||z==bz)b.set(x,y,z,block);
                 }
+                case "ellipsoid","organic_canopy" -> {
+                    // Curved domes and natural tree crowns; deterministic and
+                    // clipped to the authored box. Leaves never erase structural
+                    // timbers, windows, lanterns, or existing trunk blocks.
+                    boolean crown=kind.equals("organic_canopy");
+                    int seed=op.has("seed")?number(op,"seed",0,1_000_000):37;
+                    double cx=(ax+bx+1)/2.0,cy=(ay+by+1)/2.0,cz=(az+bz+1)/2.0;
+                    double rx=(bx-ax+1)/2.0,ry=(by-ay+1)/2.0,rz=(bz-az+1)/2.0;
+                    for(int y=ay;y<=by;y++)for(int z=az;z<=bz;z++)for(int x=ax;x<=bx;x++) {
+                        double nx=(x+0.5-cx)/rx,ny=(y+0.5-cy)/ry,nz=(z+0.5-cz)/rz;
+                        double dist=nx*nx+ny*ny+nz*nz;
+                        // Tiny per-voxel edge variation avoids rectangular crowns,
+                        // while interior blocks remain connected and reproducible.
+                        double edge=1.0;
+                        if(crown){
+                            int hash=seed ^ (x*73428767) ^ (y*912931) ^ (z*19349663);
+                            hash^=hash>>>13;hash*=1274126177;hash^=hash>>>16;
+                            edge+=(((hash&1023)/1023.0)-0.5)*0.24;
+                        }
+                        if(dist>edge)continue;
+                        String current=b.get(x,y,z);
+                        if(!crown || b.isAir(x,y,z) || Blueprint.id(current).endsWith("_leaves"))
+                            b.set(x,y,z,block);
+                    }
+                }
                 case "line" -> {
                     int steps=Math.max(Math.abs(x2-x1),Math.max(Math.abs(y2-y1),Math.abs(z2-z1)));
                     for(int i=0;i<=steps;i++) {

@@ -30,7 +30,9 @@ public final class PlacementMode {
     public static boolean active(){return active;}
     public static boolean following(){return active && following;}
 
-    public static void start(){
+    public static void start(){start(false);}
+    public static void inspect(){start(true);}
+    private static void start(boolean lockedReview){
         MinecraftClient mc=MinecraftClient.getInstance();
         Blueprint b=BuildAIClient.draft;
         if(mc.player==null||mc.world==null||b==null)return;
@@ -45,14 +47,16 @@ public final class PlacementMode {
         mc.setCameraEntity(camera);
         startCamera=camera.getPos();
         scrollZ=0;
-        following=true;
+        following=!lockedReview;
         waitingLock=false;
         active=true;
-        centerInFront();
-        BuildAIClient.selecting=true;
+        if(!lockedReview)centerInFront();
+        BuildAIClient.selecting=!lockedReview;
         BuildAIClient.surfacePending=false;
-        BuildAIClient.previewLocked=false;
-        BuildAIClient.message("Placement camera ACTIVE. WASD/Space/Shift move; mouse wheel = world Z; Enter locks XYZ; R retries; F8 opens menu.");
+        BuildAIClient.previewLocked=lockedReview;
+        BuildAIClient.message(lockedReview
+            ? "Review camera: WASD/Space/Shift to inspect fixed build; R retries placement; /buildai confirm builds."
+            : "Placement: WASD/Space/Shift move ghost, wheel shifts world Z, G snaps ground, Enter locks XYZ, R retries.");
     }
     private static void centerInFront(){
         MinecraftClient mc=MinecraftClient.getInstance();
@@ -105,6 +109,20 @@ public final class PlacementMode {
                 camera.setPosition(candidate);
         }
         if(following&&!waitingLock)updateFollowing();
+    }
+    /** Ground selection is editable; aim camera at ground and press G to snap blueprint's surface layer. */
+    public static void snapGround(){
+        if(!following||!active||waitingLock||camera==null||startOrigin==null)return;
+        MinecraftClient mc=MinecraftClient.getInstance();
+        if(!(mc.crosshairTarget instanceof net.minecraft.util.hit.BlockHitResult hit)){
+            BuildAIClient.message("Aim at a terrain block first, then press G again.");return;
+        }
+        BlockPos p=BuildAIClient.previewOrigin;
+        if(p==null)return;
+        int deltaY=hit.getBlockPos().getY()+1-BuildAIClient.surfaceLayer-p.getY();
+        startOrigin=startOrigin.up(deltaY);
+        updateFollowing();
+        BuildAIClient.message("Ground surface snapped to Y="+hit.getBlockPos().getY()+". Fly/scroll or press Enter to lock; R retries.");
     }
     public static void lock(){
         if(!active||!following||waitingLock||BuildAIClient.previewOrigin==null)return;

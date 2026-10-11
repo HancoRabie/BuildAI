@@ -34,9 +34,13 @@ public final class BlockStates {
         return state.with(property,parsed);
     }
     public static void validate(Blueprint b) {
-        for(String raw:b.materials().keySet())parse(raw);
-        for(int y=0;y<b.height;y++)for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++)
-            parse(b.get(x,y,z));
+        // Parsing registry properties is expensive: repeated blocks across millions
+        // of cells are validated once per distinct full block state.
+        Set<String> seen=new HashSet<>();
+        for(int y=0;y<b.height;y++)for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
+            String state=b.get(x,y,z);
+            if(seen.add(state))parse(state);
+        }
         b.validateSlices();
     }
 }

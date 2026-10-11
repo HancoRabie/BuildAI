@@ -186,12 +186,14 @@ public final class BuildAIScreen extends Screen {
         if(client!=null)client.setScreen(new ChatGPTConnectScreen(this));
     }
     private void requestAI(boolean revise){
-        if(busy){status="Wait for the current operation to finish.";return;}
+        // If the player hid the monitor, pressing Generate again reopens the
+        // SAME active request instead of starting another or showing a dead end.
         GenerationProgress inProgress=BuildAIClient.currentGeneration();
         if(inProgress!=null&&!inProgress.snapshot().finished()){
             if(client!=null)client.setScreen(new BuildAIGenerationScreen(this,inProgress));
             return;
         }
+        if(busy){status="Wait for the current operation to finish.";return;}
         saveFields();
         String description=promptValue.trim();
         if(description.isBlank()){status="Enter your building description.";return;}

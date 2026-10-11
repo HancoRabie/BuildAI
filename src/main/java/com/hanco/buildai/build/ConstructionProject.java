@@ -43,8 +43,21 @@ public final class ConstructionProject {
     public int constructionSpeed=16;
     public boolean cinematic=true;
     public void setCinematic(boolean enabled) {
+        if(cinematic!=enabled){
+            if(phase==Phase.EXCAVATE && collisions>0)
+                excavationCue(enabled
+                    ?com.hanco.buildai.net.CinematicExcavationPayload.PREPARE
+                    :com.hanco.buildai.net.CinematicExcavationPayload.STOP,0);
+            if(phase==Phase.CINEMATIC_PULL && !enabled){
+                excavationCue(com.hanco.buildai.net.CinematicExcavationPayload.STOP,0);
+                phase=Phase.BUILD;
+            }
+        }
         cinematic=enabled;
         constructionSpeed=enabled?16:256;
+    }
+    public void stopCinematicVisuals(){
+        excavationCue(com.hanco.buildai.net.CinematicExcavationPayload.STOP,0);
     }
 
     public ConstructionProject(ServerPlayerEntity player,Blueprint blueprint,int surfaceLayer) {

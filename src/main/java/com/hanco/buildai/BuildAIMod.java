@@ -66,14 +66,21 @@ public final class BuildAIMod implements ModInitializer {
             if(world.isClient()||!(player instanceof ServerPlayerEntity server)||!server.hasPermissionLevel(2))
                 return ActionResult.PASS;
             ConstructionProject project=ConstructionManager.get(server);
-            if(project==null||project.phase!=ConstructionProject.Phase.SELECT_SURFACE||!player.isSneaking())
-                return ActionResult.PASS;
+            if(project==null||!player.isSneaking())return ActionResult.PASS;
             try {
-                project.selectSurface(hit.getBlockPos());
-                reply(server,"Surface aligned; "+project.collisions+
-                    " existing blocks in construction volume. Inspect site; /buildai confirm to excavate and build.");
-            }catch(Exception e){reply(server,"Cannot position: "+e.getMessage());}
-            return ActionResult.SUCCESS;
+                if(project.phase==ConstructionProject.Phase.SELECT_SURFACE){
+                    project.selectSurface(hit.getBlockPos());
+                    reply(server,"Surface aligned; "+project.collisions+
+                        " existing blocks will be excavated, including UNKNOWN-origin blocks. Inspect preview and use /buildai confirm.");
+                    return ActionResult.SUCCESS;
+                }
+                if(world.getBlockEntity(hit.getBlockPos()) instanceof net.minecraft.inventory.Inventory) {
+                    project.linkChest(hit.getBlockPos());
+                    reply(server,"BuildAI supply chest linked and protected. /buildai materials shows progress.");
+                    return ActionResult.SUCCESS;
+                }
+            }catch(Exception e){reply(server,"Could not select: "+e.getMessage());return ActionResult.SUCCESS;}
+            return ActionResult.PASS;
         });
         PlayerBlockBreakEvents.BEFORE.register((world,player,pos,state,entity)->{
             if(ConstructionManager.protectedChest(pos,world)) {
@@ -97,8 +104,12 @@ public final class BuildAIMod implements ModInitializer {
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project");return 0;}
-                    for(var e:p.requirements().entrySet())
-                        reply(player,e.getKey()+": "+p.consumed().getOrDefault(e.getKey(),0)+" used / "+e.getValue()+" needed");
+                    java.util.Map<String,Integer> stored=p.stored();
+                    for(var e:p.requirements().entrySet()) {
+                        int used=p.consumed().getOrDefault(e.getKey(),0);
+                        int available=stored.getOrDefault(e.getKey(),0);
+                        reply(player,e.getKey()+": "+used+" placed + "+available+" available / "+e.getValue()+" required");
+                    }
                     return 1;
                 }))
                 .then(literal("substitute").requires(s->s.hasPermissionLevel(2))

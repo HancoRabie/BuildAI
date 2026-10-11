@@ -48,6 +48,7 @@ public final class CinematicExcavationRenderer {
     public static void reset(){active=null;sampledStates=List.of();}
     public static void register(){
         WorldRenderEvents.AFTER_ENTITIES.register(context->{
+            try {
             CinematicExcavationPayload s=active;
             MinecraftClient mc=MinecraftClient.getInstance();
             if(s==null||mc.world==null||context.matrixStack()==null||context.consumers()==null)return;
@@ -68,6 +69,7 @@ public final class CinematicExcavationRenderer {
             if(center.squaredDistanceTo(viewpoint)>256*256)return;
             MatrixStack matrices=context.matrixStack();
             matrices.push();
+            try {
             matrices.translate(-viewpoint.x,-viewpoint.y,-viewpoint.z);
             VertexConsumer lines=context.consumers().getBuffer(RenderLayer.getLines());
             VertexConsumer filled=context.consumers().getBuffer(RenderLayer.getDebugFilledBox());
@@ -129,7 +131,18 @@ public final class CinematicExcavationRenderer {
                     }
                 }
             }
-            matrices.pop();
+            } finally {
+                matrices.pop(); // Always restore world rendering state after partial draw failures.
+            }
+            } catch(RuntimeException renderError) {
+                // Cosmetic FX must never take down Minecraft or corrupt a world's build.
+                // Let the server continue bounded excavation without optional visuals.
+                active=null;
+                sampledStates=List.of();
+                System.err.println("[BuildAI] Cinematic renderer disabled after unexpected error:");
+                renderError.printStackTrace();
+                BuildAIClient.message("Cinematic render failed; visual effect disabled. Construction continues safely. Check latest.log.");
+            }
         });
     }
     public static void tick(){

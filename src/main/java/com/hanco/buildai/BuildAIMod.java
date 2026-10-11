@@ -62,7 +62,7 @@ public final class BuildAIMod implements ModInitializer {
                         response.substring(newLine+1)).getAsJsonObject());
                     ConstructionManager.begin(player,blueprint,surface);
                     uploadResult(player,true,"Blueprint accepted: "+blueprint.name+
-                        " ("+blueprint.solidCount()+" blocks). Close F8 to fly the preview; G snaps ground, Enter locks XYZ, R retries.");
+                        " ("+blueprint.solidCount()+" blocks). Close F8. Move normally, aim at the ground and press G, then Enter to lock; R retries.");
                 }catch(Exception e){
                     uploadResult(player,false,"Blueprint rejected: "+String.valueOf(e.getMessage()));
                 }
@@ -75,8 +75,8 @@ public final class BuildAIMod implements ModInitializer {
                 if(p==null||!player.hasPermissionLevel(2))return;
                 BlockPos candidate=payload.pos();
                 try {
-                    // A detached camera is a client-only presentation. The genuine player's body
-                    // is always the server-side reference point for reach and permission checks.
+                    // Placement always uses the normal player camera; the server is authoritative
+                    // for reach, world limits and protected-block validation.
                     double cx=candidate.getX()+p.blueprint.width/2.0;
                     double cy=candidate.getY()+p.blueprint.height/2.0;
                     double cz=candidate.getZ()+p.blueprint.length/2.0;
@@ -84,7 +84,7 @@ public final class BuildAIMod implements ModInitializer {
                         throw new IllegalArgumentException("Move the proposal closer to your real character (100 block limit)");
                     p.selectOrigin(candidate);
                     String msg="Placement locked at "+candidate.toShortString()+"; "+p.collisions+
-                        " existing blocks overlap. Inspect, /buildai retry, or /buildai confirm.";
+                        " existing blocks overlap. Inspect normally, /buildai retry, or /buildai confirm.";
                     if(ServerPlayNetworking.canSend(player,PlacementReplyPayload.ID))
                         ServerPlayNetworking.send(player,new PlacementReplyPayload(true,true,msg,p.origin));
                     reply(player,msg);
@@ -125,7 +125,8 @@ public final class BuildAIMod implements ModInitializer {
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project. Open BuildAI GUI to generate/import.");return 1;}
                     reply(player,p.phase+" | "+p.blueprint.name+" | "+p.placed()+"/"+p.total()+
-                        " placed | "+p.excavated()+"/"+p.cells()+" excavation cells | "+p.collisions+" collisions | "+p.normalizedPanes()+" pane connections updated.");
+                        " placed | "+p.excavated()+"/"+p.cells()+" cells inspected | "+p.actuallyRemoved()+
+                        " removed | "+p.collisions+" collisions | "+p.normalizedPanes()+" pane connections updated.");
                     return 1;
                 }))
                 .then(literal("materials").executes(c->{
@@ -189,7 +190,7 @@ public final class BuildAIMod implements ModInitializer {
                     if(project==null){reply(player,"No blueprint loaded; upload one in F8.");return 0;}
                     try {
                         project.retryPlacement();
-                        String msg="Placement reset. Fly and move your ghost again, then press Enter to lock XYZ.";
+                        String msg="Placement reset. Move normally, point at the new ground block and press G, then Enter to lock XYZ.";
                         if(ServerPlayNetworking.canSend(player,PlacementReplyPayload.ID))
                             ServerPlayNetworking.send(player,new PlacementReplyPayload(true,false,msg,BlockPos.ORIGIN));
                         reply(player,msg);

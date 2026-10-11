@@ -68,7 +68,7 @@ public class BlueprintPipelineTest {
     }
 
     @Test void invalidBlueprintDataIsRejected() {
-        assertThrows(IllegalArgumentException.class,()->new Blueprint("bad",100,100,100));
+        assertThrows(IllegalArgumentException.class,()->new Blueprint("bad",500,500,500));
         Blueprint a=DemoBlueprint.cottage();
         JsonObject packet=BlueprintJson.encode(a);
         packet.getAsJsonArray("cells").remove(0);

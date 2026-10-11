@@ -36,7 +36,6 @@ public final class BuildAIGenerationScreen extends Screen {
     }
 
     @Override public void render(DrawContext ctx,int mouseX,int mouseY,float delta){
-        super.render(ctx,mouseX,mouseY,delta);
         GenerationProgress.Snapshot s=progress.snapshot();
         int panel=Math.min(465,Math.max(150,width-16)),x=(width-panel)/2;
         int center=height/2;
@@ -75,6 +74,8 @@ public final class BuildAIGenerationScreen extends Screen {
                 :"Progress updates reflect real model/network and validation events.";
         ctx.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(note,panel-24),
             x+12,top+127,0xE9C88A);
+        // Render buttons AFTER the panel so they are always fully visible and clickable.
+        super.render(ctx,mouseX,mouseY,delta);
         // Stage history, drawn only when there is vertical space; never overlap buttons.
         int historyY=top+143,buttonTop=Math.min(height-27,center+104);
         if(historyY+12<buttonTop){

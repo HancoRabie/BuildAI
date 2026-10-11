@@ -56,6 +56,20 @@ For the safest immediate smoke test, create a **brand-new Creative world** and p
 
 **ChatGPT sign-in is now implemented in source but NOT yet live user-verified**. Open F8 → Continue with ChatGPT; approve plan usage in the browser and return to Minecraft. If login or account entitlements fail, use the optional OpenAI API-key fallback or offline demo.
 
+## Seamless in-game building workflow
+
+BuildAI keeps building creation and design inside Minecraft. The one-time authentication step must use the **system browser** according to the official native-client OAuth guidance; it cannot securely render the ChatGPT password form in a Minecraft WebView.
+
+- F8 → **Continue with ChatGPT** displays a Minecraft status modal and opens OpenAI's secure browser login.
+- After OpenAI redirects to BuildAI's local callback, the mod verifies authorization and attempts to restore focus to Minecraft. Whether Windows allows automatic foreground focus depends on OS settings.
+- Future sessions reuse/refresh the account authorization when eligible; players do **not** need to sign in for every blueprint.
+- Enter a prompt in F8 → **Generate New**, or enable **Chat Mode** and request/revise a design in Minecraft chat. AI uses the connected ChatGPT plan when eligible, with the developer API option as a fallback.
+- The AI's generated geometry **becomes an in-memory BuildAI blueprint immediately**, without saving a file, using a file picker, or opening an external download.
+- On success, the GUI automatically opens **Placement / Export**, with **Inspect Blueprint Layers** for a top-down cross-section and the existing **Upload & Preview** action for the full 3D ghost and surface/XYZ placement.
+- Exporting a `.schem` file remains entirely optional.
+
+Actual OAuth sign-in and the complete generate/preview/build flow still require in-game testing. Do not claim this code makes a fully functional chat account available without user consent and eligible plan access.
+
 ## ChatGPT login (test implementation)
 
 In a disposable Minecraft 1.21.1 Fabric world, press **F8 → Continue with ChatGPT**. BuildAI opens your system browser on OpenAI's authorization site. Sign in with your own account and allow **ChatGPT plan usage**, then return to Minecraft. The F8 interface should display the connected account. You can then type a building request into F8 → Generate New, or turn on Chat Mode and type building requests into ordinary Minecraft chat. Follow-up prompts revise the active blueprint; type `new <prompt>` to start over, `reset` to clear the draft, or `exit` to return to normal chat.

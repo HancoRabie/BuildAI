@@ -126,7 +126,7 @@ public final class BuildAIMod implements ModInitializer {
                     if(p==null){reply(player,"No project. Open BuildAI GUI to generate/import.");return 1;}
                     reply(player,p.phase+" | "+p.blueprint.name+" | "+p.placed()+"/"+p.total()+
                         " placed | "+p.excavated()+"/"+p.cells()+" cells inspected | "+p.actuallyRemoved()+
-                        " removed | "+p.collisions+" collisions | "+p.normalizedPanes()+" pane connections updated.");
+                        " removed | "+p.collisions+" collisions | "+p.normalizedPanes()+" fence/pane/wall connections updated.");
                     return 1;
                 }))
                 .then(literal("materials").executes(c->{
@@ -164,18 +164,18 @@ public final class BuildAIMod implements ModInitializer {
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p!=null&&p.requestPaneRepair()){
-                        reply(player,"Normalizing the completed project's panes and iron bars over the next ticks. Check /buildai status.");
+                        reply(player,"Normalizing finished fence rails, walls, glass panes and iron bars. Watch /buildai status.");
                         return 1;
                     }
                     if(p!=null&&(p.phase==ConstructionProject.Phase.BUILD||
                         p.phase==ConstructionProject.Phase.EXCAVATE||
                         p.phase==ConstructionProject.Phase.CLEANUP||
                         p.phase==ConstructionProject.Phase.NORMALIZE)){
-                        reply(player,"The build is still active; automatic connection repair runs on completion.");
+                        reply(player,"The build is still active; automatic fence/wall/pane connection repair runs on completion.");
                         return 0;
                     }
                     int count=PaneNormalizer.normalizeNearby(player.getServerWorld(),player.getBlockPos());
-                    reply(player,"Repaired "+count+" connected pane/iron bar block states near you (20 block horizontal radius).");
+                    reply(player,"Repaired "+count+" fence/wall/pane/iron-bar block states near you (20 block horizontal radius).");
                     return 1;
                 }))
                 .then(literal("fast").requires(s->s.hasPermissionLevel(2)).executes(c->{

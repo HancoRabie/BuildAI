@@ -7,6 +7,9 @@ public final class ProceduralGenerator {
     private ProceduralGenerator() {}
     public static Blueprint compile(String json) {
         JsonObject root=JsonParser.parseString(json).getAsJsonObject();
+        if(root.has("error"))
+            throw new IllegalArgumentException("AI cannot produce this blueprint at the requested scale: "+
+                root.get("error").getAsString());
         int w=number(root,"width",1,512),h=number(root,"height",1,512),d=number(root,"length",1,512);
         Blueprint b=new Blueprint(root.has("name")?root.get("name").getAsString():"AI Design",w,h,d);
         JsonArray ops=root.getAsJsonArray("operations");

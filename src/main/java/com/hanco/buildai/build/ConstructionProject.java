@@ -16,7 +16,7 @@ import net.minecraft.util.math.*;
  * This first version deliberately refuses excavating block entities and bedrock.
  */
 public final class ConstructionProject {
-    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, COMPLETE, CANCELLED }
+    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, COMPLETE, CANCELLED }
     public final Blueprint blueprint;
     public final UUID owner;
     public final boolean creative;
@@ -25,7 +25,7 @@ public final class ConstructionProject {
     public Phase phase=Phase.SELECT_XZ;
     public BlockPos origin=BlockPos.ORIGIN;
     private final List<BlockPos> order;
-    private int excavationIndex=0,constructionIndex=0;
+    private int excavationIndex=0,constructionIndex=0,normalizeIndex=0,normalizedPanes=0;
     private final Map<BlockPos,BlockState> originals=new LinkedHashMap<>();
     private final Set<BlockPos> modified=new HashSet<>();
     private final Set<BlockPos> supports=new LinkedHashSet<>();
@@ -79,7 +79,27 @@ public final class ConstructionProject {
         hasSnapshot=true;
         phase=Phase.EXCAVATE;
     }
+    /** Re-run normalization against the already-built project footprint, without excavation. */
+    public boolean requestPaneRepair() {
+        if (phase != Phase.COMPLETE) return false;
+        normalizeIndex=0;
+        normalizedPanes=0;
+        phase=Phase.NORMALIZE;
+        return true;
+    }
+    public int normalizedPanes() { return normalizedPanes; }
     public void tick() {
+        if(phase==Phase.NORMALIZE) {
+            int scanned=0;
+            while(normalizeIndex<order.size() && scanned++<256) {
+                BlockPos pos=origin.add(order.get(normalizeIndex));
+                if(!world.isChunkLoaded(pos))return;
+                if(PaneNormalizer.normalize(world,pos))normalizedPanes++;
+                normalizeIndex++;
+            }
+            if(normalizeIndex>=order.size())phase=Phase.COMPLETE;
+            return;
+        }
         if(phase==Phase.CLEANUP){
             if(cleanupIterator==null)cleanupIterator=supports.iterator();
             int n=0;
@@ -90,7 +110,11 @@ public final class ConstructionProject {
                     world.setBlockState(p,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
                 cleanupIterator.remove();
             }
-            if(!cleanupIterator.hasNext())phase=Phase.COMPLETE;
+            if(!cleanupIterator.hasNext()){
+                normalizeIndex=0;
+                normalizedPanes=0;
+                phase=Phase.NORMALIZE;
+            }
             return;
         }
         if(phase!=Phase.EXCAVATE&&phase!=Phase.BUILD&&phase!=Phase.WAITING_SUPPLIES)return;

@@ -1,13 +1,8 @@
 {
-  "required": true,
+  "required": false,
   "package": "com.hanco.buildai.client.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": [
-    "PlacementMouseMixin",
-    "PlacementKeyboardInputMixin",
-    "PlacementCameraLockMixin",
-    "PlacementLookMixin"
-  ],
+  "client": [],
   "injectors": {
     "defaultRequire": 1
   }

@@ -7,10 +7,10 @@ public final class ProceduralGenerator {
     private ProceduralGenerator() {}
     public static Blueprint compile(String json) {
         JsonObject root=JsonParser.parseString(json).getAsJsonObject();
-        int w=number(root,"width",1,96),h=number(root,"height",1,96),d=number(root,"length",1,96);
+        int w=number(root,"width",1,512),h=number(root,"height",1,512),d=number(root,"length",1,512);
         Blueprint b=new Blueprint(root.has("name")?root.get("name").getAsString():"AI Design",w,h,d);
         JsonArray ops=root.getAsJsonArray("operations");
-        if(ops==null||ops.size()<1||ops.size()>3000)throw new IllegalArgumentException("Expected 1-3000 design operations");
+        if(ops==null||ops.size()<1||ops.size()>16000)throw new IllegalArgumentException("Expected 1-16000 design operations");
         for(JsonElement e:ops) {
             JsonObject op=e.getAsJsonObject();
             String kind=op.get("kind").getAsString().toLowerCase(Locale.ROOT);

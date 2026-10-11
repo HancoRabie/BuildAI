@@ -16,7 +16,7 @@ import net.minecraft.util.math.*;
  * This first version deliberately refuses excavating block entities and bedrock.
  */
 public final class ConstructionProject {
-    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, COMPLETE, CANCELLED, PAUSED_ERROR }
+    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, CINEMATIC_PULL, COMPLETE, CANCELLED, PAUSED_ERROR }
     public final Blueprint blueprint;
     public final UUID owner;
     public final boolean creative;
@@ -29,6 +29,9 @@ public final class ConstructionProject {
     private final Map<BlockPos,BlockState> originals=new LinkedHashMap<>();
     private final Set<BlockPos> modified=new HashSet<>();
     private final Set<BlockPos> supports=new LinkedHashSet<>();
+    private final List<BlockPos> excavationSamples=new ArrayList<>(192);
+    private int sampledRemovalCount=0,blackHoleTicks=0;
+    private static final int BLACK_HOLE_TICKS=80;
     private java.util.Iterator<BlockPos> cleanupIterator;
     private final Map<String,Integer> consumed=new TreeMap<>();
     private final Map<String,String> substitutions=new LinkedHashMap<>();
@@ -80,7 +83,22 @@ public final class ConstructionProject {
         // ORIGINAL states lazily, exactly before each excavation/placement.
         // A previously AIR cell is represented by absence from originals.
         hasSnapshot=true;
+        excavationSamples.clear();sampledRemovalCount=0;blackHoleTicks=0;
         phase=Phase.EXCAVATE;
+        if(cinematic && collisions>0)excavationCue(
+            com.hanco.buildai.net.CinematicExcavationPayload.PREPARE,0);
+    }
+    private void excavationCue(int stage,int duration){
+        net.minecraft.server.network.ServerPlayerEntity player=
+            world.getServer().getPlayerManager().getPlayer(owner);
+        if(player!=null&&net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(
+            player,com.hanco.buildai.net.CinematicExcavationPayload.ID)){
+            net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
+                new com.hanco.buildai.net.CinematicExcavationPayload(
+                    stage,origin,blueprint.width,blueprint.height,blueprint.length,
+                    stage==com.hanco.buildai.net.CinematicExcavationPayload.PULL?
+                        List.copyOf(excavationSamples):List.of(),duration));
+        }
     }
     private void recordOriginal(BlockPos position) {
         BlockPos key=position.toImmutable();
@@ -103,6 +121,11 @@ public final class ConstructionProject {
     }
     public int normalizedPanes() { return normalizedPanes; }
     public void tick() {
+        if(phase==Phase.CINEMATIC_PULL){
+            // Absolutely no construction before the cleared-site cinematic ends.
+            if(++blackHoleTicks>=BLACK_HOLE_TICKS)phase=Phase.BUILD;
+            return;
+        }
         if(phase==Phase.NORMALIZE) {
             int scanned=0;
             while(normalizeIndex<order.size() && scanned++<256) {
@@ -133,23 +156,40 @@ public final class ConstructionProject {
         }
         if(phase!=Phase.EXCAVATE&&phase!=Phase.BUILD&&phase!=Phase.WAITING_SUPPLIES)return;
         if(phase==Phase.EXCAVATE) {
-            int processed=0;
+            // Cinematic is one VISUAL removal event, not a 4-million-cell server
+            // tick. The client shields the site during this bounded preparatory pass.
+            // World edits use limited chunks to avoid hangs, drops and TPS collapse.
+            int scanned=0,removed=0;
             int total=blueprint.width*blueprint.height*blueprint.length;
-            while(excavationIndex<total && processed++<Math.min(64,constructionSpeed*4)) {
+            final int maxScanned=cinematic?12000:4096;
+            final int maxRemoved=cinematic?2048:2048;
+            int sampleStride=Math.max(1,collisions/192);
+            while(excavationIndex<total && scanned<maxScanned && removed<maxRemoved) {
                 int i=excavationIndex++;
                 int x=i%blueprint.width;
                 int z=(i/blueprint.width)%blueprint.length;
                 int y=i/(blueprint.width*blueprint.length);
                 BlockPos p=origin.add(x,y,z);
                 if(!world.isChunkLoaded(p)) {excavationIndex--;break;}
+                scanned++;
                 if(!world.getBlockState(p).isAir()) {
                     recordOriginal(p);
                     world.setBlockState(p,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
-                    if(cinematic)world.spawnParticles(net.minecraft.particle.ParticleTypes.PORTAL,
-                        p.getX()+0.5,p.getY()+0.6,p.getZ()+0.5,2,0.25,0.25,0.25,0.04);
+                    removed++;
+                    if(cinematic && excavationSamples.size()<192 &&
+                        sampledRemovalCount++%sampleStride==0)
+                        excavationSamples.add(p.toImmutable());
                 }
             }
-            if(excavationIndex==total)phase=Phase.BUILD;
+            if(excavationIndex==total){
+                if(cinematic&&collisions>0){
+                    // The client reveals the newly empty site ALL AT ONCE,
+                    // then draws sample fragments spiralling into the center.
+                    excavationCue(com.hanco.buildai.net.CinematicExcavationPayload.PULL,
+                        BLACK_HOLE_TICKS);
+                    phase=Phase.CINEMATIC_PULL;
+                }else phase=Phase.BUILD;
+            }
             return;
         }
         if(phase==Phase.WAITING_SUPPLIES)phase=Phase.BUILD;
@@ -298,6 +338,7 @@ public final class ConstructionProject {
         return map;
     }
     public void cancel(boolean undo) {
+        excavationCue(com.hanco.buildai.net.CinematicExcavationPayload.STOP,0);
         // Temporary staging never survives a cancellation.
         for(BlockPos p:new ArrayList<>(supports)){
             BlockState s=world.getBlockState(p);

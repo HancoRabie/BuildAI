@@ -120,8 +120,21 @@ public final class BuildAIScreen extends Screen {
                 if(BuildAIClient.draft==null){status="Create or import a blueprint first.";return;}
                 try{
                     BuildAIClient.beginUpload(BuildAIClient.draft,surfaceLayer);
-                    status="Sending blueprint to server. Waiting for approval...";
+                    status="Sending blueprint to server; wait for acceptance, then close F8 for placement.";
                 }catch(Exception ex){status="Upload failed: "+ex.getMessage();}
+            });
+            add("Resume Flight Camera",left,row(7),half,buttonHeight,b->{
+                if(BuildAIClient.draft==null||(!BuildAIClient.selecting&&!BuildAIClient.previewLocked)){
+                    status="Upload and get server approval first.";return;
+                }
+                close();
+                PlacementMode.start();
+            });
+            add("Lock XYZ (Enter)",left+half+gap,row(7),half,buttonHeight,b->{
+                if(!PlacementMode.active()){
+                    status="First click Resume Flight Camera, then press Enter while in the world.";return;
+                }
+                PlacementMode.lock();
             });
             add("Export Blueprint as .schem",left,row(8),panelWidth,buttonHeight,b->exportSchematic());
             add("Hide Preview",left,row(9),half,buttonHeight,b->{
@@ -135,8 +148,14 @@ public final class BuildAIScreen extends Screen {
                 client.getNetworkHandler().sendChatCommand("buildai cancel");
                 status="Cancellation requested. Already placed blocks remain; see chat for result.";
             });
-            add("Build commands in How To",left,row(10),panelWidth,buttonHeight,b->{
-                saveFields();client.setScreen(new BuildAIHelpScreen(this));
+            add("Retry Placement",left,row(10),half,buttonHeight,b->{
+                if(BuildAIClient.draft==null){status="Load a blueprint first.";return;}
+                PlacementMode.retry();
+                status="Retry requested: no excavation will begin.";
+            });
+            add("Return to Player",left+half+gap,row(10),half,buttonHeight,b->{
+                PlacementMode.stop();
+                status="Returned to your real character. Preview remains until hidden or canceled.";
             });
         }
         add("Close",left,row(11),panelWidth,buttonHeight,b->close());
@@ -266,6 +285,12 @@ public final class BuildAIScreen extends Screen {
             ctx.drawTextWithShadow(textRenderer,messages.get(line),
                 x,Math.min(height-10,row(12+line)),0x79EBBD);
     }
-    @Override public void close(){if(client!=null)client.setScreen(null);}
+    @Override public void close(){
+        if(client!=null){
+            client.setScreen(null);
+            if(BuildAIClient.selecting&&!PlacementMode.active()&&BuildAIClient.previewOrigin==null)
+                PlacementMode.start();
+        }
+    }
     @Override public boolean shouldPause(){return false;}
 }

@@ -25,6 +25,15 @@ public final class BuildAIScreen extends Screen {
     public void updateStatus(String message){status=message;}
 
     public BuildAIScreen(){super(Text.literal("BuildAI — Minecraft Architect"));}
+    /** Chat-generated designs open directly in the in-game blueprint review tab. */
+    public static BuildAIScreen generatedResult(){
+        BuildAIScreen s=new BuildAIScreen();
+        s.tab=1;
+        if(BuildAIClient.draft!=null)
+            s.status="Blueprint ready: "+BuildAIClient.draft.name+
+                ". Inspect its layers, then upload for 3D placement.";
+        return s;
+    }
     private Text text(String s){return Text.literal(s);}
     private void saveFields(){
         if(prompt!=null)promptValue=prompt.getText();
@@ -84,7 +93,8 @@ public final class BuildAIScreen extends Screen {
                 if(busy){status="Wait for the current operation to finish.";return;}
                 Blueprint demo=DemoBlueprint.cottage();
                 BuildAIClient.acceptImport(demo);surfaceLayer=0;
-                status="Demo cottage ready ("+demo.solidCount()+" blocks). Open Placement / Export.";
+                status="Demo cottage ready ("+demo.solidCount()+" blocks). Inspect it below.";
+                switchTab(1);
             });
             add("Chat Mode: "+(BuildAIClient.chatMode?"ON":"OFF"),left,row(10),half,buttonHeight,b->{
                 if(key!=null)BuildAIClient.setKey(key.getText());
@@ -107,6 +117,11 @@ public final class BuildAIScreen extends Screen {
                     }
                 });
         }else{
+            add("Inspect Blueprint Layers",left,row(5),panelWidth,buttonHeight,b->{
+                if(BuildAIClient.draft==null){status="Generate or import a blueprint first.";return;}
+                if(client!=null)client.setScreen(new BlueprintInspectorScreen(this,
+                    BuildAIClient.draft,surfaceLayer));
+            });
             add("Surface Y -",left,row(4),half,buttonHeight,b->{
                 if(BuildAIClient.draft==null){status="Load a blueprint first.";return;}
                 surfaceLayer=Math.max(0,surfaceLayer-1);
@@ -166,14 +181,9 @@ public final class BuildAIScreen extends Screen {
         add("Close",left,row(11),panelWidth,buttonHeight,b->close());
     }
     private void connectChatGPT(){
-        if(busy){status="Another BuildAI action is still in progress.";return;}
-        busy=true;status="Opening your browser for ChatGPT authorization...";
-        ChatGPTSignIn.connect().whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
-            busy=false;
-            status=error==null?result:"Sign-in unsuccessful: "+message(error);
-            // Update account button labels without losing entered prompt or key.
-            switchTab(0);
-        }));
+        if(busy){status="Wait for the current operation to finish.";return;}
+        saveFields();
+        if(client!=null)client.setScreen(new ChatGPTConnectScreen(this));
     }
     private void requestAI(boolean revise){
         if(busy){status="Wait for the current operation to finish.";return;}
@@ -203,7 +213,8 @@ public final class BuildAIScreen extends Screen {
             BuildAIClient.acceptGenerated(result);
             surfaceLayer=BuildAIClient.surfaceLayer;
             status=(revise?"Revised: ":"Created: ")+result.blueprint().name+
-                " ("+result.blueprint().solidCount()+" blocks). Open Placement / Export.";
+                " ("+result.blueprint().solidCount()+" blocks). Inspect layers or upload for placement.";
+            switchTab(1);
         }));
     }
     private static String message(Throwable throwable){
@@ -248,7 +259,8 @@ public final class BuildAIScreen extends Screen {
             try{
                 BlockStates.validate(loaded);
                 BuildAIClient.acceptImport(loaded);surfaceLayer=0;
-                status="Imported "+loaded.name+" ("+loaded.solidCount()+" blocks). Open Placement / Export.";
+                status="Imported "+loaded.name+" ("+loaded.solidCount()+" blocks). Inspect layers or position it.";
+                switchTab(1);
             }catch(Exception e){status="Import rejected: "+e.getMessage();}
         }));
     }

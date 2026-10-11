@@ -74,8 +74,8 @@ public final class BuildAIClient implements ClientModInitializer {
             surfacePending=false;
             previewLocked=false;
             previewOrigin=null;
-            // When F8 is still open, starting a camera here would immediately
-            // be canceled by the screen-aware flight loop. F8.close() starts it.
+            // Prepare a normal-camera preview. F8.close() activates positioning
+            // without changing the player's view, movement or flight mode.
             if(MinecraftClient.getInstance().currentScreen==null)PlacementMode.start();
         }else{
             clearPreview();
@@ -84,7 +84,7 @@ public final class BuildAIClient implements ClientModInitializer {
         MinecraftClient client=MinecraftClient.getInstance();
         if(client.currentScreen instanceof BuildAIScreen screen)
             screen.updateStatus(payload.accepted()
-                ? "Blueprint accepted. Close F8 to begin flight; wheel moves world Z, G snaps surface, Enter locks XYZ."
+                ? "Blueprint accepted. Close F8, move normally, aim at the chosen ground and press G. Enter locks XYZ; R retries."
                 : payload.message());
     }
     public static void setKey(String key){apiKey=key==null?"":key.trim();}
@@ -204,11 +204,6 @@ public final class BuildAIClient implements ClientModInitializer {
                 ProjectHud.latest=null;chatMode=false;clearPreview();
                 CinematicExcavationRenderer.reset();
             });
-        // Placement uses Enter/R, never right-click: prevent accidental world edits while flying.
-        UseBlockCallback.EVENT.register((player,world,hand,hit)->{
-            if(world.isClient()&&PlacementMode.active())return ActionResult.SUCCESS;
-            return ActionResult.PASS;
-        });
         open=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.buildai.open",InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_F8,"category.buildai"));
         lockPlacement=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.buildai.lock_placement",
             InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_ENTER,"category.buildai"));
@@ -241,7 +236,5 @@ public final class BuildAIClient implements ClientModInitializer {
             generate(message);
             return false; // never leak private building prompts to public server chat
         });
-        ClientPreAttackCallback.EVENT.register((client,player,clickCount)->
-            PlacementMode.active()); // Detached camera cannot punch/excavate blocks or entities.
     }
 }

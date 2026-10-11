@@ -175,6 +175,11 @@ public final class BuildAIClient implements ClientModInitializer {
         net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(com.hanco.buildai.build.BuildBlocks.CONSTRUCTION_SLAB,net.minecraft.client.render.RenderLayer.getTranslucent());
         PreviewRenderer.register();
         PlacementHud.register();
+        CinematicExcavationRenderer.register();
+        ClientPlayNetworking.registerGlobalReceiver(
+            com.hanco.buildai.net.CinematicExcavationPayload.ID,
+            (payload,context)->context.client().execute(()->
+                CinematicExcavationRenderer.receive(payload)));
         ClientPlayNetworking.registerGlobalReceiver(com.hanco.buildai.net.PlacementReplyPayload.ID,
             (payload,context)->context.client().execute(()->PlacementMode.receive(
                 payload.accepted(),payload.locked(),payload.origin(),payload.message())));
@@ -188,11 +193,16 @@ public final class BuildAIClient implements ClientModInitializer {
             com.hanco.buildai.net.ProjectStatusPayload.ID,
             (payload,context)->context.client().execute(()->{
                 ProjectHud.latest=payload;
-                if(payload.phase().equals("COMPLETE") || payload.phase().equals("CANCELLED"))
+                if(payload.phase().equals("COMPLETE") || payload.phase().equals("CANCELLED")){
                     clearPreview();
+                    CinematicExcavationRenderer.reset();
+                }
             }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
-            (handler,client)->{ProjectHud.latest=null;chatMode=false;clearPreview();});
+            (handler,client)->{
+                ProjectHud.latest=null;chatMode=false;clearPreview();
+                CinematicExcavationRenderer.reset();
+            });
         // Placement uses Enter/R, never right-click: prevent accidental world edits while flying.
         UseBlockCallback.EVENT.register((player,world,hand,hit)->{
             if(world.isClient()&&PlacementMode.active())return ActionResult.SUCCESS;
@@ -216,6 +226,7 @@ public final class BuildAIClient implements ClientModInitializer {
                 }
             }
             PlacementMode.tick();
+            CinematicExcavationRenderer.tick();
         });
         ClientSendMessageEvents.ALLOW_CHAT.register(message->{
             if(!chatMode)return true;

@@ -31,6 +31,7 @@ public final class ConstructionProject {
     private final Map<String,Integer> consumed=new TreeMap<>();
     private final Map<String,String> substitutions=new LinkedHashMap<>();
     private final List<BlockPos> supplies=new ArrayList<>();
+    private final Set<BlockPos> linkedChests=new LinkedHashSet<>();
     private long lastChestScan=0;
     private boolean hasSnapshot=false;
     public int collisions=0;
@@ -155,11 +156,16 @@ public final class ConstructionProject {
     private void refreshChests() {
         supplies.clear();
         lastChestScan=world.getTime();
-        // Bounded search around construction origin; signs can be attached or placed above a chest.
-        for(int dx=-12;dx<=12;dx++)for(int dz=-12;dz<=12;dz++)for(int dy=-3;dy<=3;dy++) {
-            BlockPos candidate=origin.add(dx,dy,dz);
+        for(BlockPos linked:linkedChests) {
+            if(world.getBlockEntity(linked) instanceof Inventory && marked(linked))
+                supplies.add(linked);
+        }
+        // Small auto-discovery around the chosen ground-level corner, never the buried blueprint origin.
+        BlockPos ground=origin.up(surfaceLayer);
+        for(int dx=-12;dx<=12;dx++)for(int dz=-12;dz<=12;dz++)for(int dy=-4;dy<=4;dy++) {
+            BlockPos candidate=ground.add(dx,dy,dz);
             if(!(world.getBlockEntity(candidate) instanceof Inventory))continue;
-            if(marked(candidate))supplies.add(candidate.toImmutable());
+            if(marked(candidate)&&!supplies.contains(candidate))supplies.add(candidate.toImmutable());
         }
     }
     private boolean marked(BlockPos chest) {
@@ -175,7 +181,27 @@ public final class ConstructionProject {
         }
         return false;
     }
-    public boolean protectedChest(BlockPos pos) {return supplies.contains(pos);}
+    public boolean protectedChest(BlockPos pos) {
+        return linkedChests.contains(pos)||supplies.contains(pos);
+    }
+    public void linkChest(BlockPos pos) {
+        if(!(world.getBlockEntity(pos) instanceof Inventory))throw new IllegalArgumentException("Select a chest or other inventory block");
+        if(!marked(pos))throw new IllegalArgumentException("Put a sign saying BuildAI beside the chest first");
+        if(pos.getSquaredDistance(origin.add(blueprint.width/2,surfaceLayer,blueprint.length/2))>160*160)
+            throw new IllegalArgumentException("Supply chest too far from the project");
+        linkedChests.add(pos.toImmutable());refreshChests();
+    }
+    public Map<String,Integer> stored(){
+        refreshChests();
+        Map<String,Integer> map=new TreeMap<>();
+        for(BlockPos pos:supplies)if(world.getBlockEntity(pos) instanceof Inventory inv)
+            for(int slot=0;slot<inv.size();slot++){
+                ItemStack stack=inv.getStack(slot);
+                if(stack.isEmpty())continue;
+                map.merge(Registries.ITEM.getId(stack.getItem()).toString(),stack.getCount(),Integer::sum);
+            }
+        return map;
+    }
     public void cancel(boolean undo) {
         if(undo && hasSnapshot) {
             // Conflict safe: refuse rollback if a block has become a block entity since our placement.

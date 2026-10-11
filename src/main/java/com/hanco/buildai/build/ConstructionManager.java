@@ -30,6 +30,7 @@ public final class ConstructionManager {
                         com.hanco.buildai.net.ProjectStatusPayload.ID))
                     net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(owner,project.status());
             }catch(RuntimeException e){
+                project.stopCinematicVisuals();
                 // Unexpected failures must never turn into a material-shortage
                 // resume, which could skip unfinished excavation and corrupt the build.
                 project.phase=ConstructionProject.Phase.PAUSED_ERROR;

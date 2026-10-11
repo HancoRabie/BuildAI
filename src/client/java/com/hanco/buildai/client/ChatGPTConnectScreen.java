@@ -30,7 +30,7 @@ public final class ChatGPTConnectScreen extends Screen {
         int x=(width-panel)/2;
         int center=height/2;
         int gap=6,half=(panel-gap)/2;
-        addDrawableChild(ButtonWidget.builder(Text.literal("Open Browser"),
+        addDrawableChild(ButtonWidget.builder(Text.literal("Open Default Browser"),
             b->{
                 String url=ChatGPTSignIn.pendingSignInUrl();
                 if(url.isBlank()){
@@ -38,7 +38,7 @@ public final class ChatGPTConnectScreen extends Screen {
                     return;
                 }
                 boolean started=BrowserLauncher.openOpenAiAuthorization(url);
-                status=started?"Browser launch requested. Complete authorization there.":
+                status=started?"Opening your default browser. Approve BuildAI there.":
                     "Browser is unavailable. Use Copy Sign-in Link.";
             }).dimensions(x,Math.min(height-52,center+48),half,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Copy Sign-in Link"),
@@ -50,7 +50,7 @@ public final class ChatGPTConnectScreen extends Screen {
                 }
                 if(client!=null){
                     client.keyboard.setClipboard(url);
-                    status="Sign-in link copied. Paste it into Chrome or Edge.";
+                    status="Sign-in link copied. Paste it into your preferred browser.";
                 }
             }).dimensions(x+half+gap,Math.min(height-52,center+48),half,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Return to BuildAI"),
@@ -61,7 +61,7 @@ public final class ChatGPTConnectScreen extends Screen {
     private void startSignIn(){
         started=true;
         waiting=true;
-        status="Opening OpenAI sign-in in your system browser...";
+        status="Opening OpenAI sign-in in your Windows default browser...";
         details="Approve access there. BuildAI will return here automatically.";
         ChatGPTSignIn.connect().whenComplete((result,error)->
             MinecraftClient.getInstance().execute(()->{

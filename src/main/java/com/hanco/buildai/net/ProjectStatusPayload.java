@@ -8,7 +8,7 @@ import net.minecraft.util.math.BlockPos;
 
 /** Server-to-client status: server remains authoritative for material and construction counts. */
 public record ProjectStatusPayload(String title,String phase,int placed,int total,int supplied,int required,
-    String materials,BlockPos chest) implements CustomPayload {
+    String materials,BlockPos chest,int inspected,int excavationCells,int removed) implements CustomPayload {
     public static final CustomPayload.Id<ProjectStatusPayload> ID=
         new CustomPayload.Id<>(Identifier.of("buildai","project_status"));
     public static final PacketCodec<RegistryByteBuf,ProjectStatusPayload> CODEC=PacketCodec.of(
@@ -17,8 +17,10 @@ public record ProjectStatusPayload(String title,String phase,int placed,int tota
             b.writeVarInt(p.placed());b.writeVarInt(p.total());
             b.writeVarInt(p.supplied());b.writeVarInt(p.required());
             b.writeString(p.materials(),2048);b.writeBlockPos(p.chest());
+            b.writeVarInt(p.inspected());b.writeVarInt(p.excavationCells());b.writeVarInt(p.removed());
         },
         b->new ProjectStatusPayload(b.readString(160),b.readString(40),
-            b.readVarInt(),b.readVarInt(),b.readVarInt(),b.readVarInt(),b.readString(2048),b.readBlockPos()));
+            b.readVarInt(),b.readVarInt(),b.readVarInt(),b.readVarInt(),b.readString(2048),b.readBlockPos(),
+            b.readVarInt(),b.readVarInt(),b.readVarInt()));
     @Override public CustomPayload.Id<? extends CustomPayload> getId(){return ID;}
 }

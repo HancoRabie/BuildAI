@@ -28,6 +28,13 @@ public final class ChatGPTSignIn {
     private static volatile Account account;
     private static volatile boolean loaded=false;
     private static volatile boolean signingIn=false;
+    private static volatile String pendingSignInUrl="";
+    private static volatile String browserStatus="Preparing secure authorization...";
+
+    /** This link is temporary and only works while the localhost callback is listening. */
+    public static String pendingSignInUrl(){return pendingSignInUrl;}
+    public static String browserStatus(){return browserStatus;}
+    public static boolean signingIn(){return signingIn;}
 
     private record Account(String clientId,String subject,String email,String idToken,String access,
                            String refresh,String scopes,long expires,String hostId) {
@@ -137,6 +144,8 @@ public final class ChatGPTSignIn {
         synchronized(ChatGPTSignIn.class){
             if(signingIn)return CompletableFuture.failedFuture(new IOException("ChatGPT sign-in is already in progress"));
             signingIn=true;
+            pendingSignInUrl="";
+            browserStatus="Starting secure local callback...";
         }
         return CompletableFuture.supplyAsync(()->{
             HttpServer server=null;
@@ -167,10 +176,16 @@ public final class ChatGPTSignIn {
                 p.put("redirect_uri",redirect);p.put("scope",SCOPES);p.put("resource",RESOURCE);
                 p.put("state",state);p.put("nonce",nonce);p.put("code_challenge_method","S256");
                 p.put("code_challenge",codeChallenge(verifier));
-                if(!Desktop.isDesktopSupported()||!Desktop.getDesktop().isSupported(Desktop.Action.BROWSE))
-                    throw new IOException("A system browser is required for ChatGPT sign-in");
-                Desktop.getDesktop().browse(URI.create(AUTHORIZE+"?"+form(p)));
-                Map<String,String> result=callback.get(180,TimeUnit.SECONDS);
+                // Preserve the callback and PKCE verifier even when Minecraft's
+                // bundled Java reports Desktop.browse() unsupported (common on Windows).
+                // The user may copy the live authorization link in the in-game modal.
+                pendingSignInUrl=AUTHORIZE+"?"+form(p);
+                browserStatus="Opening your default browser...";
+                boolean opened=BrowserLauncher.openOpenAiAuthorization(pendingSignInUrl);
+                browserStatus=opened
+                    ? "Browser launched. Approve BuildAI there, then return to Minecraft."
+                    : "Browser could not open automatically. Click Copy Sign-in Link below.";
+                Map<String,String> result=callback.get(300,TimeUnit.SECONDS);
                 if(!state.equals(result.get("state")))throw new SecurityException("OAuth callback state mismatch");
                 if(result.containsKey("error"))throw new IOException("Authorization denied: "+result.get("error"));
                 String clientId=previous==null?result.get("client_id"):previous.clientId;
@@ -199,6 +214,8 @@ public final class ChatGPTSignIn {
             }catch(Exception e){throw new CompletionException(e);}
             finally{
                 if(server!=null)server.stop(0);
+                pendingSignInUrl="";
+                browserStatus="Sign-in session ended.";
                 synchronized(ChatGPTSignIn.class){signingIn=false;}
             }
         });

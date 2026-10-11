@@ -64,7 +64,8 @@ public final class BuildAIScreen extends Screen {
             prompt.setMaxLength(4000);prompt.setText(promptValue);
             prompt.setPlaceholder(text("Describe a castle, house, factory, or a requested revision"));
             addDrawableChild(prompt);
-            add("Continue with ChatGPT",left,row(5),half,buttonHeight,b->connect());
+            add("ChatGPT Login (pending)",left,row(5),half,buttonHeight,b->
+                status="Account sign-in is not implemented yet. Use offline demo or optional API key.");
             add("API key option",left+half+gap,row(5),half,buttonHeight,b->{
                 saveFields();showApiKey=!showApiKey;switchTab(0);
             });
@@ -87,9 +88,9 @@ public final class BuildAIScreen extends Screen {
                 b.setMessage(text("Chat Mode: "+(BuildAIClient.chatMode?"ON":"OFF")));
                 status=BuildAIClient.chatMode?"Private building chat enabled. Type exit to stop.":"Chat Mode disabled.";
             });
-            add("Disconnect ChatGPT",left+half+gap,row(10),half,buttonHeight,b->{
-                ChatGPTSignIn.disconnect();
-                status="ChatGPT disconnected from this session.";
+            add("Hide Preview",left+half+gap,row(10),half,buttonHeight,b->{
+                BuildAIClient.clearPreview();
+                status="Ghost grid hidden; placed blocks remain untouched.";
             });
         }else{
             add("Surface Y -",left,row(4),half,buttonHeight,b->surfaceLayer=Math.max(0,surfaceLayer-1));
@@ -109,19 +110,15 @@ public final class BuildAIScreen extends Screen {
                 }catch(Exception ex){status="Upload failed: "+ex.getMessage();}
             });
             add("Export Blueprint as .schem",left,row(8),panelWidth,buttonHeight,b->exportSchematic());
+            add("Hide Preview",left,row(9),panelWidth,buttonHeight,b->{
+                BuildAIClient.clearPreview();
+                status="Ghost grid hidden. Type /buildai hide to hide it from the server too.";
+            });
             add("Build commands in How To",left,row(10),panelWidth,buttonHeight,b->{
                 saveFields();client.setScreen(new BuildAIHelpScreen(this));
             });
         }
         add("Close",left,row(11),panelWidth,buttonHeight,b->close());
-    }
-    private void connect(){
-        if(busy)return;
-        busy=true;status="Opening browser to connect ChatGPT...";
-        ChatGPTSignIn.connect().whenComplete((label,error)->MinecraftClient.getInstance().execute(()->{
-            busy=false;
-            status=error==null ? label : "Sign-in failed: "+message(error);
-        }));
     }
     private void requestAI(boolean revise){
         if(busy)return;
@@ -136,8 +133,6 @@ public final class BuildAIScreen extends Screen {
         busy=true;status=revise?"Revising blueprint...":"Generating blueprint...";
         CompletableFuture.supplyAsync(()->{
             try{
-                if(ChatGPTSignIn.connected())
-                    return AIArchitect.generateWithChatGPT(description,revise?previous:null);
                 return revise
                     ? AIArchitect.reviseDesign(BuildAIClient.getKey(),description,previous)
                     : AIArchitect.generateDesign(BuildAIClient.getKey(),description);
@@ -204,9 +199,7 @@ public final class BuildAIScreen extends Screen {
         ctx.drawCenteredTextWithShadow(textRenderer,"BuildAI | 1.21.1 | Architect",width/2,row(0),0x66ECC4);
         if(tab==0){
             ctx.drawTextWithShadow(textRenderer,"Describe your build or a revision",x,row(2),0xF1F6FA);
-            String account=ChatGPTSignIn.connected()?
-                "ChatGPT connected: "+ChatGPTSignIn.accountLabel():
-                "ChatGPT: not connected — no API key needed after sign-in";
+            String account="ChatGPT sign-in not yet available | API key or offline demo";
             ctx.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(account,panelWidth),x,row(4),0xA4C7DA);
             if(showApiKey)ctx.drawTextWithShadow(textRenderer,"Optional developer API key (separate billing)",x,row(6),0xBFC6D2);
         }else{

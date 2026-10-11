@@ -146,9 +146,13 @@ public final class BuildAIScreen extends Screen {
                 if(BuildAIClient.draft==null||(!BuildAIClient.selecting&&!BuildAIClient.previewLocked)){
                     status="Upload and get server approval first.";return;
                 }
-                close();
-                if(BuildAIClient.previewLocked)PlacementMode.inspect();
-                else PlacementMode.start();
+                if(PlacementMode.active()){
+                    close(); // already attached: keep the exact camera transform and locked XYZ
+                }else{
+                    close();
+                    if(BuildAIClient.previewLocked)PlacementMode.inspect();
+                    else PlacementMode.start();
+                }
             });
             add("Lock XYZ (Enter)",left+half+gap,row(7),half,buttonHeight,b->{
                 if(!PlacementMode.active()){

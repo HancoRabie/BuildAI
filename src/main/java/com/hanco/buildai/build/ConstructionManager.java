@@ -8,6 +8,7 @@ import com.hanco.buildai.blueprint.*;
 /** Initial per-player projects; persistent project journals planned after in-world verification. */
 public final class ConstructionManager {
     private static final Map<UUID,ConstructionProject> PROJECTS=new HashMap<>();
+    private static final Map<UUID,ConstructionProject.Phase> LAST_ANNOUNCED=new HashMap<>();
     private ConstructionManager(){}
     public static ConstructionProject get(ServerPlayerEntity player){return PROJECTS.get(player.getUuid());}
     public static void begin(ServerPlayerEntity player,Blueprint b,int surfaceLayer){
@@ -19,12 +20,28 @@ public final class ConstructionManager {
         }
         BlockStates.validate(b);
         PROJECTS.put(player.getUuid(),new ConstructionProject(player,b,surfaceLayer));
+        LAST_ANNOUNCED.remove(player.getUuid());
     }
     public static void tick(MinecraftServer server){
         for(ConstructionProject project:new ArrayList<>(PROJECTS.values())) {
             try{
                 project.tick();
                 ServerPlayerEntity owner=server.getPlayerManager().getPlayer(project.owner);
+                if(owner!=null){
+                    ConstructionProject.Phase last=LAST_ANNOUNCED.put(project.owner,project.phase);
+                    // Announce each genuine transition ONCE (not on every server tick).
+                    if(last!=project.phase && (project.phase==ConstructionProject.Phase.EXCAVATE||
+                        project.phase==ConstructionProject.Phase.CINEMATIC_PULL||
+                        project.phase==ConstructionProject.Phase.BUILD||
+                        project.phase==ConstructionProject.Phase.WAITING_SUPPLIES||
+                        project.phase==ConstructionProject.Phase.CLEANUP||
+                        project.phase==ConstructionProject.Phase.NORMALIZE||
+                        project.phase==ConstructionProject.Phase.COMPLETE||
+                        project.phase==ConstructionProject.Phase.PAUSED_ERROR)){
+                        owner.sendMessage(net.minecraft.text.Text.literal(
+                            "[BuildAI] "+project.phaseDescription()),false);
+                    }
+                }
                 if(owner!=null&&project.world.getTime()%20==0&&
                     net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(owner,
                         com.hanco.buildai.net.ProjectStatusPayload.ID))

@@ -22,10 +22,10 @@ public final class BuildAIHelpScreen extends Screen {
             "This is an early test build. Use a disposable world before experimenting with excavation or undo."
         },
         {
-            "ChatGPT account sign-in is not connected in this release. Public/open-source status does not by itself implement OAuth or grant permissions.",
-            "AI generation currently uses a separately billed OpenAI API key, entered temporarily in F8. BuildAI does not save that key to disk or send it to Minecraft servers.",
-            "Do not paste your ChatGPT password or session cookies into BuildAI. Your ChatGPT subscription is not an API key.",
-            "The future Continue with ChatGPT flow needs an approved client and a secure browser-based authorization process.",
+            "Press F8, then Continue with ChatGPT. Your system browser opens OpenAI authorization. Sign in and approve BuildAI plan usage; return to Minecraft afterward.",
+            "Connected eligible ChatGPT users can generate with their plan. A separate OpenAI developer API key remains an optional fallback; it is not saved by the game.",
+            "BuildAI never asks for ChatGPT passwords or cookies. Browser permission is distinct from ordinary ChatGPT account sign-in; plan access depends on eligible account usage limits.",
+            "A first-time open-source OAuth registration issues a reusable client ID. Sign-in uses PKCE, ID token signature verification and a locally stored session. Disconnect from F8 when needed.",
             "You can import community schematics and construct them without any AI account."
         },
         {
@@ -75,7 +75,7 @@ public final class BuildAIHelpScreen extends Screen {
         },
         {
             "DO NOT test BuildAI on a valuable world without a backup.",
-            "Not in v0.1: actual detached camera, durable crash recovery, complete undo/refunds, full legacy conversions, arbitrary tested redstone mechanisms, or direct ChatGPT sign-in.",
+            "This test build includes detached placement flight and browser ChatGPT sign-in, but neither has been live user-verified. Still incomplete: durable crash recovery, full rollback/refunds, complete legacy conversions and tested arbitrary redstone.",
             "The AI can generate block geometry and write schematics, but does not yet simulate every redstone mechanism. Check machinery in Minecraft.",
             "Save and reload frequently when designing, but remember ongoing construction sessions are not persisted across server restarts.",
             "For bug reports include the schematic type, block count, Minecraft/Fabric versions, build log and reproducible steps."

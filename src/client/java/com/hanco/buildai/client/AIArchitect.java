@@ -79,6 +79,12 @@ public final class AIArchitect {
         }catch(Exception ignored){return "";}
     }
 
+    private static String loadArchitectureGuide(){
+        try(java.io.InputStream in=AIArchitect.class.getResourceAsStream(
+                "/assets/buildai/architecture_best_practices.txt")){
+            return in==null?"":new String(in.readAllBytes(),StandardCharsets.UTF_8);
+        }catch(java.io.IOException e){return "";}
+    }
     private static void report(GenerationProgress progress,String stage,String detail){
         if(progress!=null)progress.stage(stage,detail);
     }
@@ -104,7 +110,7 @@ public final class AIArchitect {
         JsonArray input=new JsonArray();
         JsonObject system=new JsonObject();
         system.addProperty("role","developer");
-        String rules=INSTRUCTIONS+"\n"+REDSTONE+"\n"+loadReference();
+        String rules=INSTRUCTIONS+"\n"+REDSTONE+"\n"+loadReference()+"\n"+loadArchitectureGuide();
         if(previous!=null)rules+="\nRevise the existing blueprint. Return COMPLETE replacement JSON, not a diff. "+
             "Keep existing geometry unless the player explicitly asks for changes.";
         system.addProperty("content",rules);
@@ -175,6 +181,8 @@ public final class AIArchitect {
         Blueprint compiled=ProceduralGenerator.compile(spec);
         report(progress,"Validating Minecraft blocks","Checking block IDs and states before displaying the blueprint.");
         BlockStates.validate(compiled);
+        report(progress,"Architectural QA","Checking stairs, floor openings, room declarations and interior access warnings.");
+        compiled.warnings.addAll(ArchitectureAudit.inspect(compiled,prompt,spec));
         return new DesignResult(compiled,spec);
     }
 
@@ -186,7 +194,7 @@ public final class AIArchitect {
         JsonObject format=new JsonObject();format.addProperty("type","json_object");
         body.add("response_format",format);
         JsonArray messages=new JsonArray();
-        String systemInstructions=INSTRUCTIONS+"\n"+REDSTONE+"\n"+loadReference();
+        String systemInstructions=INSTRUCTIONS+"\n"+REDSTONE+"\n"+loadReference()+"\n"+loadArchitectureGuide();
         if(previous!=null)
             systemInstructions+="\nYou are REVISING an existing project, not designing from scratch. "+
                 "Preserve dimensions, details and architecture unless the user requests changes. "+
@@ -220,6 +228,8 @@ public final class AIArchitect {
         Blueprint compiled=ProceduralGenerator.compile(json);
         report(progress,"Validating Minecraft blocks","Checking block IDs and states before displaying the blueprint.");
         BlockStates.validate(compiled);
+        report(progress,"Architectural QA","Checking stairs, floor openings, room declarations and interior access warnings.");
+        compiled.warnings.addAll(ArchitectureAudit.inspect(compiled,prompt,json));
         return new DesignResult(compiled,json);
     }
 }

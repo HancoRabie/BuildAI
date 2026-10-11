@@ -68,8 +68,10 @@ public final class ArchitectureAudit {
                 results.add("No machine-readable room manifest. Room identity and circulation cannot be checked.");
         }else{
             Set<String> names=new HashSet<>();
+            if(rooms.size()>64)results.add("Room manifest too large for quick architectural checks (first 64 rooms reviewed).");
+            int inspectedRooms=0;
             for(JsonElement room:rooms){
-                if(results.size()>=MAX_WARNINGS)break;
+                if(results.size()>=MAX_WARNINGS||inspectedRooms++>=64)break;
                 if(!room.isJsonObject())continue;
                 JsonObject r=room.getAsJsonObject();
                 String name=r.has("name")?r.get("name").getAsString():"Unnamed room";
@@ -86,7 +88,7 @@ public final class ArchitectureAudit {
                     for(int y=y1+1;y<=y2-1&&!traversable;y++)
                         for(int z=z1;z<=z2&&!traversable;z++)
                             for(int x=x1;x<=x2&&!traversable;x++){
-                                if(y+1<b.height && b.isAir(x,y,z)&&b.isAir(x,y+1,z)&&
+                                if(y+1<b.height && passable(b.get(x,y,z))&&passable(b.get(x,y+1,z))&&
                                     y>0&&!b.isAir(x,y-1,z))traversable=true;
                             }
                     if(!traversable)results.add(name+": no confirmed floor-supported two-block-high walkable space.");
@@ -97,7 +99,7 @@ public final class ArchitectureAudit {
                         for(int z=z1;z<=z2&&!entry;z++)
                             for(int x=x1;x<=x2&&!entry;x++){
                                 boolean boundary=x==x1||x==x2||z==z1||z==z2;
-                                if(boundary&&y+1<b.height&&b.isAir(x,y,z)&&b.isAir(x,y+1,z))
+                                if(boundary&&y+1<b.height&&passable(b.get(x,y,z))&&passable(b.get(x,y+1,z)))
                                     entry=true;
                             }
                     if(!entry)results.add(name+": no 2-block-high opening detected on its declared room boundary.");
@@ -119,6 +121,11 @@ public final class ArchitectureAudit {
     }
     private static boolean valid(Blueprint b,int x,int y,int z){
         return x>=0&&x<b.width&&y>=0&&y<b.height&&z>=0&&z<b.length;
+    }
+    private static boolean passable(String raw) {
+        String id=Blueprint.id(raw);
+        return id.equals("minecraft:air")||id.equals("minecraft:cave_air")||
+            id.equals("minecraft:void_air")||id.endsWith("_door");
     }
     private static boolean isStair(String raw){
         return Blueprint.id(raw).endsWith("_stairs");

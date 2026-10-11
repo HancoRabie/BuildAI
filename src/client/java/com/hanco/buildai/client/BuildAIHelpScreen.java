@@ -17,12 +17,12 @@ public final class BuildAIHelpScreen extends Screen {
     private static final String[][] CONTENT = {
         {
             "BuildAI converts a description or an imported schematic into real Minecraft blocks.",
-            "Press F8 to open the building console. You can build from a text prompt or import an existing .schem, .schematic, .litematic or .nbt.",
+            "Press F8 to open the building console. You can generate with AI, import a schematic, or click Load Demo Cottage to test offline without an account.",
             "BuildAI runs without WorldEdit, Litematica, PinLock, or ChainFrames. The Fabric API is its only mod API dependency.",
             "This is an early test build. Use a disposable world before experimenting with excavation or undo."
         },
         {
-            "ChatGPT account sign-in is not connected in this release.",
+            "ChatGPT account sign-in is not connected in this release. Public/open-source status does not by itself implement OAuth or grant permissions.",
             "AI generation currently uses a separately billed OpenAI API key, entered temporarily in F8. BuildAI does not save that key to disk or send it to Minecraft servers.",
             "Do not paste your ChatGPT password or session cookies into BuildAI. Your ChatGPT subscription is not an API key.",
             "The future Continue with ChatGPT flow needs an approved client and a secure browser-based authorization process.",

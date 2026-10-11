@@ -30,6 +30,7 @@ public final class ConstructionProject {
     private final Set<BlockPos> modified=new HashSet<>();
     private final Set<BlockPos> supports=new LinkedHashSet<>();
     private final List<BlockPos> excavationSamples=new ArrayList<>(192);
+    private final List<String> excavationSampleIds=new ArrayList<>(192);
     private int sampledRemovalCount=0,blackHoleTicks=0;
     private static final int BLACK_HOLE_TICKS=80;
     private java.util.Iterator<BlockPos> cleanupIterator;
@@ -96,7 +97,7 @@ public final class ConstructionProject {
         // ORIGINAL states lazily, exactly before each excavation/placement.
         // A previously AIR cell is represented by absence from originals.
         hasSnapshot=true;
-        excavationSamples.clear();sampledRemovalCount=0;blackHoleTicks=0;
+        excavationSamples.clear();excavationSampleIds.clear();sampledRemovalCount=0;blackHoleTicks=0;
         phase=Phase.EXCAVATE;
         if(cinematic && collisions>0)excavationCue(
             com.hanco.buildai.net.CinematicExcavationPayload.PREPARE,0);
@@ -110,7 +111,9 @@ public final class ConstructionProject {
                 new com.hanco.buildai.net.CinematicExcavationPayload(
                     stage,origin,blueprint.width,blueprint.height,blueprint.length,
                     stage==com.hanco.buildai.net.CinematicExcavationPayload.PULL?
-                        List.copyOf(excavationSamples):List.of(),duration));
+                        List.copyOf(excavationSamples):List.of(),
+                    stage==com.hanco.buildai.net.CinematicExcavationPayload.PULL?
+                        List.copyOf(excavationSampleIds):List.of(),duration));
         }
     }
     private void recordOriginal(BlockPos position) {
@@ -186,12 +189,15 @@ public final class ConstructionProject {
                 if(!world.isChunkLoaded(p)) {excavationIndex--;break;}
                 scanned++;
                 if(!world.getBlockState(p).isAir()) {
+                    BlockState removedState=world.getBlockState(p);
                     recordOriginal(p);
                     world.setBlockState(p,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
                     removed++;
                     if(cinematic && excavationSamples.size()<192 &&
-                        sampledRemovalCount++%sampleStride==0)
+                        sampledRemovalCount++%sampleStride==0){
                         excavationSamples.add(p.toImmutable());
+                        excavationSampleIds.add(Registries.BLOCK.getId(removedState.getBlock()).toString());
+                    }
                 }
             }
             if(excavationIndex==total){

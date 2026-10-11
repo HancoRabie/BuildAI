@@ -135,7 +135,8 @@ public final class BuildAIClient implements ClientModInitializer {
             GenerationHistory.record(progress);
             message((previous==null?"Generated ":"Revised ")+draft.name+" ("+
                 draft.width+"x"+draft.height+"x"+draft.length+", "+draft.solidCount()+
-                " blocks). Opening blueprint preview.");
+                " blocks, "+draft.warnings.size()+
+                " architectural QA warning(s)). Open F8 > Placement / Export > Design QA / Warnings.");
             MinecraftClient mc=MinecraftClient.getInstance();
             if(mc.currentScreen==null || mc.currentScreen instanceof BuildAIGenerationScreen ||
                 mc.currentScreen instanceof BuildAIScreen)

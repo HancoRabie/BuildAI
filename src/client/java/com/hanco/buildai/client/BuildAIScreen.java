@@ -66,10 +66,8 @@ public final class BuildAIScreen extends Screen {
             prompt.setMaxLength(4000);prompt.setText(promptValue);
             prompt.setPlaceholder(text("Describe a castle, house, factory, or a requested revision"));
             addDrawableChild(prompt);
-            add("Account / Login Help",left,row(5),half,buttonHeight,b->{
-                saveFields();
-                if(client!=null)client.setScreen(new BuildAIHelpScreen(this,1));
-            });
+            add(ChatGPTSignIn.connected()?"Reconnect ChatGPT":"Continue with ChatGPT",
+                left,row(5),half,buttonHeight,b->connectChatGPT());
             add("API key option",left+half+gap,row(5),half,buttonHeight,b->{
                 saveFields();showApiKey=!showApiKey;switchTab(0);
                 status=showApiKey?"API key field opened (separate OpenAI billing).":"API key field hidden.";
@@ -90,18 +88,24 @@ public final class BuildAIScreen extends Screen {
             });
             add("Chat Mode: "+(BuildAIClient.chatMode?"ON":"OFF"),left,row(10),half,buttonHeight,b->{
                 if(key!=null)BuildAIClient.setKey(key.getText());
-                if(!BuildAIClient.chatMode&&BuildAIClient.getKey().isBlank()){
-                    status="AI Chat Mode needs an OpenAI API key. Use Account / Login Help for details.";
+                if(!BuildAIClient.chatMode&&!ChatGPTSignIn.connected()&&BuildAIClient.getKey().isBlank()){
+                    status="Connect your ChatGPT account or enter an optional developer API key first.";
                     return;
                 }
                 BuildAIClient.chatMode=!BuildAIClient.chatMode;
                 b.setMessage(text("Chat Mode: "+(BuildAIClient.chatMode?"ON":"OFF")));
                 status=BuildAIClient.chatMode?"Private building chat enabled. Type exit to stop.":"Chat Mode disabled.";
             });
-            add("Hide Preview",left+half+gap,row(10),half,buttonHeight,b->{
-                BuildAIClient.clearPreview();
-                status="Ghost grid hidden; placed blocks remain untouched.";
-            });
+            add(ChatGPTSignIn.connected()?"Disconnect ChatGPT":"Login Help",
+                left+half+gap,row(10),half,buttonHeight,b->{
+                    if(ChatGPTSignIn.connected()){
+                        ChatGPTSignIn.disconnect();
+                        status="ChatGPT disconnected locally. Your saved blueprint remains.";
+                        saveFields();switchTab(0);
+                    }else{
+                        saveFields();client.setScreen(new BuildAIHelpScreen(this,1));
+                    }
+                });
         }else{
             add("Surface Y -",left,row(4),half,buttonHeight,b->{
                 if(BuildAIClient.draft==null){status="Load a blueprint first.";return;}
@@ -161,6 +165,16 @@ public final class BuildAIScreen extends Screen {
         }
         add("Close",left,row(11),panelWidth,buttonHeight,b->close());
     }
+    private void connectChatGPT(){
+        if(busy){status="Another BuildAI action is still in progress.";return;}
+        busy=true;status="Opening your browser for ChatGPT authorization...";
+        ChatGPTSignIn.connect().whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
+            busy=false;
+            status=error==null?result:"Sign-in unsuccessful: "+message(error);
+            // Update account button labels without losing entered prompt or key.
+            switchTab(0);
+        }));
+    }
     private void requestAI(boolean revise){
         if(busy){status="Wait for the current operation to finish.";return;}
         saveFields();
@@ -171,13 +185,14 @@ public final class BuildAIScreen extends Screen {
             status="Generate a new design before requesting revisions.";return;
         }
         if(key!=null)BuildAIClient.setKey(key.getText());
-        if(BuildAIClient.getKey().isBlank()){
-            status="Open API key option to connect OpenAI; ChatGPT account login is not implemented.";
+        if(!ChatGPTSignIn.connected()&&BuildAIClient.getKey().isBlank()){
+            status="Connect with ChatGPT, or open the optional API key field.";
             return;
         }
         busy=true;status=revise?"Revising blueprint...":"Generating blueprint...";
         CompletableFuture.supplyAsync(()->{
             try{
+                if(ChatGPTSignIn.connected())return AIArchitect.generateWithChatGPT(description,revise?previous:null);
                 return revise
                     ? AIArchitect.reviseDesign(BuildAIClient.getKey(),description,previous)
                     : AIArchitect.generateDesign(BuildAIClient.getKey(),description);
@@ -270,7 +285,8 @@ public final class BuildAIScreen extends Screen {
         ctx.drawCenteredTextWithShadow(textRenderer,"BuildAI | 1.21.1 | Architect",width/2,row(0),0x66ECC4);
         if(tab==0){
             ctx.drawTextWithShadow(textRenderer,"Describe your build or a revision",x,row(2),0xF1F6FA);
-            String account="ChatGPT sign-in: pending | Use API key or offline demo";
+            String account=ChatGPTSignIn.connected()?"ChatGPT connected: "+ChatGPTSignIn.accountLabel():
+                "ChatGPT: Not connected | Continue with ChatGPT to generate without API key";
             ctx.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(account,panelWidth),x,row(4),0xA4C7DA);
             if(showApiKey)ctx.drawTextWithShadow(textRenderer,"Optional developer API key (separate billing)",x,row(6),0xBFC6D2);
         }else{

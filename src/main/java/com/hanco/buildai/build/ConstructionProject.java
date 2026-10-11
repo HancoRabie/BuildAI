@@ -16,7 +16,7 @@ import net.minecraft.util.math.*;
  * This first version deliberately refuses excavating block entities and bedrock.
  */
 public final class ConstructionProject {
-    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, COMPLETE, CANCELLED }
+    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, COMPLETE, CANCELLED }
     public final Blueprint blueprint;
     public final UUID owner;
     public final boolean creative;
@@ -28,6 +28,8 @@ public final class ConstructionProject {
     private int excavationIndex=0,constructionIndex=0;
     private final Map<BlockPos,BlockState> originals=new LinkedHashMap<>();
     private final Set<BlockPos> modified=new HashSet<>();
+    private final Set<BlockPos> supports=new LinkedHashSet<>();
+    private java.util.Iterator<BlockPos> cleanupIterator;
     private final Map<String,Integer> consumed=new TreeMap<>();
     private final Map<String,String> substitutions=new LinkedHashMap<>();
     private final List<BlockPos> supplies=new ArrayList<>();
@@ -78,6 +80,19 @@ public final class ConstructionProject {
         phase=Phase.EXCAVATE;
     }
     public void tick() {
+        if(phase==Phase.CLEANUP){
+            if(cleanupIterator==null)cleanupIterator=supports.iterator();
+            int n=0;
+            while(cleanupIterator.hasNext()&&n++<128){
+                BlockPos p=cleanupIterator.next();
+                BlockState s=world.getBlockState(p);
+                if(s.isOf(BuildBlocks.CONSTRUCTION_BLOCK)||s.isOf(BuildBlocks.CONSTRUCTION_SLAB))
+                    world.setBlockState(p,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
+                cleanupIterator.remove();
+            }
+            if(!cleanupIterator.hasNext())phase=Phase.COMPLETE;
+            return;
+        }
         if(phase!=Phase.EXCAVATE&&phase!=Phase.BUILD&&phase!=Phase.WAITING_SUPPLIES)return;
         if(phase==Phase.EXCAVATE) {
             int processed=0;
@@ -113,13 +128,27 @@ public final class ConstructionProject {
                 if(!consume(item)) {phase=Phase.WAITING_SUPPLIES;return;}
                 consumed.merge(Registries.ITEM.getId(item).toString(),1,Integer::sum);
             }
+            // Cosmetic construction scaffolding under overhanging slabs/stairs; not in manifest.
+            if(local.getY()>0 &&
+                blueprint.isAir(local.getX(),local.getY()-1,local.getZ()) &&
+                (target.getBlock() instanceof SlabBlock || target.getBlock() instanceof StairsBlock)) {
+                BlockPos under=pos.down();
+                if(world.getBlockState(under).isAir()){
+                    BlockState staging=target.getBlock() instanceof SlabBlock
+                        ? BuildBlocks.CONSTRUCTION_SLAB.getDefaultState()
+                        : BuildBlocks.CONSTRUCTION_BLOCK.getDefaultState();
+                    modified.add(under.toImmutable());
+                    world.setBlockState(under,staging,Block.NOTIFY_ALL);
+                    supports.add(under.toImmutable());
+                }
+            }
             modified.add(pos.toImmutable());
             world.setBlockState(pos,target,Block.NOTIFY_ALL|Block.FORCE_STATE);
             if(cinematic)world.spawnParticles(net.minecraft.particle.ParticleTypes.END_ROD,
                 pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5,1,0.2,0.3,0.2,0.01);
             constructionIndex++;
         }
-        if(constructionIndex==order.size())phase=Phase.COMPLETE;
+        if(constructionIndex==order.size())phase=Phase.CLEANUP;
     }
     public Map<String,Integer> consumed(){return Collections.unmodifiableMap(consumed);}
     public void substitute(String from,String to) {
@@ -212,6 +241,13 @@ public final class ConstructionProject {
         return map;
     }
     public void cancel(boolean undo) {
+        // Temporary staging never survives a cancellation.
+        for(BlockPos p:new ArrayList<>(supports)){
+            BlockState s=world.getBlockState(p);
+            if(s.isOf(BuildBlocks.CONSTRUCTION_BLOCK)||s.isOf(BuildBlocks.CONSTRUCTION_SLAB))
+                world.setBlockState(p,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
+        }
+        supports.clear();
         if(undo && hasSnapshot) {
             // Conflict safe: refuse rollback if a block has become a block entity since our placement.
             for(BlockPos p:modified)if(world.getBlockState(p).hasBlockEntity())

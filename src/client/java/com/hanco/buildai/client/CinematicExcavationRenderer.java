@@ -116,7 +116,7 @@ public final class CinematicExcavationRenderer {
         Vec3d center=new Vec3d(s.origin().getX()+s.width()/2.0,
             s.origin().getY()+s.height()/2.0,s.origin().getZ()+s.length()/2.0);
         if(mc.player==null||mc.player.squaredDistanceTo(center)>180*180)return;
-        Random rand=mc.world.random;
+        net.minecraft.util.math.random.Random rand=mc.world.random;
         for(int i=0;i<8;i++){
             double a=rand.nextDouble()*Math.PI*2;
             double r=1.0+rand.nextDouble()*2.0;

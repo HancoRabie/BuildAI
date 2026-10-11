@@ -22,7 +22,14 @@ public final class ConstructionManager {
     }
     public static void tick(MinecraftServer server){
         for(ConstructionProject project:new ArrayList<>(PROJECTS.values())) {
-            try{project.tick();}catch(RuntimeException e){
+            try{
+                project.tick();
+                ServerPlayerEntity owner=server.getPlayerManager().getPlayer(project.owner);
+                if(owner!=null&&project.world.getTime()%20==0&&
+                    net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(owner,
+                        com.hanco.buildai.net.ProjectStatusPayload.ID))
+                    net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(owner,project.status());
+            }catch(RuntimeException e){
                 project.phase=ConstructionProject.Phase.WAITING_SUPPLIES;
                 server.getPlayerManager().getPlayer(project.owner);
                 System.err.println("[BuildAI] Project paused: "+e.getMessage());

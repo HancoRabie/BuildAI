@@ -29,6 +29,16 @@ public final class BuildAIClient implements ClientModInitializer {
     public static volatile int surfaceLayer=0;
     public static volatile BlockPos previewOrigin=null;
     public static volatile boolean chatMode=false;
+    private static volatile GenerationProgress activeGeneration;
+
+    public static synchronized boolean beginGeneration(GenerationProgress progress){
+        if(activeGeneration!=null && !activeGeneration.snapshot().finished())return false;
+        activeGeneration=progress;return true;
+    }
+    public static GenerationProgress currentGeneration(){return activeGeneration;}
+    public static synchronized void endGeneration(GenerationProgress progress){
+        if(activeGeneration==progress)activeGeneration=null;
+    }
     private static volatile boolean uploadPending=false;
     private static String apiKey="";
     private static KeyBinding open, lockPlacement, retryPlacement, snapGround;
@@ -94,23 +104,41 @@ public final class BuildAIClient implements ClientModInitializer {
         final String description=text;
         final String key=apiKey;
         final String previous=newBuild?null:designSpecification;
+        GenerationProgress progress=new GenerationProgress();
+        if(!beginGeneration(progress)){
+            message("A blueprint is already being generated. Wait for it to finish.");
+            GenerationProgress pending=currentGeneration();
+            if(pending!=null)MinecraftClient.getInstance().setScreen(
+                new BuildAIGenerationScreen(new BuildAIScreen(),pending));
+            return;
+        }
         message(previous==null?"Generating new architectural blueprint...":"Revising existing blueprint...");
+        MinecraftClient.getInstance().setScreen(
+            new BuildAIGenerationScreen(new BuildAIScreen(),progress));
         CompletableFuture.supplyAsync(()->{
-            try {
-                if(ChatGPTSignIn.connected())
-                    return AIArchitect.generateWithChatGPT(description,previous);
+            try{
+                if(ChatGPTSignIn.connected())return AIArchitect.generateWithChatGPT(description,previous,progress);
                 return previous==null
-                    ? AIArchitect.generateDesign(key,description)
-                    : AIArchitect.reviseDesign(key,description,previous);
-            }catch(Exception e){throw new RuntimeException(e);}
+                    ? AIArchitect.generateDesign(key,description,progress)
+                    : AIArchitect.reviseDesign(key,description,previous,progress);
+            }catch(Exception error){throw new RuntimeException(error);}
         }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
-            if(error!=null){message("AI design failed: "+rootCause(error));return;}
+            endGeneration(progress);
+            if(error!=null){
+                String reason=rootCause(error);
+                progress.failure(reason);
+                message("AI design failed: "+reason);
+                return;
+            }
             acceptGenerated(result);
+            progress.success("Generated "+draft.solidCount()+" blocks. Ready for inspection.");
             message((previous==null?"Generated ":"Revised ")+draft.name+" ("+
-                draft.width+"x"+draft.height+"x"+draft.length+", "+
-                draft.solidCount()+" blocks). Review in F8 before placing.");
+                draft.width+"x"+draft.height+"x"+draft.length+", "+draft.solidCount()+
+                " blocks). Opening blueprint preview.");
             MinecraftClient mc=MinecraftClient.getInstance();
-            if(mc.currentScreen==null)mc.setScreen(BuildAIScreen.generatedResult());
+            if(mc.currentScreen==null || mc.currentScreen instanceof BuildAIGenerationScreen ||
+                mc.currentScreen instanceof BuildAIScreen)
+                mc.setScreen(BuildAIScreen.generatedResult());
         }));
     }
     public static void acceptGenerated(AIArchitect.DesignResult result) {

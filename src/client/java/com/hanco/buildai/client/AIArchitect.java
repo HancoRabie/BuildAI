@@ -182,7 +182,13 @@ public final class AIArchitect {
         report(progress,"Validating Minecraft blocks","Checking block IDs and states before displaying the blueprint.");
         BlockStates.validate(compiled);
         report(progress,"Architectural QA","Checking stairs, floor openings, room declarations and interior access warnings.");
-        compiled.warnings.addAll(ArchitectureAudit.inspect(compiled,prompt,spec));
+        try{
+            compiled.warnings.addAll(ArchitectureAudit.inspect(compiled,prompt,spec));
+        }catch(RuntimeException auditError){
+            // Never discard a successfully generated multi-minute blueprint
+            // merely because a *non-essential* quality heuristic misbehaves.
+            compiled.warnings.add("Architectural QA could not finish. Inspect stairs, rooms and openings manually.");
+        }
         return new DesignResult(compiled,spec);
     }
 
@@ -229,7 +235,13 @@ public final class AIArchitect {
         report(progress,"Validating Minecraft blocks","Checking block IDs and states before displaying the blueprint.");
         BlockStates.validate(compiled);
         report(progress,"Architectural QA","Checking stairs, floor openings, room declarations and interior access warnings.");
-        compiled.warnings.addAll(ArchitectureAudit.inspect(compiled,prompt,json));
+        try{
+            compiled.warnings.addAll(ArchitectureAudit.inspect(compiled,prompt,json));
+        }catch(RuntimeException auditError){
+            // Never discard a successfully generated multi-minute blueprint
+            // merely because a *non-essential* quality heuristic misbehaves.
+            compiled.warnings.add("Architectural QA could not finish. Inspect stairs, rooms and openings manually.");
+        }
         return new DesignResult(compiled,json);
     }
 }

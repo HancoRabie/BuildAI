@@ -23,6 +23,16 @@ The Gradle bootstrap downloads Gradle 8.10.2 on first run. Install Java 21 if Gr
 
 A GitHub Actions build also runs automatically on each latest main commit.
 
+## In-game guide and conversational design
+
+Press **F8 → How To** for the built-in guide (nine topics). No internet is required to read it.
+
+BuildAI now supports an initial AI revision session. **Generate New** compiles a complete new blueprint; **Revise Existing** takes a follow-up instruction and sends the previous AI-authored design to the model, requesting a complete revised blueprint. The revised result remains local for review until you choose **Upload Blueprint**. Imported schematics do not have an AI edit history yet.
+
+In private **Chat Mode** enabled from F8, ordinary chat messages create a new design when there is no earlier AI design, or revise the active AI design when present. Type `new <description>` to force a fresh building, `reset` to clear the AI design, and `exit` to disable chat interception. This is still an experimental, one-previous-design workflow, not a persistent ChatGPT conversation.
+
+**Direct ChatGPT account sign-in is NOT implemented**. See [authentication plan](docs/AUTHENTICATION.md) for eligibility, consent, and security constraints. The v0.1 development path requires a separately billed OpenAI developer API key if AI generation is used.
+
 ## First in-world test (creative, throwaway world)
 
 1. Press **F8** to open BuildAI.

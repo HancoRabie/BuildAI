@@ -22,6 +22,7 @@ public final class BuildAIScreen extends Screen {
     private String status="Create a design, import a schematic, or load the offline demo.";
     private boolean busy=false, showApiKey=false;
     private int left,panelWidth,top,lineHeight;
+    public void updateStatus(String message){status=message;}
 
     public BuildAIScreen(){super(Text.literal("BuildAI — Minecraft Architect"));}
     private Text text(String s){return Text.literal(s);}
@@ -30,6 +31,7 @@ public final class BuildAIScreen extends Screen {
         if(key!=null)keyValue=key.getText();
     }
     private void switchTab(int index){
+        if(busy){status="Wait for the current operation to finish.";return;}
         saveFields();tab=index;
         clearChildren();
         init();
@@ -45,11 +47,11 @@ public final class BuildAIScreen extends Screen {
         if(prompt!=null||key!=null)saveFields();
         panelWidth=Math.min(510,Math.max(140,width-16));
         left=(width-panelWidth)/2;
-        int available=Math.max(110,height-10);
-        // 12 compact slots guarantee last row stays inside a small GUI-scaled window.
-        lineHeight=Math.min(23,Math.max(12,available/12));
-        top=Math.max(3,(height-12*lineHeight)/2);
-        int buttonHeight=Math.max(12,lineHeight-3);
+        // Reserve explicit space for the status footer BELOW the Close button.
+        // All geometry uses Minecraft's scaled GUI dimensions, not monitor pixels.
+        lineHeight=Math.min(23,Math.max(9,(height-12)/14));
+        top=Math.max(2,(height-14*lineHeight)/2);
+        int buttonHeight=Math.max(9,lineHeight-2);
         int gap=4;
         int third=(panelWidth-gap*2)/3;
         int half=(panelWidth-gap)/2;
@@ -64,10 +66,13 @@ public final class BuildAIScreen extends Screen {
             prompt.setMaxLength(4000);prompt.setText(promptValue);
             prompt.setPlaceholder(text("Describe a castle, house, factory, or a requested revision"));
             addDrawableChild(prompt);
-            add("ChatGPT Login (pending)",left,row(5),half,buttonHeight,b->
-                status="Account sign-in is not implemented yet. Use offline demo or optional API key.");
+            add("Account / Login Help",left,row(5),half,buttonHeight,b->{
+                saveFields();
+                if(client!=null)client.setScreen(new BuildAIHelpScreen(this,1));
+            });
             add("API key option",left+half+gap,row(5),half,buttonHeight,b->{
                 saveFields();showApiKey=!showApiKey;switchTab(0);
+                status=showApiKey?"API key field opened (separate OpenAI billing).":"API key field hidden.";
             });
             if(showApiKey){
                 key=new TextFieldWidget(textRenderer,left,row(7),panelWidth,buttonHeight,text("OpenAI developer API key"));
@@ -78,12 +83,17 @@ public final class BuildAIScreen extends Screen {
             add("Revise Existing",left+half+gap,row(8),half,buttonHeight,b->requestAI(true));
             add("Import File",left,row(9),half,buttonHeight,b->browse());
             add("Load Demo Cottage",left+half+gap,row(9),half,buttonHeight,b->{
+                if(busy){status="Wait for the current operation to finish.";return;}
                 Blueprint demo=DemoBlueprint.cottage();
                 BuildAIClient.acceptImport(demo);surfaceLayer=0;
                 status="Demo cottage ready ("+demo.solidCount()+" blocks). Open Placement / Export.";
             });
             add("Chat Mode: "+(BuildAIClient.chatMode?"ON":"OFF"),left,row(10),half,buttonHeight,b->{
                 if(key!=null)BuildAIClient.setKey(key.getText());
+                if(!BuildAIClient.chatMode&&BuildAIClient.getKey().isBlank()){
+                    status="AI Chat Mode needs an OpenAI API key. Use Account / Login Help for details.";
+                    return;
+                }
                 BuildAIClient.chatMode=!BuildAIClient.chatMode;
                 b.setMessage(text("Chat Mode: "+(BuildAIClient.chatMode?"ON":"OFF")));
                 status=BuildAIClient.chatMode?"Private building chat enabled. Type exit to stop.":"Chat Mode disabled.";
@@ -98,15 +108,11 @@ public final class BuildAIScreen extends Screen {
                 if(BuildAIClient.draft!=null)surfaceLayer=Math.min(BuildAIClient.draft.height-1,surfaceLayer+1);
             });
             add("Upload & Preview",left,row(6),panelWidth,buttonHeight,b->{
+                if(busy){status="Wait for the current operation to finish.";return;}
                 if(BuildAIClient.draft==null){status="Create or import a blueprint first.";return;}
                 try{
-                    ClientUpload.send(BuildAIClient.draft,surfaceLayer);
-                    BuildAIClient.surfaceLayer=surfaceLayer;
-                    BuildAIClient.previewLocked=false;
-                    BuildAIClient.surfacePending=false;
-                    BuildAIClient.previewOrigin=null;
-                    BuildAIClient.selecting=true;
-                    status="Uploaded: close GUI, left-click X/Z, then sneak-right-click surface.";
+                    BuildAIClient.beginUpload(BuildAIClient.draft,surfaceLayer);
+                    status="Sending blueprint to server. Waiting for approval...";
                 }catch(Exception ex){status="Upload failed: "+ex.getMessage();}
             });
             add("Export Blueprint as .schem",left,row(8),panelWidth,buttonHeight,b->exportSchematic());
@@ -121,7 +127,7 @@ public final class BuildAIScreen extends Screen {
         add("Close",left,row(11),panelWidth,buttonHeight,b->close());
     }
     private void requestAI(boolean revise){
-        if(busy)return;
+        if(busy){status="Wait for the current operation to finish.";return;}
         saveFields();
         String description=promptValue.trim();
         if(description.isBlank()){status="Enter your building description.";return;}
@@ -130,6 +136,10 @@ public final class BuildAIScreen extends Screen {
             status="Generate a new design before requesting revisions.";return;
         }
         if(key!=null)BuildAIClient.setKey(key.getText());
+        if(BuildAIClient.getKey().isBlank()){
+            status="Open API key option to connect OpenAI; ChatGPT account login is not implemented.";
+            return;
+        }
         busy=true;status=revise?"Revising blueprint...":"Generating blueprint...";
         CompletableFuture.supplyAsync(()->{
             try{
@@ -152,7 +162,7 @@ public final class BuildAIScreen extends Screen {
         return t.getMessage()==null?t.toString():t.getMessage();
     }
     private void browse(){
-        if(busy)return;
+        if(busy){status="Wait for the current operation to finish.";return;}
         busy=true;status="Choose a schematic...";
         CompletableFuture.supplyAsync(()->{
             try{
@@ -175,6 +185,7 @@ public final class BuildAIScreen extends Screen {
         }));
     }
     private void exportSchematic(){
+        if(busy){status="Wait for the current operation to finish.";return;}
         if(BuildAIClient.draft==null){status="No active blueprint to export.";return;}
         Blueprint bp=BuildAIClient.draft;
         busy=true;status="Choose .schem destination...";
@@ -186,7 +197,10 @@ public final class BuildAIScreen extends Screen {
                 if(chooser.showSaveDialog(null)!=JFileChooser.APPROVE_OPTION)return null;
                 String path=chooser.getSelectedFile().getAbsolutePath();
                 if(!path.toLowerCase(Locale.ROOT).endsWith(".schem"))path+=".schem";
-                return SchematicWriter.write(bp,java.nio.file.Path.of(path));
+                java.nio.file.Path output=java.nio.file.Path.of(path);
+                if(java.nio.file.Files.exists(output))
+                    throw new java.io.IOException("A file with that name already exists; choose a new filename.");
+                return SchematicWriter.write(bp,output);
             }catch(Exception e){throw new RuntimeException(e);}
         }).whenComplete((saved,error)->MinecraftClient.getInstance().execute(()->{
             busy=false;
@@ -199,7 +213,7 @@ public final class BuildAIScreen extends Screen {
         ctx.drawCenteredTextWithShadow(textRenderer,"BuildAI | 1.21.1 | Architect",width/2,row(0),0x66ECC4);
         if(tab==0){
             ctx.drawTextWithShadow(textRenderer,"Describe your build or a revision",x,row(2),0xF1F6FA);
-            String account="ChatGPT sign-in not yet available | API key or offline demo";
+            String account="ChatGPT sign-in: pending | Use API key or offline demo";
             ctx.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(account,panelWidth),x,row(4),0xA4C7DA);
             if(showApiKey)ctx.drawTextWithShadow(textRenderer,"Optional developer API key (separate billing)",x,row(6),0xBFC6D2);
         }else{
@@ -211,7 +225,7 @@ public final class BuildAIScreen extends Screen {
             ctx.drawTextWithShadow(textRenderer,level,x,row(3),0xCDD3DC);
         }
         ctx.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(status,panelWidth),
-            x,Math.min(height-11,row(12)-10),0x79EBBD);
+            x,Math.min(height-10,row(13)),0x79EBBD);
     }
     @Override public void close(){if(client!=null)client.setScreen(null);}
     @Override public boolean shouldPause(){return false;}

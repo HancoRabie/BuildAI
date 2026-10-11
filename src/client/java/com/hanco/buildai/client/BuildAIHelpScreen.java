@@ -83,50 +83,62 @@ public final class BuildAIHelpScreen extends Screen {
     };
 
     private final Screen parent;
-    private int page = 0;
-
-    public BuildAIHelpScreen(Screen parent) {
+    private int page=0,firstVisibleLine=0;
+    public BuildAIHelpScreen(Screen parent){this(parent,0);}
+    public BuildAIHelpScreen(Screen parent,int initialPage){
         super(Text.literal("BuildAI How To"));
-        this.parent = parent;
+        this.parent=parent;
+        this.page=Math.floorMod(initialPage,TITLES.length);
     }
-    @Override protected void init() {
-        int content = Math.min(540,width-24);
-        int x = (width-content)/2;
-        int y = Math.max(15,height-38);
-        int gap=6;
-        int w=(content-2*gap)/3;
-        addDrawableChild(ButtonWidget.builder(Text.literal("Previous"), b -> move(-1))
-            .dimensions(x,y,w,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Back to BuildAI"),b -> {
-            if(client!=null)client.setScreen(parent);
-        }).dimensions(x+w+gap,y,w,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Next"),b -> move(1))
-            .dimensions(x+2*(w+gap),y,w,20).build());
-    }
-    private void move(int direction) {page = Math.floorMod(page+direction,TITLES.length);}
-    @Override public void render(DrawContext context,int mouseX,int mouseY,float delta) {
-        super.render(context,mouseX,mouseY,delta);
-        int content=Math.min(540,width-24);
-        int x=(width-content)/2;
-        int y=20;
-        context.drawCenteredTextWithShadow(textRenderer,"BuildAI / How To",width/2,y,0x69E4B7);
-        context.drawCenteredTextWithShadow(textRenderer,TITLES[page],width/2,y+18,0xFFFFFF);
-        context.drawCenteredTextWithShadow(textRenderer,
-            "Guide "+(page+1)+" of "+TITLES.length,width/2,y+32,0xA1AAB5);
-        int lineY=y+54;
-        int maxY=height-56;
+    private int contentWidth(){return Math.min(540,Math.max(140,width-16));}
+    private int visibleLines(){return Math.max(2,(height-139)/12);}
+    private List<OrderedText> wrapped(){
+        List<OrderedText> out=new java.util.ArrayList<>();
         for(String paragraph:CONTENT[page]){
-            List<OrderedText> lines=textRenderer.wrapLines(Text.literal(paragraph),content-32);
-            if(lineY+(lines.size()+1)*12>maxY) {
-                context.drawTextWithShadow(textRenderer,"Resize the window to read the remainder.",x+12,maxY-12,0xE9AA72);
-                break;
-            }
-            for(OrderedText line:lines) {
-                context.drawTextWithShadow(textRenderer,line,x+12,lineY,0xE0E7EC);
-                lineY+=12;
-            }
-            lineY+=10;
+            out.addAll(textRenderer.wrapLines(Text.literal(paragraph),contentWidth()-24));
+            out.add(Text.literal(" ").asOrderedText());
         }
+        return out;
+    }
+    private void scroll(int direction){
+        int max=Math.max(0,wrapped().size()-visibleLines());
+        firstVisibleLine=Math.max(0,Math.min(max,firstVisibleLine+direction*4));
+    }
+    @Override protected void init(){
+        int content=contentWidth(),x=(width-content)/2;
+        int gap=4,third=(content-gap*2)/3,h=20;
+        int navigation=Math.max(24,height-25),scrollRow=Math.max(3,navigation-24);
+        addDrawableChild(ButtonWidget.builder(Text.literal("Previous"),b->move(-1))
+            .dimensions(x,navigation,third,h).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Back to BuildAI"),b->{
+            if(client!=null)client.setScreen(parent);
+        }).dimensions(x+third+gap,navigation,third,h).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Next"),b->move(1))
+            .dimensions(x+2*(third+gap),navigation,content-2*(third+gap),h).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Scroll up"),b->scroll(-1))
+            .dimensions(x,scrollRow,(content-gap)/2,h).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Scroll down"),b->scroll(1))
+            .dimensions(x+(content-gap)/2+gap,scrollRow,(content-gap)/2,h).build());
+    }
+    private void move(int direction){
+        page=Math.floorMod(page+direction,TITLES.length);
+        firstVisibleLine=0;
+    }
+    @Override public void render(DrawContext ctx,int mouseX,int mouseY,float delta){
+        super.render(ctx,mouseX,mouseY,delta);
+        int content=contentWidth(),x=(width-content)/2;
+        ctx.drawCenteredTextWithShadow(textRenderer,"BuildAI / How To",width/2,12,0x69E4B7);
+        ctx.drawCenteredTextWithShadow(textRenderer,TITLES[page],width/2,27,0xFFFFFF);
+        List<OrderedText> lines=wrapped();
+        int visible=visibleLines();
+        int maxStart=Math.max(0,lines.size()-visible);
+        firstVisibleLine=Math.min(firstVisibleLine,maxStart);
+        ctx.drawCenteredTextWithShadow(textRenderer,
+            "Topic "+(page+1)+"/"+TITLES.length+" · Lines "+
+            (firstVisibleLine+1)+"-"+Math.min(lines.size(),firstVisibleLine+visible)+
+            "/"+lines.size(),width/2,43,0xA1AAB5);
+        for(int i=firstVisibleLine;i<Math.min(lines.size(),firstVisibleLine+visible);i++)
+            ctx.drawTextWithShadow(textRenderer,lines.get(i),x+10,60+(i-firstVisibleLine)*12,0xE0E7EC);
     }
     @Override public boolean shouldPause(){return false;}
     @Override public void close(){if(client!=null)client.setScreen(parent);}

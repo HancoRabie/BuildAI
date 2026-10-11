@@ -66,6 +66,9 @@ public final class PlacementMode {
         camera=new OtherClientPlayerEntity(mc.world,
             new GameProfile(UUID.randomUUID(),"BuildAICamera"));
         camera.setPosition(mc.player.getX(),mc.player.getY(),mc.player.getZ());
+        camera.prevX=camera.getX();
+        camera.prevY=camera.getY();
+        camera.prevZ=camera.getZ();
         camera.setYaw(mc.player.getYaw());
         camera.setPitch(mc.player.getPitch());
         camera.prevYaw=camera.getYaw();

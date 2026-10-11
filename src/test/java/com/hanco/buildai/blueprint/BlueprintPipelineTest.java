@@ -91,6 +91,42 @@ public class BlueprintPipelineTest {
         assertThrows(IllegalArgumentException.class,()->new Blueprint("Huge",512,512,512));
     }
 
+    @Test void architecturalChecklistFlagsMissingOvalOfficeWithoutChangingBlocks(){
+        Blueprint b=new Blueprint("The White House",10,6,10);
+        b.set(2,0,2,"minecraft:stone_bricks");
+        var warnings=ArchitectureAudit.inspect(b,"Build a detailed White House with West Wing",null);
+        assertTrue(warnings.stream().anyMatch(x->x.contains("Oval Office")));
+        assertEquals("minecraft:stone_bricks",b.get(2,0,2));
+        assertEquals("minecraft:air",b.get(5,1,5));
+    }
+
+    @Test void architecturalAuditFlagsStaircaseHeadroom(){
+        Blueprint b=new Blueprint("Basement Stairs",8,6,8);
+        b.set(2,1,2,"minecraft:oak_stairs[facing=south,half=bottom,shape=straight,waterlogged=false]");
+        b.set(2,2,3,"minecraft:oak_stairs[facing=south,half=bottom,shape=straight,waterlogged=false]");
+        b.set(2,3,3,"minecraft:stone_bricks"); // blocks headroom of the upper step
+        var warnings=ArchitectureAudit.inspect(b,"Basement staircase",null);
+        assertTrue(warnings.stream().anyMatch(x->x.contains("headroom")),warnings.toString());
+    }
+
+    @Test void declaredRoomWithoutExitIsFlagged(){
+        Blueprint b=new Blueprint("Rooms",8,5,8);
+        for(int x=1;x<=5;x++)for(int z=1;z<=5;z++)b.set(x,0,z,"minecraft:oak_planks");
+        for(int y=1;y<=3;y++){
+            for(int x=1;x<=5;x++){
+                b.set(x,y,1,"minecraft:stone_bricks");
+                b.set(x,y,5,"minecraft:stone_bricks");
+            }
+            for(int z=1;z<=5;z++){
+                b.set(1,y,z,"minecraft:stone_bricks");
+                b.set(5,y,z,"minecraft:stone_bricks");
+            }
+        }
+        String json="{\"rooms\":[{\"name\":\"Private Study\",\"x1\":1,\"y1\":0,\"z1\":1,\"x2\":5,\"y2\":4,\"z2\":5}]}";
+        var warnings=ArchitectureAudit.inspect(b,"Build a private study",json);
+        assertTrue(warnings.stream().anyMatch(x->x.contains("opening")),warnings.toString());
+    }
+
     @Test void invalidBlueprintDataIsRejected() {
         assertThrows(IllegalArgumentException.class,()->new Blueprint("bad",500,500,500));
         Blueprint a=DemoBlueprint.cottage();

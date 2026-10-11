@@ -151,6 +151,25 @@ public final class ConstructionProject {
         if(constructionIndex==order.size())phase=Phase.CLEANUP;
     }
     public Map<String,Integer> consumed(){return Collections.unmodifiableMap(consumed);}
+    public BlockPos statusChest(){
+        if(supplies.isEmpty())refreshChests();
+        return supplies.isEmpty()?new BlockPos(0,-9999,0):supplies.get(0);
+    }
+    public com.hanco.buildai.net.ProjectStatusPayload status(){
+        Map<String,Integer> current=stored(),required=requirements();
+        StringBuilder lines=new StringBuilder();
+        int suppliesTotal=0,needTotal=0;
+        for(var e:required.entrySet()){
+            int used=consumed.getOrDefault(e.getKey(),0);
+            int available=current.getOrDefault(e.getKey(),0);
+            needTotal+=e.getValue();
+            suppliesTotal+=Math.min(e.getValue(),used+available);
+            if(lines.length()<1750)lines.append(e.getKey().replace("minecraft:",""))
+                .append(": ").append(used+available).append("/").append(e.getValue()).append("\n");
+        }
+        return new com.hanco.buildai.net.ProjectStatusPayload(blueprint.name,phase.toString(),
+            placed(),total(),suppliesTotal,needTotal,lines.toString(),statusChest());
+    }
     public void substitute(String from,String to) {
         if(phase!=Phase.SELECT_XZ && phase!=Phase.SELECT_SURFACE && phase!=Phase.REVIEW)
             throw new IllegalStateException("Substitutions locked after construction begins");

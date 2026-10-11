@@ -100,7 +100,7 @@ public final class BuildAIMod implements ModInitializer {
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project. Open BuildAI GUI to generate/import.");return 1;}
                     reply(player,p.phase+" | "+p.blueprint.name+" | "+p.placed()+"/"+p.total()+
-                        " placed | "+p.excavated()+"/"+p.cells()+" excavation cells | "+p.collisions+" collisions.");
+                        " placed | "+p.excavated()+"/"+p.cells()+" excavation cells | "+p.collisions+" collisions | "+p.normalizedPanes()+" pane connections updated.");
                     return 1;
                 }))
                 .then(literal("materials").executes(c->{
@@ -133,6 +133,17 @@ public final class BuildAIMod implements ModInitializer {
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project");return 0;}
                     p.setCinematic(true);reply(player,"Cinematic placement and particles enabled.");return 1;
+                }))
+                .then(literal("normalize").requires(s->s.hasPermissionLevel(2)).executes(c->{
+                    ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                    ConstructionProject p=ConstructionManager.get(player);
+                    if(p==null){reply(player,"No BuildAI project to normalize.");return 0;}
+                    if(p.requestPaneRepair()){
+                        reply(player,"Normalizing the last completed project's glass panes and iron bars. Check /buildai status.");
+                        return 1;
+                    }
+                    reply(player,"Wait for the build to reach COMPLETE before repairing panes.");
+                    return 0;
                 }))
                 .then(literal("fast").requires(s->s.hasPermissionLevel(2)).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();

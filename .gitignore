@@ -7,3 +7,15 @@ run/
 *.iml
 *.log
 .DS_Store
+
+# Do not commit local credentials, sessions or signing material
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+chatgpt-host.json
+chatgpt-credentials.json
+chatgpt-tokens.json
+.buildai-auth/

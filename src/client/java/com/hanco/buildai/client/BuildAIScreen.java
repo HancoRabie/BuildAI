@@ -7,8 +7,6 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
-import javax.swing.*;
-import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -261,69 +259,36 @@ public final class BuildAIScreen extends Screen {
      * Swing file pickers must be created and shown on Swing's event thread,
      * while Minecraft rendering and file parsing remain asynchronous.
      */
-    private static <T> T onSwing(java.util.concurrent.Callable<T> action) throws Exception {
-        if(SwingUtilities.isEventDispatchThread())return action.call();
-        java.util.concurrent.atomic.AtomicReference<T> result=new java.util.concurrent.atomic.AtomicReference<>();
-        java.util.concurrent.atomic.AtomicReference<Exception> error=new java.util.concurrent.atomic.AtomicReference<>();
-        SwingUtilities.invokeAndWait(()->{
-            try{result.set(action.call());}
-            catch(Exception e){error.set(e);}
-        });
-        if(error.get()!=null)throw error.get();
-        return result.get();
+    public void importedFromLibrary(Blueprint loaded){
+        BuildAIClient.acceptImport(loaded);
+        surfaceLayer=0;tab=1;busy=false;
+        status="Imported "+loaded.name+" ("+loaded.solidCount()+" blocks). Inspect or Upload & Preview.";
+        if(client!=null)client.setScreen(this);
     }
     private void browse(){
         if(busy){status="Wait for the current operation to finish.";return;}
-        busy=true;status="Choose a schematic...";
-        CompletableFuture.supplyAsync(()->{
-            try{
-                java.io.File chosen=onSwing(()->{
-                    JFileChooser chooser=new JFileChooser();
-                    chooser.setDialogTitle("Import Minecraft schematic");
-                    chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                        "Minecraft schematics","schem","schematic","litematic","nbt"));
-                    return chooser.showOpenDialog(null)==JFileChooser.APPROVE_OPTION
-                        ?chooser.getSelectedFile():null;
-                });
-                return chosen==null?null:SchematicReader.read(chosen.toPath());
-            }catch(Exception e){throw new RuntimeException(e);}
-        }).whenComplete((loaded,error)->MinecraftClient.getInstance().execute(()->{
-            busy=false;
-            if(error!=null){status="Import failed: "+message(error);return;}
-            if(loaded==null){status="Import canceled.";return;}
-            try{
-                BlockStates.validate(loaded);
-                BuildAIClient.acceptImport(loaded);surfaceLayer=0;
-                status="Imported "+loaded.name+" ("+loaded.solidCount()+" blocks). Inspect layers or position it.";
-                switchTab(1);
-            }catch(Exception e){status="Import rejected: "+e.getMessage();}
-        }));
+        if(client!=null){
+            saveFields();
+            client.setScreen(new BlueprintLibraryScreen(this));
+        }
     }
     private void exportSchematic(){
         if(busy){status="Wait for the current operation to finish.";return;}
-        if(BuildAIClient.draft==null){status="No active blueprint to export.";return;}
-        Blueprint bp=BuildAIClient.draft;
-        busy=true;status="Choose .schem destination...";
+        if(BuildAIClient.draft==null){status="No blueprint loaded.";return;}
+        final Blueprint selected=BuildAIClient.draft;
+        busy=true;
+        status="Saving to your Minecraft buildai/blueprints library...";
         CompletableFuture.supplyAsync(()->{
-            try{
-                java.io.File chosen=onSwing(()->{
-                    JFileChooser chooser=new JFileChooser();
-                    chooser.setDialogTitle("Export BuildAI schematic");
-                    chooser.setSelectedFile(new java.io.File(bp.name.replaceAll("[^a-zA-Z0-9_-]","_")+".schem"));
-                    return chooser.showSaveDialog(null)==JFileChooser.APPROVE_OPTION
-                        ?chooser.getSelectedFile():null;
-                });
-                if(chosen==null)return null;
-                String path=chosen.getAbsolutePath();
-                if(!path.toLowerCase(Locale.ROOT).endsWith(".schem"))path+=".schem";
-                java.nio.file.Path output=java.nio.file.Path.of(path);
-                if(java.nio.file.Files.exists(output))
-                    throw new java.io.IOException("A file with that name already exists; choose a new filename.");
-                return SchematicWriter.write(bp,output);
-            }catch(Exception e){throw new RuntimeException(e);}
+            try{return BlueprintLibrary.save(selected);}
+            catch(Exception e){throw new RuntimeException(e);}
         }).whenComplete((saved,error)->MinecraftClient.getInstance().execute(()->{
             busy=false;
-            status=error!=null?"Export failed: "+message(error):saved==null?"Export canceled.":"Saved "+saved.getFileName();
+            if(error!=null){
+                status="Save failed: "+message(error);
+            }else{
+                status="Saved "+saved.getFileName()+" to Minecraft/buildai/blueprints. Open Import File to reload.";
+                BuildAIClient.message("Saved blueprint: "+saved.toAbsolutePath());
+            }
         }));
     }
     @Override public void render(DrawContext ctx,int mx,int my,float delta){

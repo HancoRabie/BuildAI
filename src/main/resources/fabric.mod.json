@@ -22,5 +22,8 @@
     "java": ">=21",
     "fabric-api": "*"
   },
-  "license": "GPL-3.0-only"
+  "license": "GPL-3.0-only",
+  "mixins": [
+    "buildai.client.mixins.json"
+  ]
 }

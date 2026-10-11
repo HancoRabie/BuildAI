@@ -21,7 +21,7 @@ public final class ClientUpload {
         }
         byte[] bytes=output.toByteArray();
         int count=(bytes.length+16383)/16384;
-        if(count>256)throw new IOException("Blueprint upload exceeds server limit");
+        if(count>2048)throw new IOException("Blueprint data is too large for one safe upload; export in sections, do not reduce the architectural scale.");
         String id=UUID.randomUUID().toString();
         for(int i=0;i<count;i++){
             int from=i*16384,to=Math.min(bytes.length,from+16384);

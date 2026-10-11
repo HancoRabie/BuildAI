@@ -29,6 +29,43 @@ public final class ArchitectureAudit {
         if(whiteHouse&&!declaresRoom(rooms,"oval office"))
             results.add("White House blueprint does not declare a verified Oval Office. Ask ChatGPT to add it to the West Wing with an accessible entrance.");
 
+        // Doors are two-block assemblies. A one-block "door" is not a
+        // functioning Minecraft doorway; check paired halves, hinge alignment
+        // and clearance without editing the user's geometry.
+        int unpairedDoors=0,misalignedDoors=0,blockedDoorLandings=0;
+        for(int y=0;y<b.height;y++)for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
+            String raw=b.get(x,y,z);
+            if(!DoorPlanner.door(raw))continue;
+            String half=DoorPlanner.property(raw,"half");
+            if("upper".equals(half))continue;
+            if(y+1>=b.height || !DoorPlanner.door(b.get(x,y+1,z)) ||
+               !"upper".equals(DoorPlanner.property(b.get(x,y+1,z),"half"))){
+                unpairedDoors++;
+                continue;
+            }
+            String upper=b.get(x,y+1,z);
+            if(!Blueprint.id(raw).equals(Blueprint.id(upper)) ||
+               !Objects.equals(DoorPlanner.property(raw,"hinge"),DoorPlanner.property(upper,"hinge")) ||
+               !Objects.equals(DoorPlanner.property(raw,"facing"),DoorPlanner.property(upper,"facing")))
+                misalignedDoors++;
+            if(y>0){
+                // Vanilla door facing is the depth axis through the doorway.
+                String facing=DoorPlanner.property(raw,"facing");
+                int dx="east".equals(facing)?1:"west".equals(facing)?-1:0;
+                int dz="south".equals(facing)?1:"north".equals(facing)?-1:0;
+                if(dx!=0||dz!=0){
+                    boolean first=landing(b,x+dx,y,z+dz);
+                    boolean second=landing(b,x-dx,y,z-dz);
+                    if(!first||!second)blockedDoorLandings++;
+                }
+            }
+        }
+        if(unpairedDoors>0)results.add(unpairedDoors+
+            " incomplete or blocked two-block door(s). Inspect door halves and openings.");
+        if(misalignedDoors>0)results.add(misalignedDoors+
+            " door(s) with inconsistent facing/hinge between halves.");
+        if(blockedDoorLandings>0)results.add(blockedDoorLandings+
+            " door(s) with insufficient clearance or floor support on either side.");
         int unsafeStairs=0,unflnishedStairs=0,flightSteps=0;
         // Access checks apply to stair flights with adjacent rising steps,
         // not decorative roof stairs and garden edging.
@@ -123,6 +160,10 @@ public final class ArchitectureAudit {
     }
     private static boolean valid(Blueprint b,int x,int y,int z){
         return x>=0&&x<b.width&&y>=0&&y<b.height&&z>=0&&z<b.length;
+    }
+    private static boolean landing(Blueprint b,int x,int y,int z) {
+        if(!valid(b,x,y,z)||!valid(b,x,y+1,z)||!valid(b,x,y-1,z))return false;
+        return passable(b.get(x,y,z))&&passable(b.get(x,y+1,z))&&!b.isAir(x,y-1,z);
     }
     private static boolean passable(String raw) {
         String id=Blueprint.id(raw);

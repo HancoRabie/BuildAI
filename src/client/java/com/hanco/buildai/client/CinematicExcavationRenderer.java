@@ -1,6 +1,9 @@
 package com.hanco.buildai.client;
 
 import com.hanco.buildai.net.CinematicExcavationPayload;
+import com.hanco.buildai.blueprint.BlockStates;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import java.util.*;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
@@ -20,6 +23,7 @@ import net.minecraft.util.math.*;
  */
 public final class CinematicExcavationRenderer {
     private static CinematicExcavationPayload active;
+    private static List<BlockState> sampledStates=List.of();
     private static long startedTick;
     private static long startedSystemNanos;
     private CinematicExcavationRenderer(){}
@@ -27,13 +31,21 @@ public final class CinematicExcavationRenderer {
     public static void receive(CinematicExcavationPayload payload){
         MinecraftClient mc=MinecraftClient.getInstance();
         if(payload.stage()==CinematicExcavationPayload.STOP){
-            active=null;return;
+            active=null;sampledStates=List.of();return;
         }
+        if(payload.stage()==CinematicExcavationPayload.PULL){
+            List<BlockState> resolved=new ArrayList<>(payload.blockIds().size());
+            for(String id:payload.blockIds()){
+                try{resolved.add(BlockStates.parse(id));}
+                catch(RuntimeException ignored){resolved.add(Blocks.STONE.getDefaultState());}
+            }
+            sampledStates=List.copyOf(resolved);
+        }else sampledStates=List.of();
         active=payload;
         startedTick=mc.world==null?0:mc.world.getTime();
         startedSystemNanos=System.nanoTime();
     }
-    public static void reset(){active=null;}
+    public static void reset(){active=null;sampledStates=List.of();}
     public static void register(){
         WorldRenderEvents.AFTER_ENTITIES.register(context->{
             CinematicExcavationPayload s=active;
@@ -98,11 +110,23 @@ public final class CinematicExcavationRenderer {
                     double x=center.x+(off.x*cs-off.z*sn)*remaining;
                     double z=center.z+(off.x*sn+off.z*cs)*remaining;
                     double y=center.y+off.y*remaining+Math.sin(spin+i)*0.35*remaining;
-                    double size=0.22*(1.0-t)+0.035;
-                    float red=i%4==0?0.90f:0.57f;
-                    float green=i%4==0?0.67f:0.36f;
-                    WorldRenderer.drawBox(matrices,lines,x-size,y-size,z-size,
-                        x+size,y+size,z+size,red,green,0.95f,(float)(0.9*(1.0-t)));
+                    double size=0.28*(1.0-t)+0.04;
+                    if(i<sampledStates.size()){
+                        // Real original terrain textures, rendered as miniature
+                        // cosmetic fragments. No real falling-block entities.
+                        matrices.push();
+                        matrices.translate(x-size,y-size,z-size);
+                        float scale=(float)(size*2.0);
+                        matrices.scale(scale,scale,scale);
+                        mc.getBlockRenderManager().renderBlockAsEntity(sampledStates.get(i),
+                            matrices,context.consumers(),
+                            LightmapTextureManager.MAX_LIGHT_COORDINATE,
+                            OverlayTexture.DEFAULT_UV);
+                        matrices.pop();
+                    }else{
+                        WorldRenderer.drawBox(matrices,lines,x-size,y-size,z-size,
+                            x+size,y+size,z+size,0.65f,0.35f,0.93f,(float)(0.9*(1.0-t)));
+                    }
                 }
             }
             matrices.pop();

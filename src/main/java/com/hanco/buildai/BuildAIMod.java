@@ -41,6 +41,7 @@ public final class BuildAIMod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(PlacePayload.ID,PlacePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ClearPreviewPayload.ID, ClearPreviewPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(BlueprintReadyPayload.ID,BlueprintReadyPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(PlacementReplyPayload.ID,PlacementReplyPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(com.hanco.buildai.net.ProjectStatusPayload.ID,
             com.hanco.buildai.net.ProjectStatusPayload.CODEC);
 
@@ -71,12 +72,27 @@ public final class BuildAIMod implements ModInitializer {
             context.server().execute(()->{
                 ConstructionProject p=ConstructionManager.get(player);
                 if(p==null||!player.hasPermissionLevel(2))return;
-                if(p.phase!=ConstructionProject.Phase.SELECT_XZ)return;
-                BlockPos pos=payload.pos();
-                if(player.squaredDistanceTo(pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5)>64*64) {
-                    reply(player,"Placement point is too far away.");return;
+                BlockPos candidate=payload.pos();
+                try {
+                    // A detached camera is a client-only presentation. The genuine player's body
+                    // is always the server-side reference point for reach and permission checks.
+                    double cx=candidate.getX()+p.blueprint.width/2.0;
+                    double cy=candidate.getY()+p.blueprint.height/2.0;
+                    double cz=candidate.getZ()+p.blueprint.length/2.0;
+                    if(player.squaredDistanceTo(cx,cy,cz)>100*100)
+                        throw new IllegalArgumentException("Move the proposal closer to your real character (100 block limit)");
+                    p.selectOrigin(candidate);
+                    String msg="Placement locked at "+candidate.toShortString()+"; "+p.collisions+
+                        " existing blocks overlap. Inspect, /buildai retry, or /buildai confirm.";
+                    if(ServerPlayNetworking.canSend(player,PlacementReplyPayload.ID))
+                        ServerPlayNetworking.send(player,new PlacementReplyPayload(true,true,msg,p.origin));
+                    reply(player,msg);
+                }catch(Exception e){
+                    String msg="Placement not accepted: "+e.getMessage();
+                    if(ServerPlayNetworking.canSend(player,PlacementReplyPayload.ID))
+                        ServerPlayNetworking.send(player,new PlacementReplyPayload(false,false,msg,p.origin));
+                    reply(player,msg);
                 }
-                p.selectXZ(pos);reply(player,"X/Z locked. Sneak-right-click the exact terrain surface block.");
             });
         });
         UseBlockCallback.EVENT.register((player,world,hand,hit)->{
@@ -85,12 +101,6 @@ public final class BuildAIMod implements ModInitializer {
             ConstructionProject project=ConstructionManager.get(server);
             if(project==null||!player.isSneaking())return ActionResult.PASS;
             try {
-                if(project.phase==ConstructionProject.Phase.SELECT_SURFACE){
-                    project.selectSurface(hit.getBlockPos());
-                    reply(server,"Surface aligned; "+project.collisions+
-                        " existing blocks will be excavated, including UNKNOWN-origin blocks. Inspect preview and use /buildai confirm.");
-                    return ActionResult.SUCCESS;
-                }
                 if(world.getBlockEntity(hit.getBlockPos()) instanceof net.minecraft.inventory.Inventory) {
                     project.linkChest(hit.getBlockPos());
                     reply(server,"BuildAI supply chest linked and protected. /buildai materials shows progress.");
@@ -171,6 +181,19 @@ public final class BuildAIMod implements ModInitializer {
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project");return 0;}
                     p.setCinematic(false);reply(player,"Fast placement (256 blocks/tick) enabled.");return 1;
+                }))
+                .then(literal("retry").requires(s->s.hasPermissionLevel(2)).executes(c->{
+                    ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                    ConstructionProject project=ConstructionManager.get(player);
+                    if(project==null){reply(player,"No blueprint loaded; upload one in F8.");return 0;}
+                    try {
+                        project.retryPlacement();
+                        String msg="Placement reset. Fly and move your ghost again, then press Enter to lock XYZ.";
+                        if(ServerPlayNetworking.canSend(player,PlacementReplyPayload.ID))
+                            ServerPlayNetworking.send(player,new PlacementReplyPayload(true,false,msg,BlockPos.ORIGIN));
+                        reply(player,msg);
+                        return 1;
+                    }catch(Exception e){reply(player,"Retry unavailable: "+e.getMessage());return 0;}
                 }))
                 .then(literal("hide").executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();

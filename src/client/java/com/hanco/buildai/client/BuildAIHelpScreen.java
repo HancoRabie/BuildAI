@@ -44,13 +44,13 @@ public final class BuildAIHelpScreen extends Screen {
         },
         {
             "Choose the blueprint surface Y layer with the +/- controls. This indicates which level of the design meets the ground.",
-            "Upload and Preview sends the design to the server. Once accepted, close F8 to enter a persistent detached observer camera. The actual player stays stationary.",
-            "The preview starts in front of you. Move with WASD, Space, and Shift; mouse wheel offsets world Z. The camera stays active while F8 and Minecraft chat are open.",
-            "Point the preview camera toward the intended surface block and press G to snap the blueprint elevation. Press Enter to request server XYZ validation. Use R or /buildai retry after a misclick.",
+            "Upload and Preview sends the design to the server. Once accepted, close F8 and move normally in your own player view; Creative flight works as usual.",
+            "The initial blueprint outline follows your real player. In Survival, walk to the site; in Creative, fly as usual. Use your normal mouse and hotbar controls.",
+            "Aim directly at the chosen ground block, then press G. BuildAI centers the structure on the block and aligns the selected blueprint surface layer to its top. The preview stays fixed as you move to inspect it.",
             "The project remains in review until you explicitly confirm it."
         },
         {
-            "Enter locks the entire XYZ blueprint origin for review, not construction. R or /buildai retry returns to editable placement; /buildai confirm starts excavation only after successful server validation.",
+            "After G, press Enter to lock the full XYZ for review. R or /buildai retry lets you choose another ground block. F8 > Confirm & Build (or /buildai confirm) starts excavation only after successful validation.",
             "Anything in the approved construction volume can be excavated when you run /buildai confirm, including where the finished design contains air.",
             "BuildAI reports collisions; it blocks existing block entities and bedrock in its initial prototype.",
             "Excavation creates no collectible blocks. Test only on disposable terrain: a basic blockstate undo does not guarantee recovery of containers or player changes."
@@ -76,7 +76,7 @@ public final class BuildAIHelpScreen extends Screen {
         },
         {
             "DO NOT test BuildAI on a valuable world without a backup.",
-            "This test build includes detached placement flight and browser ChatGPT sign-in, but neither has been live user-verified. Still incomplete: durable crash recovery, full rollback/refunds, complete legacy conversions and tested arbitrary redstone.",
+            "BuildAI now uses the normal Minecraft player camera for all placement. ChatGPT sign-in works with eligible accounts. Still incomplete: durable crash recovery, full rollback/refunds, complete legacy conversions and tested arbitrary redstone.",
             "The AI can generate block geometry and write schematics, but does not yet simulate every redstone mechanism. Check machinery in Minecraft.",
             "Generated designs are automatically saved after successful completion; check Minecraft/buildai/blueprints. Construction sessions are not yet persisted across server restarts.",
             "For bug reports include the schematic type, block count, Minecraft/Fabric versions, build log and reproducible steps."

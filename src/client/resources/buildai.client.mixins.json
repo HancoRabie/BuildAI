@@ -4,7 +4,8 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "PlacementMouseMixin",
-    "PlacementKeyboardInputMixin"
+    "PlacementKeyboardInputMixin",
+    "PlacementCameraLockMixin"
   ],
   "injectors": {
     "defaultRequire": 1

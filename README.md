@@ -72,9 +72,9 @@ Actual OAuth sign-in and the complete generate/preview/build flow still require 
 
 ## Troubleshooting ChatGPT browser launch on Windows
 
-In IntelliJ's Fabric development client, Java may report that AWT desktop/browser integration is unsupported even with Chrome or Edge installed. BuildAI now tries the Windows default-browser handlers directly after `Desktop.browse`.
+In IntelliJ's Fabric development client, Java may report that AWT desktop/browser integration is unsupported even with Brave or another default browser installed. BuildAI now tries the Windows default-browser handlers directly after `Desktop.browse`.
 
-If Chrome/Edge still doesn't appear, keep the Minecraft **Connect with ChatGPT** screen open and click **Copy Sign-in Link**. Paste that temporary URL into your preferred browser. The original local callback remains listening and should finish login automatically when OpenAI redirects back to BuildAI. Alternatively click **Open Browser** to retry. The URL is unique to the sign-in attempt: do not post it publicly, and don't try a previously copied link after its sign-in session expires.
+If your selected default browser doesn't open, keep the Minecraft **Connect with ChatGPT** screen open and click **Copy Sign-in Link**. Paste that temporary URL into your preferred browser (Brave, Firefox, etc.). The original local callback remains listening and should finish login automatically when OpenAI redirects back to BuildAI. Alternatively click **Open Browser** to retry. The URL is unique to the sign-in attempt: do not post it publicly, and don't try a previously copied link after its sign-in session expires.
 
 This only repairs local browser launching; account eligibility and OpenAI permission still need successful live testing.
 

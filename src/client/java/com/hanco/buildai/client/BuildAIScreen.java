@@ -115,10 +115,14 @@ public final class BuildAIScreen extends Screen {
                     }
                 });
         }else{
-            add("Inspect Blueprint Layers",left,row(5),panelWidth,buttonHeight,b->{
+            add("Inspect Blueprint Layers",left,row(5),half,buttonHeight,b->{
                 if(BuildAIClient.draft==null){status="Generate or import a blueprint first.";return;}
                 if(client!=null)client.setScreen(new BlueprintInspectorScreen(this,
                     BuildAIClient.draft,surfaceLayer));
+            });
+            add("Design QA / Warnings",left+half+gap,row(5),half,buttonHeight,b->{
+                if(BuildAIClient.draft==null){status="Generate or import a blueprint first.";return;}
+                if(client!=null)client.setScreen(new BuildAIQualityScreen(this,BuildAIClient.draft));
             });
             add("Surface Y -",left,row(4),half,buttonHeight,b->{
                 if(BuildAIClient.draft==null){status="Load a blueprint first.";return;}
@@ -242,7 +246,8 @@ public final class BuildAIScreen extends Screen {
                 " blocks. The blueprint is available for inspection.");
             GenerationHistory.record(progress);
             status=(revise?"Revised: ":"Created: ")+result.blueprint().name+
-                " ("+result.blueprint().solidCount()+" blocks). Inspect layers or upload for placement.";
+                " ("+result.blueprint().solidCount()+" blocks, "+
+                result.blueprint().warnings.size()+" design QA warnings). Inspect layers or Design QA before placement.";
             switchTab(1);
             MinecraftClient mc=MinecraftClient.getInstance();
             if(mc.currentScreen==null || mc.currentScreen instanceof BuildAIGenerationScreen ||

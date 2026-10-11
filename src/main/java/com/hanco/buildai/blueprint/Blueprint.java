@@ -5,7 +5,9 @@ import java.util.*;
 
 /** Independent blueprint containing block states, not a schematic-specific data structure. */
 public final class Blueprint {
-    public static final int MAX_VOLUME = 250_000;
+    // Runtime memory-safety limit per blueprint. Larger architecture will be segmented
+    // in future releases; never silently shrink a player's requested scale.
+    public static final int MAX_VOLUME = 4_000_000;
     public final String name;
     public final int width, height, length;
     private final String[] states;

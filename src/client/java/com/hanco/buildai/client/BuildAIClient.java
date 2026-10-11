@@ -64,7 +64,9 @@ public final class BuildAIClient implements ClientModInitializer {
             surfacePending=false;
             previewLocked=false;
             previewOrigin=null;
-            PlacementMode.start();
+            // When F8 is still open, starting a camera here would immediately
+            // be canceled by the screen-aware flight loop. F8.close() starts it.
+            if(MinecraftClient.getInstance().currentScreen==null)PlacementMode.start();
         }else{
             clearPreview();
         }
@@ -72,7 +74,7 @@ public final class BuildAIClient implements ClientModInitializer {
         MinecraftClient client=MinecraftClient.getInstance();
         if(client.currentScreen instanceof BuildAIScreen screen)
             screen.updateStatus(payload.accepted()
-                ? "Blueprint accepted. Close F8, then Resume Placement Camera; Enter locks XYZ."
+                ? "Blueprint accepted. Close F8 to begin flight; wheel moves world Z, G snaps surface, Enter locks XYZ."
                 : payload.message());
     }
     public static void setKey(String key){apiKey=key==null?"":key.trim();}

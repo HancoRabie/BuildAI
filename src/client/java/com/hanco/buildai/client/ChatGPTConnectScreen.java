@@ -64,11 +64,11 @@ public final class ChatGPTConnectScreen extends Screen {
     }
 
     @Override public void render(DrawContext context,int mouseX,int mouseY,float delta){
-        super.render(context,mouseX,mouseY,delta);
         int panel=Math.min(450,Math.max(150,width-24));
         int x=(width-panel)/2;
         int center=height/2;
         context.fill(x-10,center-84,x+panel+10,center+83,0xDB111B27);
+        super.render(context,mouseX,mouseY,delta);
         context.drawCenteredTextWithShadow(textRenderer,"BuildAI  |  Connect with ChatGPT",
             width/2,center-72,0x70ECC6);
         context.drawCenteredTextWithShadow(textRenderer,"Secure one-time sign-in",width/2,center-50,0xFFFFFF);

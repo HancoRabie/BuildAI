@@ -75,14 +75,18 @@ public final class ConstructionProject {
         phase=Phase.REVIEW;
     }
     public void confirm() {
-        if(phase!=Phase.REVIEW)throw new IllegalStateException("Select ground first");
-        // Snapshot all occupied bounding cells. Excavation only begins after explicit player confirmation.
-        for(int y=0;y<blueprint.height;y++)for(int z=0;z<blueprint.length;z++)for(int x=0;x<blueprint.width;x++) {
-            BlockPos p=origin.add(x,y,z);
-            originals.put(p.toImmutable(),world.getBlockState(p));
-        }
+        if(phase!=Phase.REVIEW)throw new IllegalStateException("Lock the blueprint XYZ first");
+        // No multi-million-block snapshot on the server tick! Save affected
+        // ORIGINAL states lazily, exactly before each excavation/placement.
+        // A previously AIR cell is represented by absence from originals.
         hasSnapshot=true;
         phase=Phase.EXCAVATE;
+    }
+    private void recordOriginal(BlockPos position) {
+        BlockPos key=position.toImmutable();
+        if(!modified.add(key))return;
+        BlockState previous=world.getBlockState(position);
+        if(!previous.isAir())originals.put(key,previous);
     }
     /** Re-run normalization against the already-built project footprint, without excavation. */
     public boolean requestPaneRepair() {
@@ -134,7 +138,7 @@ public final class ConstructionProject {
                 BlockPos p=origin.add(x,y,z);
                 if(!world.isChunkLoaded(p)) {excavationIndex--;break;}
                 if(!world.getBlockState(p).isAir()) {
-                    modified.add(p.toImmutable());
+                    recordOriginal(p);
                     world.setBlockState(p,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
                     if(cinematic)world.spawnParticles(net.minecraft.particle.ParticleTypes.PORTAL,
                         p.getX()+0.5,p.getY()+0.6,p.getZ()+0.5,2,0.25,0.25,0.25,0.04);
@@ -166,12 +170,12 @@ public final class ConstructionProject {
                     BlockState staging=target.getBlock() instanceof SlabBlock
                         ? BuildBlocks.CONSTRUCTION_SLAB.getDefaultState()
                         : BuildBlocks.CONSTRUCTION_BLOCK.getDefaultState();
-                    modified.add(under.toImmutable());
+                    recordOriginal(under);
                     world.setBlockState(under,staging,Block.NOTIFY_ALL);
                     supports.add(under.toImmutable());
                 }
             }
-            modified.add(pos.toImmutable());
+            recordOriginal(pos);
             world.setBlockState(pos,target,Block.NOTIFY_ALL|Block.FORCE_STATE);
             if(cinematic)world.spawnParticles(net.minecraft.particle.ParticleTypes.END_ROD,
                 pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5,1,0.2,0.3,0.2,0.01);
@@ -300,9 +304,9 @@ public final class ConstructionProject {
             // Conflict safe: refuse rollback if a block has become a block entity since our placement.
             for(BlockPos p:modified)if(world.getBlockState(p).hasBlockEntity())
                 throw new IllegalStateException("Undo blocked by new container or block entity at "+p.toShortString());
-            for(Map.Entry<BlockPos,BlockState> entry:originals.entrySet()) {
-                if(modified.contains(entry.getKey()))
-                    world.setBlockState(entry.getKey(),entry.getValue(),Block.NOTIFY_ALL|Block.FORCE_STATE);
+            for(BlockPos position:modified){
+                BlockState original=originals.getOrDefault(position,Blocks.AIR.getDefaultState());
+                world.setBlockState(position,original,Block.NOTIFY_ALL|Block.FORCE_STATE);
             }
         }
         phase=Phase.CANCELLED;

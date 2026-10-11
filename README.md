@@ -39,6 +39,23 @@ In private **Chat Mode** enabled from F8, ordinary chat messages create a new de
 
 **Direct ChatGPT account sign-in is NOT implemented**. See [authentication plan](docs/AUTHENTICATION.md) for eligibility, consent, and security constraints. The v0.1 development path requires a separately billed OpenAI developer API key if AI generation is used.
 
+## Launch BuildAI directly from IntelliJ
+
+Open the local `BuildAI` project (not ChainFrames), set **Gradle JVM to Java 21**, and run these in the IntelliJ Terminal:
+
+```powershell
+git pull origin main
+.\gradlew.bat --version
+.\gradlew.bat clean build
+.\gradlew.bat runClient
+```
+
+The last command starts a separate **Minecraft 1.21.1 Fabric development client** with BuildAI loaded. No manual JAR copying is needed for this development test. The first launch may download the Minecraft/Gradle dependencies. If Java 21 is missing, select it in IntelliJ **Settings → Build, Execution, Deployment → Build Tools → Gradle → Gradle JVM**.
+
+For the safest immediate smoke test, create a **brand-new Creative world** and press **F8 → Load Demo Cottage**. The demo produces real blueprint blocks with no OpenAI account, API key, internet, or extra building mods. Select **Export Blueprint as .schem** to verify serialization; **Upload Blueprint** to preview it. Pick X/Z with a left click, sneak-right-click the chosen surface block, then inspect collision warnings carefully. Only in a disposable world run `/buildai confirm` (server operator permission is required in this prototype).
+
+**ChatGPT sign-in is not implemented**. Opening the repo to the public makes it *eligible to pursue* the documented open-source sign-in flow but does not automatically authorize accounts. AI-generated designs still require an optional OpenAI developer API key.
+
 ## First in-world test (creative, throwaway world)
 
 1. Press **F8** to open BuildAI.

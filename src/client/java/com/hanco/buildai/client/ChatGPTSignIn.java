@@ -28,6 +28,7 @@ public final class ChatGPTSignIn {
     private static volatile Account account;
     private static volatile boolean loaded=false;
     private static volatile boolean signingIn=false;
+    private static volatile CompletableFuture<String> inFlightSignIn;
     private static volatile String pendingSignInUrl="";
     private static volatile String browserStatus="Preparing secure authorization...";
 
@@ -140,14 +141,14 @@ public final class ChatGPTSignIn {
             "; reconnect if the token expired or consent was declined");
         return JsonParser.parseString(response.body()).getAsJsonObject();
     }
-    public static CompletableFuture<String> connect(){
-        synchronized(ChatGPTSignIn.class){
-            if(signingIn)return CompletableFuture.failedFuture(new IOException("ChatGPT sign-in is already in progress"));
-            signingIn=true;
-            pendingSignInUrl="";
-            browserStatus="Starting secure local callback...";
-        }
-        return CompletableFuture.supplyAsync(()->{
+    public static synchronized CompletableFuture<String> connect(){
+        // Reopening F8 while a browser is already authorizing must REJOIN the same
+        // localhost callback, never invalidate the link or start a competing login.
+        if(signingIn && inFlightSignIn!=null)return inFlightSignIn;
+        signingIn=true;
+        pendingSignInUrl="";
+        browserStatus="Starting secure local callback...";
+        inFlightSignIn=CompletableFuture.supplyAsync(()->{
             HttpServer server=null;
             try{
                 Account previous=current();
@@ -219,6 +220,7 @@ public final class ChatGPTSignIn {
                 synchronized(ChatGPTSignIn.class){signingIn=false;}
             }
         });
+        return inFlightSignIn;
     }
     /** Serialized refresh; never use a revoked or expired access token. */
     public static synchronized String token() throws Exception {

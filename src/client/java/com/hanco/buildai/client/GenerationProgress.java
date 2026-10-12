@@ -19,6 +19,8 @@ public final class GenerationProgress {
     private long lastStreamEventNanos=0;
     private String lastStreamEvent="None yet";
     private boolean responseAccepted=false;
+    private volatile boolean revising=false;
+    public void revisionMode(boolean value){revising=value;}
     private String modelLabel="Unknown";
     private String probeResult="";
     private boolean checking=false;
@@ -52,7 +54,9 @@ public final class GenerationProgress {
         String event=lastStreamEventNanos==0?"No stream event yet":
             "Last event "+lastStreamEvent+" "+
                 ((now-lastStreamEventNanos)/1_000_000_000L)+"s ago";
-        return "Model "+modelLabel+" | "+connection+" | "+
+        return (revising?"REVISION (previous blueprint supplied)":
+            "GENERATE NEW (no previous blueprint supplied)")+
+            " | Model "+modelLabel+" | "+connection+" | "+
             receivedCharacters+" blueprint characters | "+event+
             " | elapsed "+age+"s. "+
             "A successful connection check cannot verify that "+

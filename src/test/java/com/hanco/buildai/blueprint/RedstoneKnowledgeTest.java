@@ -69,6 +69,17 @@ public class RedstoneKnowledgeTest {
         assertTrue(guidance.contains("30 game"));
         assertTrue(guidance.contains("full TPS"));
     }
+    @Test void detailedBooleanLibraryOnlyLoadsWhenRelevant(){
+        String simple=RedstoneKnowledge.instructions(
+            "Make a compact automatic piston drawbridge",null);
+        String advanced=RedstoneKnowledge.instructions(
+            "Make a comparator-controlled pulse timer with logic gates",null);
+        assertTrue(simple.contains("JAVA-SPECIFIC POWERING AND UPDATE ORDER"));
+        assertTrue(simple.contains("2011 Minecraft Forum"));
+        assertFalse(simple.contains("XOR: 00->0; 01->1; 10->1; 11->0"));
+        assertTrue(advanced.contains("XOR: 00->0; 01->1; 10->1; 11->0"));
+        assertTrue(advanced.length()>simple.length());
+    }
     @Test void nonMechanicalCottageStillDoesNotLoadHistoricalCircuitReference(){
         var plain=RedstoneKnowledge.instructions("A cozy medieval cottage",null);
         assertFalse(plain.contains("2011 Minecraft Forum"));

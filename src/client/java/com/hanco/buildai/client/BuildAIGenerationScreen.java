@@ -16,6 +16,13 @@ import java.util.List;
 public final class BuildAIGenerationScreen extends Screen {
     private final BuildAIScreen parent;
     private final GenerationProgress progress;
+    private ButtonWidget autoStopButton;
+
+    private Text autoStopLabel(){
+        return Text.literal(progress.autoStopEnabled()
+            ?"AUTO-STOP: ON  |  Click to disable (8m / 3m)"
+            :"AUTO-STOP: OFF  |  Wait until I cancel");
+    }
 
     public BuildAIGenerationScreen(BuildAIScreen parent,GenerationProgress progress) {
         super(Text.literal("BuildAI | Generating your structure"));
@@ -31,7 +38,10 @@ public final class BuildAIGenerationScreen extends Screen {
         int panel=panelWidth();
         int x=(width-panel)/2;
         int gap=6, half=(panel-28-gap)/2;
-        int footerY=Math.max(12,height-58);
+        // Three separate footer rows: navigation, diagnostics/cancel, and
+        // the live per-request timeout toggle. No scrolling or overlapping
+        // labels even when Minecraft fullscreen changes logical GUI scale.
+        int footerY=Math.max(12,height-82);
         addDrawableChild(ButtonWidget.builder(Text.literal("Back to BuildAI"),
             b->close()).dimensions(x+14,footerY,half,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Return to Game (Keep Generating)"),
@@ -59,6 +69,19 @@ public final class BuildAIGenerationScreen extends Screen {
                     client.setScreen(new BuildAIRetryScreen(parent,progress));
             }).dimensions(x+14+half+gap,footerY+24,half,20).build();
         addDrawableChild(refine);
+
+        autoStopButton=ButtonWidget.builder(autoStopLabel(),button->{
+            // This updates the watchdog observing the ALREADY OPEN stream;
+            // no prompt resend, no new model instance and no cancellation.
+            progress.setAutoStopEnabled(!progress.autoStopEnabled());
+            button.setMessage(autoStopLabel());
+        }).dimensions(x+14,footerY+48,panel-28,20).build();
+        autoStopButton.active=!progress.snapshot().finished();
+        autoStopButton.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(
+            Text.literal("ON: stop after 8m with no text or 3m stalled output. "+
+                "OFF: no silence limit; cancel manually. Re-enable for a "+
+                "fresh full grace period.")));
+        addDrawableChild(autoStopButton);
     }
 
     @Override public void renderBackground(DrawContext context,int mouseX,int mouseY,float delta) {
@@ -68,7 +91,11 @@ public final class BuildAIGenerationScreen extends Screen {
 
     @Override public void render(DrawContext ctx,int mouseX,int mouseY,float delta) {
         GenerationProgress.Snapshot s=progress.snapshot();
-        int panel=panelWidth(),x=(width-panel)/2,footerY=Math.max(12,height-58);
+        int panel=panelWidth(),x=(width-panel)/2,footerY=Math.max(12,height-82);
+        if(autoStopButton!=null){
+            autoStopButton.setMessage(autoStopLabel());
+            autoStopButton.active=!s.finished();
+        }
         int top=Math.max(5,Math.min(20,height/12));
         int bottom=height-6, inset=x+14, usable=panel-28;
         int unit=Math.max(11,Math.min(14,(footerY-top-12)/20));
@@ -133,7 +160,9 @@ public final class BuildAIGenerationScreen extends Screen {
                 "Blueprint complete. Opening its in-game review."
             : s.secondsSinceActivity()>=15
                 ? "No new design data for "+s.secondsSinceActivity()+
-                    "s. Waiting for OpenAI; completion time is unknown."
+                    "s. "+(progress.autoStopEnabled()
+                        ?"Auto-stop ON: 8m initial / 3m after text.":
+                         "Auto-stop OFF: request will keep waiting.")
                 : "Live updates represent real model, network and validation events.";
         List<OrderedText> notes=textRenderer.wrapLines(Text.literal(note),usable);
         int noteY=top+unit*16;
@@ -156,6 +185,13 @@ public final class BuildAIGenerationScreen extends Screen {
                 y+=12;
             }
         }
+
+        // Native button stays clickable and clearly separated from all
+        // other actions. Teal = ongoing with auto-stop disabled; amber =
+        // automatic silence protection enabled.
+        if(autoStopButton!=null)
+            ctx.fill(inset,footerY+46,inset+usable,footerY+47,
+                progress.autoStopEnabled()?0xFFE7C27D:0xFF6DE5C5);
 
         // Minecraft Screen.render draws the widgets and potentially its normal
         // background; our renderBackground override above makes that a no-op.

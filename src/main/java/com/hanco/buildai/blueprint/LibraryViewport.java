@@ -14,7 +14,7 @@ public record LibraryViewport(
 
     public static LibraryViewport fit(int width,int height) {
         boolean compact=height<330 || width<680;
-        int listTop=compact?39:67;
+        int listTop=compact?33:67;
         int step=compact?21:28;
         int rowHeight=compact?18:22;
         int utilityY=height-26;

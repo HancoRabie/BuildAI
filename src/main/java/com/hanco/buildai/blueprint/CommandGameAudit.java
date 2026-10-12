@@ -13,11 +13,19 @@ public final class CommandGameAudit {
         boolean ctf=playerPrompt!=null&&
             (playerPrompt.toLowerCase(Locale.ROOT).contains("capture the flag")||
              playerPrompt.toLowerCase(Locale.ROOT).contains("ctf"));
-        if(blueprint.commands().isEmpty())
-            return ctf?List.of("CTF map has NO executable command-block plan: this is terrain only, "+
-                "NOT a working capture-the-flag game. Add all scoreboard, team, "+
-                "loadout, flag, win and reset logic before use."):List.of();
+        if(blueprint.commands().isEmpty()){
+            int missing=CommandBlockPlan.unassignedBlocks(blueprint);
+            if(missing>0)return List.of(
+                "UNCONFIGURED COMMAND BLOCKS: "+missing+" physical command block(s) but ZERO "+
+                "embedded command scripts. No commands exist to approve. This build is "+
+                "NOT functional. Generate a revision supplying a root 'commands' array with "+
+                "one local XYZ and actual 1.21.1 command per required block.");
+            return ctf?List.of("CTF has NO command blocks or scripts: terrain only, NOT a game."):List.of();
+        }
         List<String> warnings=new ArrayList<>();
+        int unassigned=CommandBlockPlan.unassignedBlocks(blueprint);
+        if(unassigned>0)warnings.add(unassigned+
+            " command block(s) are UNCONFIGURED. Only matching assigned scripts can be approved.");
         List<String> commands=blueprint.commands().stream()
             .map(e->e.command().toLowerCase(Locale.ROOT)).toList();
         if(!ctf)return List.of(

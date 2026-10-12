@@ -3,6 +3,7 @@ package com.hanco.buildai.client;
 import com.google.gson.*;
 import com.hanco.buildai.blueprint.ArchitecturalStyleAnalyzer;
 import com.hanco.buildai.blueprint.ReviewIdentity;
+import com.hanco.buildai.blueprint.BuilderPreferenceProfile;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -250,6 +251,17 @@ public final class BuildAIStyleMemory {
             StringBuilder out=new StringBuilder();
             JsonArray reviews=data.getAsJsonArray("reviews");
             if(!reviews.isEmpty()){
+                List<BuilderPreferenceProfile.Review> history=new ArrayList<>();
+                for(JsonElement item:reviews){
+                    if(!item.isJsonObject())continue;
+                    JsonObject o=item.getAsJsonObject();
+                    history.add(new BuilderPreferenceProfile.Review(
+                        o.get("rating").getAsInt(),clean(o.get("file").getAsString(),90),
+                        clean(o.get("comment").getAsString(),900)));
+                }
+                out.append(BuilderPreferenceProfile.summarize(history));
+                // Recent reviews retain full concrete detail so corrections can
+                // refine, not permanently override, the long-term style profile.
                 // Balanced, durable evidence: last 24 lessons, not just last 12.
                 // A builder's negative ratings signal what to avoid; high scores
                 // are positive inspiration. Avoid inventing a permanent preference

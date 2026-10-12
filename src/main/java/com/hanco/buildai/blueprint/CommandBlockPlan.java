@@ -30,6 +30,44 @@ public final class CommandBlockPlan {
         }
     }
     public static boolean isCommandBlock(String state){return TYPES.contains(Blueprint.id(state));}
+    /**
+     * The execution list has one stable ordinal per actual command-block
+     * position, in the SAME Y, Z, X order that physical command blocks appear
+     * in the construction queue. Network array ordering cannot remap a command.
+     */
+    public static List<Entry> mappedInBuildOrder(Blueprint blueprint,List<Entry> source){
+        Objects.requireNonNull(blueprint);
+        Objects.requireNonNull(source);
+        if(source.size()>MAX_COMMANDS)throw new IllegalArgumentException("Command plan limit: "+MAX_COMMANDS);
+        List<Entry> entries=new ArrayList<>(source);
+        Set<Integer> positions=new HashSet<>();
+        for(Entry entry:entries){
+            validate(blueprint,entry);
+            int cell=blueprint.index(entry.x(),entry.y(),entry.z());
+            if(!positions.add(cell))
+                throw new IllegalArgumentException("Duplicate command script at "+entry.x()+","+
+                    entry.y()+","+entry.z());
+        }
+        entries.sort(Comparator.comparingInt(Entry::y)
+            .thenComparingInt(Entry::z).thenComparingInt(Entry::x));
+        return List.copyOf(entries);
+    }
+
+    /** Inert, unassigned command-block cells are never silently wired. */
+    public static int unassignedBlocks(Blueprint blueprint){
+        if(blueprint.commands().isEmpty())return 0;
+        Set<Integer> assigned=new HashSet<>();
+        for(Entry e:blueprint.commands())
+            assigned.add(blueprint.index(e.x(),e.y(),e.z()));
+        int missing=0;
+        for(int y=0;y<blueprint.height;y++)
+            for(int z=0;z<blueprint.length;z++)
+                for(int x=0;x<blueprint.width;x++)
+                    if(isCommandBlock(blueprint.get(x,y,z)) &&
+                        !assigned.contains(blueprint.index(x,y,z)))missing++;
+        return missing;
+    }
+
     public static void validate(Blueprint b,Entry e) {
         if(e.x()<0||e.y()<0||e.z()<0||e.x()>=b.width||e.y()>=b.height||e.z()>=b.length)
             throw new IllegalArgumentException("Command block position outside blueprint");

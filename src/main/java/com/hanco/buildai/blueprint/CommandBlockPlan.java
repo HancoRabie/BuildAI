@@ -19,7 +19,7 @@ public final class CommandBlockPlan {
     public static final int MAX_COMMAND_LENGTH=768;
     private static final Set<String> ROOTS=Set.of(
         "scoreboard","team","tag","effect","give","clear","tp","teleport",
-        "title","tellraw","playsound","particle","execute","spawnpoint");
+        "title","tellraw","playsound","particle","execute","spawnpoint","time","weather","gamerule");
     private static final Set<String> TYPES=Set.of(
         "minecraft:command_block","minecraft:chain_command_block","minecraft:repeating_command_block");
 
@@ -55,7 +55,6 @@ public final class CommandBlockPlan {
 
     /** Inert, unassigned command-block cells are never silently wired. */
     public static int unassignedBlocks(Blueprint blueprint){
-        if(blueprint.commands().isEmpty())return 0;
         Set<Integer> assigned=new HashSet<>();
         for(Entry e:blueprint.commands())
             assigned.add(blueprint.index(e.x(),e.y(),e.z()));
@@ -85,6 +84,15 @@ public final class CommandBlockPlan {
         String input=command.trim().toLowerCase(Locale.ROOT);
         String root=input.split("\\s+",2)[0];
         if(!ROOTS.contains(root))throw new IllegalArgumentException("Command not permitted in minigame plan: "+root);
+        // Carefully bounded vanilla world-state controls for requested
+        // day/night/weather panels; do not expose unrestricted gamerules.
+        if(root.equals("time") && !input.matches("time\\s+set\\s+(day|night|noon|midnight|[0-9]{1,6})"))
+            throw new IllegalArgumentException("Only 'time set' with a valid 1.21.1 time is supported");
+        if(root.equals("weather") && !input.matches("weather\\s+(clear|rain|thunder)(\\s+[0-9]{1,6})?"))
+            throw new IllegalArgumentException("Only clear/rain/thunder weather controls are supported");
+        if(root.equals("gamerule") &&
+            !input.matches("gamerule\\s+(dodaylightcycle|doweathercycle)\\s+(true|false)"))
+            throw new IllegalArgumentException("Only time/weather cycle gamerules are supported");
         if(root.equals("execute")){
             // Every nested run target must be independently allowlisted.
             // Requiring a runnable tail prevents "execute ... run function ..."

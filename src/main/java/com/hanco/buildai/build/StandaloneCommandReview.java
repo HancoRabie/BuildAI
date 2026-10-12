@@ -25,8 +25,8 @@ public final class StandaloneCommandReview {
     private static final Map<UUID,Pending> STAGED=new HashMap<>();
 
     private static void requireOperator(ServerPlayerEntity player){
-        if(!player.hasPermissionLevel(4))
-            throw new IllegalStateException("Only operator level 4 can configure existing command blocks");
+        if(!CommandAuthorization.canApprove(player,player.getUuid()))
+            throw new IllegalStateException(CommandAuthorization.explanation(player));
     }
     private static CommandBlockBlockEntity inspect(ServerWorld world,BlockPos pos,BlockState expected){
         if(!world.isChunkLoaded(pos))

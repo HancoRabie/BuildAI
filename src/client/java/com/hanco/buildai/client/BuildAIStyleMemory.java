@@ -13,7 +13,7 @@ import java.util.*;
  */
 public final class BuildAIStyleMemory {
     private BuildAIStyleMemory(){}
-    private static final int MAX_REVIEWS=120,MAX_REFS=24,MAX_PROMPT=10000;
+    private static final int MAX_REVIEWS=120,MAX_REFS=24,MAX_ARCH_REFS=24,MAX_PROMPT=10000;
     private static Path dataFile(){
         return BlueprintLibrary.directory().getParent().resolve("style-memory.json");
     }
@@ -21,7 +21,7 @@ public final class BuildAIStyleMemory {
         Path path=dataFile();
         if(!Files.isRegularFile(path)){
             JsonObject empty=new JsonObject();empty.add("reviews",new JsonArray());
-            empty.add("references",new JsonArray());return empty;
+            empty.add("references",new JsonArray());empty.add("architectures",new JsonArray());return empty;
         }
         if(Files.size(path)>512_000)throw new IOException("Style memory exceeds 512 KB");
         try{
@@ -30,6 +30,11 @@ public final class BuildAIStyleMemory {
             if(!obj.has("reviews")||!obj.get("reviews").isJsonArray()||
                 !obj.has("references")||!obj.get("references").isJsonArray())
                 throw new IOException("Style memory has an invalid structure; original file preserved");
+            // Old local libraries have only reviews and sign-labeled references.
+            // Upgrade in memory without touching the original until the next save.
+            if(!obj.has("architectures"))obj.add("architectures",new JsonArray());
+            if(!obj.get("architectures").isJsonArray())
+                throw new IOException("Architecture reference section is malformed; original file preserved");
             return obj;
         }catch(RuntimeException error){
             throw new IOException("Could not read style memory: "+error.getMessage(),error);
@@ -89,13 +94,81 @@ public final class BuildAIStyleMemory {
         trimmed.add(entry);data.add("references",trimmed);save(data);
         return examples.size();
     }
+    public record ArchitectureReference(String name,String report,int blocks,int materials) {}
+    public record FolderScan(int saved,int failed,int inspected,String firstError) {}
+
+    /** Library folder is local to the current Minecraft instance, not GitHub. */
+    public static Path architectureDirectory() {
+        return BlueprintLibrary.directory().getParent().resolve("style-references");
+    }
+
+    public static synchronized ArchitectureReference addArchitectureReference(Path path) throws Exception {
+        if(path==null||!Files.isRegularFile(path)||!BlueprintLibrary.supported(path))
+            throw new IOException("Choose a .schem/.schematic/.litematic/.nbt reference file");
+        ArchitecturalStyleAnalyzer.Analysis analysis=ArchitecturalStyleAnalyzer.inspect(path);
+        JsonObject data=load(),entry=new JsonObject();
+        String filename=clean(path.getFileName().toString(),120);
+        entry.addProperty("source",filename);
+        entry.addProperty("added",System.currentTimeMillis());
+        entry.addProperty("enabled",true);
+        entry.addProperty("blocks",analysis.blocks());
+        entry.addProperty("materials",analysis.uniqueMaterials());
+        entry.addProperty("report",clean(analysis.report(),7500));
+        JsonArray prior=data.getAsJsonArray("architectures"),next=new JsonArray();
+        for(JsonElement old:prior){
+            if(next.size()>=MAX_ARCH_REFS-1)break;
+            JsonObject previous=old.getAsJsonObject();
+            if(!previous.get("source").getAsString().equals(filename))next.add(old);
+        }
+        next.add(entry);
+        data.add("architectures",next);save(data);
+        return new ArchitectureReference(filename,analysis.report(),analysis.blocks(),analysis.uniqueMaterials());
+    }
+
+    /**
+     * Opt-in batch import. Scan no more than 12 files per request and keep
+     * the originals untouched. Individual bad files do not discard good ones.
+     */
+    public static FolderScan addArchitectureFolder() throws Exception {
+        Path dir=architectureDirectory();
+        Files.createDirectories(dir);
+        List<Path> candidates;
+        try(var stream=Files.list(dir)){
+            candidates=stream.filter(Files::isRegularFile).filter(BlueprintLibrary::supported)
+                .sorted().limit(12).toList();
+        }
+        int saved=0,failed=0;
+        String firstError="";
+        for(Path path:candidates){
+            try{addArchitectureReference(path);saved++;}
+            catch(Exception ex){
+                failed++;
+                if(firstError.isEmpty())firstError=path.getFileName()+": "+ex.getMessage();
+            }
+        }
+        return new FolderScan(saved,failed,candidates.size(),firstError);
+    }
+
+    public static synchronized List<ArchitectureReference> architectureReferences() throws IOException {
+        JsonArray refs=load().getAsJsonArray("architectures");
+        List<ArchitectureReference> entries=new ArrayList<>();
+        for(int i=refs.size()-1;i>=0;i--){
+            JsonObject o=refs.get(i).getAsJsonObject();
+            entries.add(new ArchitectureReference(
+                o.get("source").getAsString(),o.get("report").getAsString(),
+                o.get("blocks").getAsInt(),o.get("materials").getAsInt()));
+        }
+        return List.copyOf(entries);
+    }
+
     public static synchronized String summary() throws IOException {
         JsonObject data=load();
         JsonArray refs=data.getAsJsonArray("references");
         int samples=0;
         for(JsonElement ref:refs)samples+=ref.getAsJsonObject().getAsJsonArray("examples").size();
         return data.getAsJsonArray("reviews").size()+" feedback notes, "+
-            refs.size()+" style packs, "+samples+" labeled examples";
+            refs.size()+" labeled packs, "+samples+" labeled examples, "+
+            data.getAsJsonArray("architectures").size()+" whole-build references";
     }
     /** Only compact user-approved notes + style geometry. No world locations, credentials or inventories. */
     public static synchronized String promptContext() {
@@ -111,6 +184,17 @@ public final class BuildAIStyleMemory {
                        .append("; rating ").append(o.get("rating").getAsInt()).append("/5; note: ")
                        .append(clean(o.get("comment").getAsString(),900)).append('\n');
                 }
+            }
+            JsonArray architecture=data.getAsJsonArray("architectures");
+            int used=0;
+            for(int i=architecture.size()-1;i>=0 && used<2;i--){
+                JsonObject ref=architecture.get(i).getAsJsonObject();
+                if(ref.has("enabled")&&!ref.get("enabled").getAsBoolean())continue;
+                out.append("\nPLAYER-APPROVED WHOLE-BUILD ARCHITECTURAL REFERENCE from ")
+                    .append(clean(ref.get("source").getAsString(),110))
+                    .append(" (analysis, NOT proof of aesthetic quality): \n")
+                    .append(clean(ref.get("report").getAsString(),3800)).append('\\n');
+                used++;
             }
             JsonArray refs=data.getAsJsonArray("references");
             int count=0;

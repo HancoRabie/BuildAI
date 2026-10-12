@@ -86,6 +86,11 @@ public final class BlueprintDeleteConfirmScreen extends Screen {
         ctx.fill(x-9,6,x+panel+9,height-4,BG);
         ctx.fill(x-9,6,x+panel+9,10,RED);
         ctx.fill(x+6,32,x+panel-6,33,0xFF6D4E51);
+        // Native Minecraft widgets remain readable/keyboard focusable.
+        // The irreversible action is framed with a muted red border.
+        int half=(panel-5)/2;
+        ctx.fill(x-3,buttonY-3,x+half+3,buttonY+23,0xBB522C32);
+        ctx.drawBorder(x-3,buttonY-3,half+6,26,RED);
     }
     @Override public void render(DrawContext ctx,int mouseX,int mouseY,float delta){
         super.render(ctx,mouseX,mouseY,delta);
@@ -95,7 +100,7 @@ public final class BlueprintDeleteConfirmScreen extends Screen {
         line(ctx,"This will DELETE the actual schematic file from",y,WHITE);
         line(ctx,"Minecraft's buildai/blueprints save directory.",y+11,WHITE);
         if(height>=160){
-            line(ctx,"It will NOT just disappear from this menu.",y+25,GOLD);
+            line(ctx,"Not just hidden: saved reviews for this file are removed.",y+25,GOLD);
             line(ctx,"File: "+target.getFileName(),y+40,TEAL);
         }
         if(height>=210){

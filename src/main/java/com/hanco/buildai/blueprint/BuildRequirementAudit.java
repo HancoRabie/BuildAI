@@ -189,7 +189,15 @@ public final class BuildRequirementAudit {
             suggestions.add("Requirement evidence manifest is unreadable; "+
                 "inspect the saved specification.");
         }
-        return new Report(List.copyOf(blockers),List.copyOf(suggestions),
+        // All buildings use the same audit gate. Optional specialist
+        // modules contribute real, domain-specific findings without owning
+        // generation or inventing new player requirements.
+        SpecializedAuditRegistry.Findings extra=
+            SpecializedAuditRegistry.inspect(b,request,spec);
+        blockers.addAll(extra.blockers());
+        suggestions.addAll(extra.suggestions());
+        return new Report(List.copyOf(new LinkedHashSet<>(blockers)),
+            List.copyOf(new LinkedHashSet<>(suggestions)),
             Map.copyOf(counts),solids);
     }
 

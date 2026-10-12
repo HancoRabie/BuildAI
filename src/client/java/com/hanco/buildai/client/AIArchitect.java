@@ -239,6 +239,11 @@ public final class AIArchitect {
     }
     public static DesignResult generateWithChatGPT(String prompt,String previous,
                                                     GenerationProgress progress) throws Exception {
+        return generateWithChatGPTAttempt(prompt,previous,progress,false,null);
+    }
+    private static DesignResult generateWithChatGPTAttempt(String prompt,String previous,
+                     GenerationProgress progress,boolean recovery,
+                     InspirationResearch.Result cachedInspiration) throws Exception {
         if(prompt==null||prompt.isBlank()||prompt.length()>4000)
             throw new IllegalArgumentException("Describe your building in 1-4000 characters");
         if(previous!=null&&previous.length()>1_500_000)
@@ -250,7 +255,8 @@ public final class AIArchitect {
         if(progress!=null)progress.requestSent(model);
         report(progress,"Preparing secure request","Using your authorized account and model "+model+".");
         String token=ChatGPTSignIn.token();
-        InspirationResearch.Result inspiration=InspirationResearch.research(token,model,prompt,progress);
+        InspirationResearch.Result inspiration=cachedInspiration==null
+            ?InspirationResearch.research(token,model,prompt,progress):cachedInspiration;
         JsonObject body=new JsonObject();
         body.addProperty("model",model);
         body.addProperty("store",false);
@@ -264,6 +270,7 @@ public final class AIArchitect {
             REDSTONE+"\n"+RedstoneKnowledge.instructions(prompt,previous)+"\n"+loadArchitectureGuide();
         if(previous!=null)rules+="\nRevise the existing blueprint. Return COMPLETE replacement JSON, not a diff. "+
             "Keep existing geometry unless the player explicitly asks for changes.";
+        if(recovery)rules+="\n"+BlueprintDeliveryPolicy.correction();
         system.addProperty("content",rules);
         input.add(system);
         if(previous!=null){
@@ -362,6 +369,13 @@ public final class AIArchitect {
             "OpenAI completed without generating any blueprint data. "+
             "Existing blueprint unchanged; retry without restarting your world.");
         report(progress,"Compiling 3D blueprint","Converting AI design operations into exact block positions.");
+        if(!recovery && BlueprintDeliveryPolicy.retryableLimitation(spec)){
+            report(progress,"Revising response to preserve your requested build",
+                "The model confused untested mechanics with an impossible "+
+                "design. Retrying ONCE using the same prompt, same scale, "+
+                "and your current blueprint unchanged.");
+            return generateWithChatGPTAttempt(prompt,previous,progress,true,inspiration);
+        }
         ProceduralGenerator.Compilation compilation=ProceduralGenerator.compileDesign(spec);
         Blueprint compiled=compilation.blueprint();
         DoorPlanner.completeSafePairs(compiled);
@@ -385,10 +399,16 @@ public final class AIArchitect {
 
     private static DesignResult requestDesign(String key,String prompt,String previous,
                                               GenerationProgress progress) throws Exception {
+        return requestDesignAttempt(key,prompt,previous,progress,false,null);
+    }
+    private static DesignResult requestDesignAttempt(String key,String prompt,String previous,
+                    GenerationProgress progress,boolean recovery,
+                    InspirationResearch.Result cachedInspiration) throws Exception {
         if(key==null||key.isBlank())throw new IllegalArgumentException("Enter an OpenAI API key (v0.1).");
         if(prompt==null||prompt.isBlank()||prompt.length()>4000)throw new IllegalArgumentException("Prompt length 1-4000 required");
-        InspirationResearch.Result inspiration=InspirationResearch.research(
-            key.trim(),"gpt-4.1-mini",prompt,progress);
+        InspirationResearch.Result inspiration=cachedInspiration==null
+            ?InspirationResearch.research(key.trim(),"gpt-4.1-mini",prompt,progress)
+            :cachedInspiration;
         if(progress!=null)progress.requestSent("gpt-4.1-mini");
         JsonObject body=new JsonObject();body.addProperty("model","gpt-4.1-mini");
         JsonObject format=new JsonObject();format.addProperty("type","json_object");
@@ -403,6 +423,7 @@ public final class AIArchitect {
                 "Preserve dimensions, details and architecture unless the user requests changes. "+
                 "Return a COMPLETE replacement JSON design using the same schema; do not return a diff. "+
                 "Keep all previous valid geometry operations except when necessary for requested changes.";
+        if(recovery)systemInstructions+="\n"+BlueprintDeliveryPolicy.correction();
         JsonObject system=new JsonObject();system.addProperty("role","system");system.addProperty("content",systemInstructions);
         JsonObject user=new JsonObject();user.addProperty("role","user");
         user.addProperty("content",prompt+BuildAIStyleMemory.promptContext()+
@@ -431,6 +452,13 @@ public final class AIArchitect {
             .get("content").getAsString();
         if(progress!=null)progress.receivedCharacters(json.length());
         report(progress,"Compiling 3D blueprint","Converting AI design operations into exact block positions.");
+        if(!recovery && BlueprintDeliveryPolicy.retryableLimitation(json)){
+            report(progress,"Revising response to preserve your requested build",
+                "The model refused to guarantee in-world validation. "+
+                "Retrying ONCE with the original prompt and no changes "+
+                "to your previous blueprint.");
+            return requestDesignAttempt(key,prompt,previous,progress,true,inspiration);
+        }
         ProceduralGenerator.Compilation compilation=ProceduralGenerator.compileDesign(json);
         Blueprint compiled=compilation.blueprint();
         DoorPlanner.completeSafePairs(compiled);

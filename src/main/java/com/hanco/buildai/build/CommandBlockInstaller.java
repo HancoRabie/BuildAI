@@ -2,6 +2,7 @@ package com.hanco.buildai.build;
 
 import com.hanco.buildai.blueprint.CommandBlockPlan;
 import net.minecraft.block.Block;
+import net.minecraft.registry.Registries;
 import net.minecraft.block.entity.CommandBlockBlockEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
@@ -21,8 +22,7 @@ public final class CommandBlockInstaller {
             throw new IllegalStateException("Command block chunk unloaded at "+pos.toShortString());
         if(!(world.getBlockEntity(pos) instanceof CommandBlockBlockEntity tile))
             throw new IllegalStateException("Command block missing at "+pos.toShortString());
-        if(!CommandBlockPlan.isCommandBlock(world.getBlockState(pos).getBlock()
-            .getTranslationKey().replace("block.minecraft.","minecraft:")))
+        if(!CommandBlockPlan.isCommandBlock(Registries.BLOCK.getId(world.getBlockState(pos).getBlock()).toString()))
             throw new IllegalStateException("Expected command block state at "+pos.toShortString());
         tile.setAuto(false);
         tile.getCommandExecutor().setCommand(entry.command());

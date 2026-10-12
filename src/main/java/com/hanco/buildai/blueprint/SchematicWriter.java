@@ -47,6 +47,15 @@ public final class SchematicWriter {
         if(!blueprint.commands().isEmpty())
             schematic.putString("BuildAICommandPlan",
                 CommandBlockPlan.encode(blueprint.commands()).toString());
+        // Safe metadata for exact-prompt regenerate and actual schematic-based
+        // revisions. Byte arrays avoid NBT's modified-UTF 65 KB string cap
+        // for complex 3D JSON while remaining passive when other tools import.
+        if(blueprint.hasOriginalPrompt())
+            schematic.putByteArray("BuildAIOriginalPromptUtf8",
+                blueprint.originalPrompt().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        if(blueprint.hasRevisionContext())
+            schematic.putByteArray("BuildAIDesignSpecificationUtf8",
+                blueprint.designSpecification().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         NbtCompound root=new NbtCompound();root.put("Schematic",schematic);
         if(output.getParent()!=null)Files.createDirectories(output.getParent());
         NbtIo.writeCompressed(root,output);

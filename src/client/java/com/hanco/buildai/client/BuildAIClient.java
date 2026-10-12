@@ -15,6 +15,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
+import net.minecraft.text.ClickEvent;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.hit.BlockHitResult;
 import org.lwjgl.glfw.GLFW;
 import java.util.concurrent.CompletableFuture;
@@ -23,6 +25,27 @@ public final class BuildAIClient implements ClientModInitializer {
     public static volatile Blueprint draft;
     /** Complete last AI-authored geometry document; never retained for imported files. */
     public static volatile String designSpecification;
+    private static volatile InspirationResearch.Result lastResearch=InspirationResearch.Result.off();
+    public static InspirationResearch.Result lastResearch(){return lastResearch;}
+    /** User-visible, HTTPS clickable citations retained for current AI blueprint. */
+    public static void showInspirationLinks(){
+        InspirationResearch.Result result=lastResearch;
+        if(!result.verified()){
+            message("No cited online research for this blueprint ("+result.status()+").");
+            return;
+        }
+        message("Live web inspiration: "+result.brief().sources().size()+
+            " cited sources. Click a title below to open it:");
+        MinecraftClient mc=MinecraftClient.getInstance();
+        if(mc.player==null)return;
+        for(var source:result.brief().sources()){
+            Text link=Text.literal("[BuildAI] ")
+                .append(Text.literal(source.title()).styled(style->
+                    style.withColor(Formatting.AQUA).withUnderline(true)
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL,source.url()))));
+            mc.player.sendMessage(link,false);
+        }
+    }
     public static volatile boolean selecting=false;
     public static volatile boolean surfacePending=false;
     public static volatile boolean previewLocked=false;
@@ -158,6 +181,11 @@ public final class BuildAIClient implements ClientModInitializer {
     public static void acceptGenerated(AIArchitect.DesignResult result) {
         clearPreview();
         draft=result.blueprint();
+        lastResearch=result.inspiration();
+        if(lastResearch.verified())showInspirationLinks();
+        else if(InspirationSettings.enabled())
+            message("Online examples not verified ("+lastResearch.status()+
+                "). Blueprint generated using local architecture rules; it was NOT web-researched.");
         surfaceLayer=Math.max(0,Math.min(surfaceLayer,draft.height-1));
         designSpecification=result.specification();
         // Autosave immediately after a successful AI blueprint compilation, even if
@@ -181,6 +209,7 @@ public final class BuildAIClient implements ClientModInitializer {
         draft=imported;
         surfaceLayer=0;
         designSpecification=null; // importing a schematic does not create an AI design history
+        lastResearch=InspirationResearch.Result.off();
     }
     private static String rootCause(Throwable t){while(t.getCause()!=null)t=t.getCause();return String.valueOf(t.getMessage());}
     @Override public void onInitializeClient(){
@@ -250,6 +279,7 @@ public final class BuildAIClient implements ClientModInitializer {
             }
             if(message.trim().equalsIgnoreCase("reset")){
                 clearPreview();draft=null;designSpecification=null;
+                lastResearch=InspirationResearch.Result.off();
                 BuildAIClient.message("Previous AI design cleared. Describe a new building.");return false;
             }
             generate(message);

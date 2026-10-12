@@ -241,6 +241,23 @@ public final class AIArchitect {
                                                     GenerationProgress progress) throws Exception {
         return generateWithChatGPTAttempt(prompt,previous,progress,false,null,null);
     }
+    // Staged-build parts run as genuinely NEW, independent model requests.
+    // No previous_response_id, prior assistant answer or redundant web search.
+    // Only the already-researched synthesis brief is reused, and every
+    // result is validated before the full build is combined.
+    static DesignResult generateStageWithChatGPT(String stagePrompt,
+                    GenerationProgress progress,InspirationResearch.Result inspiration)
+                    throws Exception {
+        return generateWithChatGPTAttempt(stagePrompt,null,progress,false,
+            inspiration,null);
+    }
+    static DesignResult generateStageWithApi(String key,String stagePrompt,
+                    GenerationProgress progress,InspirationResearch.Result inspiration)
+                    throws Exception {
+        return requestDesignAttempt(key,stagePrompt,null,progress,false,
+            inspiration,null);
+    }
+
     private static DesignResult generateWithChatGPTAttempt(String prompt,String previous,
                      GenerationProgress progress,boolean recovery,
                      InspirationResearch.Result cachedInspiration,

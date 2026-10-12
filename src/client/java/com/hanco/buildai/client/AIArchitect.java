@@ -42,6 +42,10 @@ public final class AIArchitect {
         Minecraft air can carve voids, windows and doorways.
         Make fully recognizable, attractive buildings including actual usable entrances and rooms.
         Use only valid Minecraft 1.21.1 block IDs and property states.
+        Do NOT attach waterlogged to seagrass or other blocks that lack that property.
+        Do NOT invent variants such as cut_sandstone_stairs: use sandstone_stairs instead.
+        Use the exact properties supported by each block type; unsupported properties
+        will be discarded and reported by BuildAI rather than failing the full design.
         NEVER compress, shrink, miniature-scale or omit requested rooms, wings or floors merely
         to fit an arbitrary response size. One horizontal Minecraft block represents roughly 1 meter;
         a Minecraft avatar is approximately 1.8 blocks tall. Preserve human-scale room heights,

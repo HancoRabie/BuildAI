@@ -41,31 +41,37 @@ Explicitly surfaced warnings belong in the design QA screen and
 never replace valid blueprint geometry.
 
 
-## Post-generation farm function audit and guarded repair
+## General blueprint acceptance and optimization review
 
-For automated crop farm designs, BuildAI runs a static geometry audit after
-the model completes its proposed blueprint and **before** any world placement.
-It checks requested crop blocks, farmland below root crops, nearby water
-release and piston evidence, harvest controls, hopper/storage presence, and
-whether dispensers would require unpopulated inventories. Ordinary irrigation
-water at soil level does not satisfy the plant-level flush requirement.
+BuildAI is a general-purpose architectural and engineering mod. After
+generation it compares the blueprint with the user's original instructions.
+The generic audit checks concrete requested controls/components, directional
+hopper output paths and grounded XYZ evidence attached to the generated
+requirement manifest. Separate specialist modules contribute targeted
+architecture, redstone, fluid and other relevant mechanism warnings without
+taking over the building prompt.
 
-If the audit finds measurable blockers, BuildAI can attempt **one** model
-revision with the original player/stage prompt unchanged and targeted
-engineering findings supplied separately. To prevent repeated expensive
-requests, only a single revision is attempted, only for specifications up to
-100,000 characters, and with the previously obtained inspiration reused.
-A revised result is accepted only when it reduces known blockers, preserves
-dimensions and all previously planted crop counts, and retains at least 70%
-of the original solid-block count. Independent staged modules are also
-revalidated against previously completed interfaces before acceptance.
-Otherwise the original blueprint remains intact with actionable warnings.
-This is NOT proof of Minecraft redstone or fluid mechanics.
+The generated "requirements" / "optimization_suggestions" fields are model
+claims, not proof. Actual block-state coordinates are validated. Static
+geometry QA can find omissions, misfaced hoppers and obvious constraints,
+but cannot establish complete semantic correctness for every conceivable
+request or simulate an entire Minecraft tick engine.
 
-A static schematic cannot show fluid flow after a piston retracts or prove
-item trajectories, so the audit cannot certify that every item actually
-reaches a hopper. Test in a disposable world; a real post-placement
-redstone/fluid simulation is still a future release feature.
+For measurable blockers, BuildAI may request **up to two bounded corrective
+revisions** using the exact original prompt and prior generation context.
+A candidate must reduce measured blockers while preserving build dimensions,
+substantial existing geometry and certain functional blocks; otherwise the
+last accepted blueprint is kept with warnings. Repairs are limited to designs
+whose specification fits the 100K-character single-revision guard, and
+there is no endless retry loop or fabricated 100% success claim. Quality
+suggestions without objective blockers are reported, not automatically
+applied.
+
+An actual game-world simulation remains a separate future capability.
+In-world tests are still required for redstone updates, moving pistons,
+inventory-dependent dispensers, water/item trajectories, accessibility
+and other dynamic behaviors. A successful static audit is **not** a
+certificate that a build works when activated.
 
 ## Recovery from unwarranted refusals
 

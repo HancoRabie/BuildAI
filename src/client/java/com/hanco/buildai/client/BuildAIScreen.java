@@ -366,7 +366,7 @@ public final class BuildAIScreen extends Screen {
                     :previous==null
                         ?AIArchitect.generateDesign(apiKey,description,progress)
                         :AIArchitect.reviseDesign(apiKey,description,previous,progress);
-                return FarmFunctionRepair.review(description,result,apiKey,
+                return BuildQualityReview.review(description,result,apiKey,
                     ChatGPTSignIn.connected(),progress);
             }catch(Exception ex){throw new RuntimeException(ex);}
             finally{progress.releaseWorker();}

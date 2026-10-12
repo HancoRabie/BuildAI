@@ -296,7 +296,7 @@ public final class ConstructionProject {
             case BUILD->"Building blueprint in progressive layers";
             case WAITING_SUPPLIES->"Waiting for supply chests to receive materials";
             case CLEANUP->"Removing temporary construction supports";
-            case NORMALIZE->"Repairing glass-pane, iron-bar and adjacent connection states";
+            case NORMALIZE->"Connecting glass panes, fences, walls and iron bars";
             case COMPLETE->"Construction complete";
             case PAUSED_ERROR->"Construction paused due to a safety issue";
             case CANCELLED->"Project cancelled";

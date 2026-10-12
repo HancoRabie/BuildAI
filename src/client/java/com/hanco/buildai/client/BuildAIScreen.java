@@ -355,14 +355,19 @@ public final class BuildAIScreen extends Screen {
                 if(revise&&(previous==null||previous.isBlank()))
                     throw new IllegalArgumentException("No design to revise. "+
                         "Use My Blueprints > Remake / Revise.");
+                // The staged farm architect audits each crop stage and the
+                // final assembled blueprint itself; do not re-request
+                // the massive full integrated design here.
                 if(!revise && StagedFarmPlan.applies(description))
                     return StagedFarmArchitect.generate(description,apiKey,
                         ChatGPTSignIn.connected(),progress);
-                if(ChatGPTSignIn.connected())
-                    return AIArchitect.generateWithChatGPT(description,previous,progress);
-                return previous==null
-                    ?AIArchitect.generateDesign(apiKey,description,progress)
-                    :AIArchitect.reviseDesign(apiKey,description,previous,progress);
+                AIArchitect.DesignResult result=ChatGPTSignIn.connected()
+                    ?AIArchitect.generateWithChatGPT(description,previous,progress)
+                    :previous==null
+                        ?AIArchitect.generateDesign(apiKey,description,progress)
+                        :AIArchitect.reviseDesign(apiKey,description,previous,progress);
+                return FarmFunctionRepair.review(description,result,apiKey,
+                    ChatGPTSignIn.connected(),progress);
             }catch(Exception ex){throw new RuntimeException(ex);}
             finally{progress.releaseWorker();}
         }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{

@@ -49,7 +49,7 @@ public final class BlueprintDeliveryPolicy {
 
     public static String correction(){
         return """
-            BUlLDAI GENERATION RECOVERY — ONE RETRY, ORIGINAL REQUEST UNCHANGED:
+            BUILDAI GENERATION RECOVERY — ONE RETRY, ORIGINAL REQUEST UNCHANGED:
             Your previous response explained that the mechanism cannot be
             verified, preloaded, or tested through a block-only schematic.
             That is NOT a reason to return {"error":...}. BuildAI generates

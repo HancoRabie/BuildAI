@@ -224,7 +224,7 @@ public final class RedstoneBlueprintLibrary {
     }
 
     private static final Pattern FACING=Pattern.compile(
-        "(?<=\\\\[|,)facing=(north|south|east|west)");
+        "\\bfacing=(north|south|east|west)");
     private static String cardinal(String direction){
         if(direction==null)throw new IllegalArgumentException("Missing output direction");
         String value=direction.toLowerCase(Locale.ROOT);

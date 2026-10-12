@@ -32,6 +32,48 @@ public class RedstoneKnowledgeTest {
         assertTrue(RedstoneKnowledge.instructions("Move the doorway",past)
             .contains("REDSTONE MASTER HANDBOOK"));
     }
+    @Test void historicalAndBedrockSourcesAreNotTreatedAsJavaMechanics(){
+        String handbook=RedstoneKnowledge.instructions("Redstone latch with repeater clock",null);
+        assertTrue(handbook.contains("author's guide")||
+            handbook.contains("AUTHOR'S GUIDE"),handbook.substring(0,300));
+        assertTrue(handbook.contains("2011 Minecraft Forum"));
+        assertTrue(handbook.contains("BEDROCK Edition"));
+        assertTrue(handbook.contains("Minecraft Java 1.21.1")||
+            handbook.contains("JAVA 1.21.1"));
+        assertTrue(handbook.contains("1.21.2+"));
+        assertTrue(handbook.contains("Crafters")||
+            handbook.contains("Crafters do NOT use QC"));
+    }
+    @Test void logicPatternsAndRealisticTimersArePackagedInEveryMachineRequest(){
+        String instructions=RedstoneKnowledge.instructions(
+            "Build an automatic redstone item sorter with a latching switch",null);
+        for(String fact:new String[]{
+            "AND: 00->0; 01->0; 10->0; 11->1",
+            "XOR: 00->0; 01->1; 10->1; 11->0",
+            "RS (set-reset) latch",
+            "Monostable / one-shot",
+            "T flip-flop",
+            "one item per 8 GAME ticks",
+            "Quasi",
+            "no actual successful pulse"}) {
+            assertTrue(instructions.toLowerCase(java.util.Locale.ROOT)
+                .contains(fact.toLowerCase(java.util.Locale.ROOT)),
+                "Missing Java 1.21.1 reference: "+fact);
+        }
+    }
+    @Test void boundedPulseConditioningIsNotConfusedWithArbitraryTimer(){
+        String guidance=RedstoneKnowledge.instructions("a piston redstone timer",null);
+        assertTrue(guidance.contains("widen input pulses shorter"));
+        assertTrue(guidance.contains("NOT itself"));
+        assertTrue(guidance.contains("20 GAME ticks"));
+        assertTrue(guidance.contains("30 game"));
+        assertTrue(guidance.contains("full TPS"));
+    }
+    @Test void nonMechanicalCottageStillDoesNotLoadHistoricalCircuitReference(){
+        var plain=RedstoneKnowledge.instructions("A cozy medieval cottage",null);
+        assertFalse(plain.contains("2011 Minecraft Forum"));
+        assertTrue(plain.length()<600);
+    }
     @Test void ordinaryArchitectureKeepsFastPromptWithoutLargeUnnecessaryReference(){
         String plain=RedstoneKnowledge.instructions(
             "An elegant stone cottage with big windows and 2 floors",null);

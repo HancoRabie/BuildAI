@@ -41,8 +41,14 @@ v3 `.schem` files. Reimported files **never automatically activate** scripts.
 4. Command-driven maps currently use **zero-degree rotation only**. Rotating
    relative command coordinates safely will require future work.
 5. Lock the world location using G, then Enter.
-6. Run `/buildai commands list`. Inspect all entries, including later ones
-   with `/buildai commands show <index>`.
+6. Stay **inside Minecraft** for the entire review. Open
+   **F8 > Placement / Export > Design QA / Warnings > Review Command Block Map**.
+   This native GUI pages through every script, physical placement ordinal,
+   exact local XYZ coordinate, block type, redstone mode, and wrapped command
+   text, without opening a browser or external editor.
+   In Minecraft chat, `/buildai commands list` and
+   `/buildai commands show <index>` also display the locked world XYZ for
+   each command. The chat `show` index starts at 0; the GUI uses #1 onward.
 7. As a trusted OP 4, run `/buildai commands approve`. This is a separate,
    explicit choice; mere upload is never authorization to run scripts.
 8. Run `/buildai confirm` to start the ordinary excavation/construction.
@@ -96,3 +102,21 @@ repeating command block TPS.
 cannot bridge gaps between chain blocks. Chain segments need actual adjoining
 blocks with appropriate `axis` orientation. Do not assume normalization will
 create missing chain links.
+
+## Deterministic command-block coordinate mapping
+
+Every assigned script is bound to **one unique local blueprint coordinate**.
+The program normalizes command entries in the same Y/Z/X order their
+command-block cells appear in the physical build queue and preserves this
+mapped list during network transport and schematic export/import. On placement,
+the server calculates the actual position as `locked_origin + local_XYZ` and
+verifies the precise command-block type and facing before installing its code.
+It rereads the stored command text before moving on; only after all scripts
+have been installed does it arm automatic command blocks. Duplicate positions
+are rejected, and missing scripts produce Design QA warnings rather than
+silently assigning a neighbor's command. This is coordinate mapping, not
+"first block gets first random script" or a dependence on packet arrival order.
+
+The in-game reviewer shows the client blueprint. The server remains the source
+of truth for permission, approved placement and world coordinates. Approving
+commands still requires trusted operator level 4 and is done in Minecraft chat.

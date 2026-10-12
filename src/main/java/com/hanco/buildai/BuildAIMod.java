@@ -18,6 +18,8 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
 import net.minecraft.server.command.CommandManager;
 
 import static net.minecraft.server.command.CommandManager.literal;
@@ -35,19 +37,83 @@ public final class BuildAIMod implements ModInitializer {
         if(ServerPlayNetworking.canSend(player,ClearPreviewPayload.ID))
             ServerPlayNetworking.send(player,new ClearPreviewPayload());
     }
+    private static int stageAtCrosshair(ServerPlayerEntity player,String command){
+        if(!player.hasPermissionLevel(4)){reply(player,"OP4 required for command configuration.");return 0;}
+        HitResult target=player.raycast(8.0,0.0f,false);
+        if(!(target instanceof BlockHitResult hit)||target.getType()!=HitResult.Type.BLOCK){
+            reply(player,"Look directly at an existing command block within 8 blocks, then retry.");return 0;
+        }
+        BlockPos pos=hit.getBlockPos();
+        try{
+            ConstructionProject project=ConstructionManager.get(player);
+            int number;
+            boolean sameProject=false;
+            if(project!=null&&(project.phase==ConstructionProject.Phase.COMPLETE&&
+                project.commandCount()==0 ||project.phase==ConstructionProject.Phase.WAITING_COMMAND_APPROVAL)){
+                BlockPos origin=project.origin;
+                int x=pos.getX()-origin.getX(),y=pos.getY()-origin.getY(),z=pos.getZ()-origin.getZ();
+                sameProject=x>=0&&y>=0&&z>=0&&x<project.blueprint.width&&
+                    y<project.blueprint.height&&z<project.blueprint.length&&
+                    CommandBlockPlan.isCommandBlock(project.blueprint.get(x,y,z));
+            }
+            if(sameProject){
+                number=project.stageExistingCommand(player,pos,command);
+                reply(player,"Assigned command #"+number+" to project block at "+
+                    pos.toShortString()+". Physical map stays intact and enters command review.");
+            }else{
+                number=StandaloneCommandReview.stage(player,pos,command);
+                reply(player,"Staged existing world block #"+number+" at "+pos.toShortString()+
+                    ". Works even after restarting Minecraft; no rebuild needed.");
+                if(ServerPlayNetworking.canSend(player,CommandReviewPayload.ID))
+                    ServerPlayNetworking.send(player,StandaloneCommandReview.snapshot(player));
+            }
+            reply(player,"Review all scripts and approve in the GUI, or type "+
+                "/buildai commands approve all (OP4). Scripts remain inactive until approved.");
+            return 1;
+        }catch(Exception ex){reply(player,"Cannot stage command: "+ex.getMessage());return 0;}
+    }
+    private static String presetCommand(String choice){
+        return switch(choice.toLowerCase(java.util.Locale.ROOT)){
+            case "day","daytime"->"time set day";
+            case "night","nighttime"->"time set night";
+            case "noon"->"time set noon";
+            case "midnight"->"time set midnight";
+            case "sun","sunshine","clear"->"weather clear";
+            case "rain"->"weather rain";
+            case "thunder","storm"->"weather thunder";
+            case "freeze-day"->"gamerule doDaylightCycle false";
+            case "resume-day"->"gamerule doDaylightCycle true";
+            case "freeze-weather"->"gamerule doWeatherCycle false";
+            case "resume-weather"->"gamerule doWeatherCycle true";
+            default->throw new IllegalArgumentException(
+                "Use preset day, night, noon, midnight, sun, rain, thunder, freeze-day, or resume-day");
+        };
+    }
     private static int approveSelected(ServerPlayerEntity player,String selection){
         ConstructionProject project=ConstructionManager.get(player);
-        if(project==null){reply(player,"No active project.");return 0;}
         try{
+            boolean projectPlan=project!=null&&project.phase==
+                ConstructionProject.Phase.WAITING_COMMAND_APPROVAL&&project.commandCount()>0;
+            int available=projectPlan?project.commandCount():StandaloneCommandReview.count(player);
+            if(available==0){
+                reply(player,"NO SCRIPTS TO APPROVE — this build contains only EMPTY command blocks. "+
+                    "Look at one and type /buildai commands preset day (or preset sun/night/rain), "+
+                    "then /buildai commands approve all. No rebuild needed.");return 0;
+            }
             java.util.Set<Integer> indices="all".equalsIgnoreCase(selection.trim())
-                ?CommandApprovalSelection.all(project.commandCount())
-                :CommandApprovalSelection.parse(selection,project.commandCount());
-            project.approveCommands(player,indices);
+                ?CommandApprovalSelection.all(available)
+                :CommandApprovalSelection.parse(selection,available);
+            int count;
+            if(projectPlan){
+                project.approveCommands(player,indices);
+                count=indices.size();
+            }else count=StandaloneCommandReview.approve(player,indices);
             String numbers=indices.stream().sorted().map(i->Integer.toString(i+1))
                 .collect(java.util.stream.Collectors.joining(","));
-            reply(player,"Approved "+indices.size()+"/"+project.commandCount()+
-                " scripts (#"+numbers+"). Commissioning starts now. "+
-                "Unselected command blocks remain without executable scripts.");
+            reply(player,"Approved "+count+"/"+available+
+                " scripts (#"+numbers+"). "+(projectPlan?"Commissioning starts now.":
+                "Commands programmed into existing world blocks.")+
+                " Unselected scripts remain inactive.");
             return 1;
         }catch(Exception ex){
             reply(player,"Approval rejected: "+ex.getMessage());return 0;
@@ -233,10 +299,50 @@ public final class BuildAIMod implements ModInitializer {
                     return 1;
                 }))
                 .then(literal("commands").requires(src->src.hasPermissionLevel(2))
+                    .then(literal("set").requires(src->src.hasPermissionLevel(4))
+                        .then(argument("command",StringArgumentType.greedyString()).executes(c->
+                            stageAtCrosshair(c.getSource().getPlayerOrThrow(),
+                                StringArgumentType.getString(c,"command")))))
+                    .then(literal("preset").requires(src->src.hasPermissionLevel(4))
+                        .then(argument("choice",StringArgumentType.word()).executes(c->{
+                            ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                            try{return stageAtCrosshair(player,
+                                presetCommand(StringArgumentType.getString(c,"choice")));}
+                            catch(Exception ex){reply(player,ex.getMessage());return 0;}
+                        })))
+                    .then(literal("review").executes(c->{
+                        ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                        ConstructionProject project=ConstructionManager.get(player);
+                        try{
+                            CommandReviewPayload review=project!=null&&
+                                project.phase==ConstructionProject.Phase.WAITING_COMMAND_APPROVAL&&
+                                project.commandCount()>0
+                                    ?CommandReviewPayload.of(project)
+                                    :StandaloneCommandReview.snapshot(player);
+                            if(ServerPlayNetworking.canSend(player,CommandReviewPayload.ID)){
+                                ServerPlayNetworking.send(player,review);
+                                reply(player,"Review sent to your Minecraft screen; close other menus to view it.");
+                                return 1;
+                            }
+                            reply(player,"Client doesn't support command review packet.");return 0;
+                        }catch(Exception ex){reply(player,"No review available: "+ex.getMessage());return 0;}
+                    }))
                     .then(literal("list").executes(c->{
                         ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                         ConstructionProject p=ConstructionManager.get(player);
-                        if(p==null){reply(player,"No blueprint loaded.");return 0;}
+                        if(p==null||p.commandCount()==0){
+                            int recover=StandaloneCommandReview.count(player);
+                            if(recover>0){
+                                for(String line:StandaloneCommandReview.list(player).split("\\n"))
+                                    reply(player,line);
+                            }else{
+                                reply(player,"Command plan: 0 scripts. There are NO commands to approve. "+
+                                    "Look at the block and use /buildai commands preset day, "+
+                                    "preset sun, preset night, preset rain, or "+
+                                    "/buildai commands set <actual command>.");
+                            }
+                            return 1;
+                        }
                         reply(player,"Command plan: "+p.commandCount()+" blocks, phase "+p.phase+
                             ", approved "+p.approvedCommandCount()+". All commands remain inert "+
                             "until YOU choose the approved numbers (OP4).");
@@ -258,7 +364,9 @@ public final class BuildAIMod implements ModInitializer {
                             .executes(c->{
                                 ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                                 ConstructionProject p=ConstructionManager.get(player);
-                                if(p==null){reply(player,"No blueprint.");return 0;}
+                                if(p==null||p.commandCount()==0){
+                                    reply(player,StandaloneCommandReview.list(player));return 1;
+                                }
                                 int number=com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c,"number");
                                 if(number>p.commandCount()){
                                     reply(player,"Valid command numbers: 1-"+p.commandCount());return 0;

@@ -11,4 +11,14 @@ public final class StreamSilencePolicy {
     public static boolean expired(long now,long lastText,boolean everReceived){
         return now-lastText >= (everReceived?AFTER_TEXT_NANOS:NO_TEXT_NANOS);
     }
+    /**
+     * Per-request override, evaluated continuously while SSE is open.
+     * Re-enabling starts a NEW full grace period rather than instantly
+     * cancelling a response that was waiting with auto-stop disabled.
+     */
+    public static boolean expired(long now,long lastText,boolean everReceived,
+                                  boolean autoStopEnabled,long rearmedAtNanos){
+        return autoStopEnabled && expired(now,
+            Math.max(lastText,rearmedAtNanos),everReceived);
+    }
 }

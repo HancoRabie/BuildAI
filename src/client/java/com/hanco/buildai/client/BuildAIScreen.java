@@ -234,42 +234,73 @@ public final class BuildAIScreen extends Screen {
         if(client!=null)client.setScreen(new ChatGPTConnectScreen(this));
     }
     private void requestAI(boolean revise){
-        // If the player hid the monitor, pressing Generate again reopens the
-        // SAME active request instead of starting another or showing a dead end.
-        GenerationProgress inProgress=BuildAIClient.currentGeneration();
-        if(inProgress!=null&&!inProgress.snapshot().finished()){
-            if(client!=null)client.setScreen(new BuildAIGenerationScreen(this,inProgress));
-            return;
-        }
-        if(busy){status="Wait for the current operation to finish.";return;}
         saveFields();
         String description=promptValue.trim();
-        if(description.isBlank()){status="Enter your building description.";return;}
-        String previous=BuildAIClient.designSpecification;
-        if(revise&&(previous==null||previous.isBlank())){
-            status="Generate a new design before requesting revisions.";return;
+        String existing=BuildAIClient.designSpecification;
+        if(revise && (existing==null||existing.isBlank()) && BuildAIClient.draft==null){
+            status="No previous design. Generate first, or choose an older file in My Blueprints.";
+            return;
+        }
+        String original=revise&&BuildAIClient.draft!=null
+            ?BuildAIClient.draft.originalPrompt():description;
+        launchAI(description,revise,original,revise?BuildAIClient.draft:null);
+    }
+
+    /** Called by My Blueprints; works with the explicitly chosen saved file,
+     * never whichever draft happened to be active in another BuildAI tab.
+     * Every success autosaves a NEW uniquely named file. The source is never
+     * touched, and failures leave the user's active draft unchanged.
+     */
+    public void startFromLibrary(Blueprint source,String instruction,boolean revision){
+        if(source==null){status="No saved blueprint selected.";return;}
+        promptValue=instruction;
+        tab=0;
+        launchAI(instruction.trim(),revision,
+            revision?source.originalPrompt():instruction.trim(),revision?source:null);
+    }
+
+    private void launchAI(String description,boolean revise,String originalPrompt,
+                          Blueprint revisionSource) {
+        GenerationProgress current=BuildAIClient.currentGeneration();
+        if(current!=null&&!current.snapshot().finished()){
+            if(client!=null)client.setScreen(new BuildAIGenerationScreen(this,current));
+            return;
+        }
+        if(busy){status="An AI request is already running.";return;}
+        if(description.isBlank()||description.length()>4000){
+            status="Enter an instruction between 1 and 4000 characters.";return;
         }
         if(key!=null)BuildAIClient.setKey(key.getText());
         if(!ChatGPTSignIn.connected()&&BuildAIClient.getKey().isBlank()){
-            status="Connect with ChatGPT, or open the optional API key field.";
-            return;
+            status="Connect ChatGPT or enter your optional API key to generate.";return;
         }
+        final String apiKey=BuildAIClient.getKey();
+        final String activeOriginal=originalPrompt==null?"":originalPrompt;
+        final String previousInMemory=BuildAIClient.designSpecification;
         GenerationProgress progress=new GenerationProgress(description);
         if(!BuildAIClient.beginGeneration(progress)){
-            status="Another blueprint is already being generated.";
-            return;
+            status="Another blueprint generation is active.";return;
         }
         busy=true;
-        status=revise?"Revising blueprint...":"Generating blueprint...";
-        String activeKey=BuildAIClient.getKey();
+        status=revise?"Creating revised COPY from the selected blueprint...":
+            "Regenerating an independent NEW blueprint from the original prompt...";
         if(client!=null)client.setScreen(new BuildAIGenerationScreen(this,progress));
         CompletableFuture.supplyAsync(()->{
             try{
-                if(ChatGPTSignIn.connected())return AIArchitect.generateWithChatGPT(
-                    description,revise?previous:null,progress);
-                return revise
-                    ? AIArchitect.reviseDesign(activeKey,description,previous,progress)
-                    : AIArchitect.generateDesign(activeKey,description,progress);
+                // Legacy schematics have no source JSON; build a bounded,
+                // exact geometry revision reference off the render thread.
+                String previous=null;
+                if(revise)
+                    previous=revisionSource!=null?
+                        BlueprintRevisionSeed.from(revisionSource):previousInMemory;
+                if(revise&&(previous==null||previous.isBlank()))
+                    throw new IllegalArgumentException("No design to revise. "+
+                        "Use My Blueprints > Remake / Revise.");
+                if(ChatGPTSignIn.connected())
+                    return AIArchitect.generateWithChatGPT(description,previous,progress);
+                return previous==null
+                    ?AIArchitect.generateDesign(apiKey,description,progress)
+                    :AIArchitect.reviseDesign(apiKey,description,previous,progress);
             }catch(Exception ex){throw new RuntimeException(ex);}
         }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
             busy=false;
@@ -279,26 +310,24 @@ public final class BuildAIScreen extends Screen {
                 progress.failure(reason);
                 status="Generation failed: "+reason;
                 BuildAIClient.message(status);
-                // The progress screen remains visible so the player can read the failure.
                 return;
             }
-            BuildAIClient.acceptGenerated(result);
+            BuildAIClient.acceptGenerated(result,activeOriginal);
             surfaceLayer=BuildAIClient.surfaceLayer;
-            progress.success("Generated "+result.blueprint().solidCount()+
-                " blocks. The blueprint is available for inspection.");
+            progress.success("NEW copy generated with "+result.blueprint().solidCount()+
+                " blocks; original saved blueprint remains unchanged.");
             GenerationHistory.record(progress);
-            status=(revise?"Revised: ":"Created: ")+result.blueprint().name+
-                " ("+result.blueprint().solidCount()+" blocks, "+
-                result.blueprint().warnings.size()+" design QA warnings). Inspect layers or Design QA before placement.";
-            // Preserve player control when the monitor was minimized.
-            // Background completions should never force a menu over active play.
+            status=(revise?"Revised COPY: ":"Fresh COPY: ")+result.blueprint().name+
+                " ("+result.blueprint().solidCount()+" blocks). "+
+                "New file auto-saved; original remains untouched.";
             tab=1;
             if(client!=null && (client.currentScreen instanceof BuildAIGenerationScreen ||
                 client.currentScreen==this)){
                 switchTab(1);
                 client.setScreen(this);
-            }else {
-                BuildAIClient.message("Blueprint ready and auto-saving. Press F8 to review and place.");
+            }else{
+                BuildAIClient.message("New blueprint saved without modifying the old file. "+
+                    "Press F8 to inspect and place it.");
             }
         }));
     }

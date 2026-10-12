@@ -82,12 +82,40 @@ public final class GenerationProgress {
     private boolean finished=false;
     private boolean failed=false;
     private volatile boolean cancelRequested=false;
+    private final java.util.concurrent.atomic.AtomicReference<Thread> worker=
+        new java.util.concurrent.atomic.AtomicReference<>();
+    private volatile String lastModelLimitation="";
+    public void modelLimitation(String message){
+        // Keep only a short diagnostic for the user to refine later; do not
+        // carry the previous response into a new model conversation.
+        String value=message==null?"":message.replaceAll("[\\r\\n\\t]+"," ").trim();
+        lastModelLimitation=value.length()>400?value.substring(0,400):value;
+    }
+    public String lastModelLimitation(){return lastModelLimitation;}
+    public void bindWorker(){
+        worker.set(Thread.currentThread());
+        if(cancelRequested)throw new java.util.concurrent.CancellationException(
+            "Request was cancelled before the network operation began.");
+    }
+    public void releaseWorker(){worker.compareAndSet(Thread.currentThread(),null);}
     public void requestCancellation(){
         cancelRequested=true;
-        stage("Cancellation requested","Stopping the active OpenAI request. "+
-            "Your existing blueprint is unchanged.");
+        stage("Cancellation requested","Interrupting the previous model request. "+
+            "Your original prompt and saved blueprint remain unchanged.");
+        Thread thread=worker.get();
+        if(thread!=null)thread.interrupt();
     }
     public boolean cancellationRequested(){return cancelRequested;}
+    public synchronized void cancelled(){
+        if(finished)return;
+        stage="Request cancelled";
+        detail="Old request stopped. Your prompt is saved; clarify it and "+
+            "start a fresh independent generation.";
+        milestones.add(stage);
+        if(milestones.size()>5)milestones.remove(0);
+        finished=true;failed=true;
+        lastActivityNanos=System.nanoTime();
+    }
 
     public synchronized void stage(String name,String explanation) {
         if(finished)return;

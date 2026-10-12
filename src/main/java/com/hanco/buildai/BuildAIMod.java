@@ -35,6 +35,24 @@ public final class BuildAIMod implements ModInitializer {
         if(ServerPlayNetworking.canSend(player,ClearPreviewPayload.ID))
             ServerPlayNetworking.send(player,new ClearPreviewPayload());
     }
+    private static int approveSelected(ServerPlayerEntity player,String selection){
+        ConstructionProject project=ConstructionManager.get(player);
+        if(project==null){reply(player,"No active project.");return 0;}
+        try{
+            java.util.Set<Integer> indices="all".equalsIgnoreCase(selection.trim())
+                ?CommandApprovalSelection.all(project.commandCount())
+                :CommandApprovalSelection.parse(selection,project.commandCount());
+            project.approveCommands(player,indices);
+            String numbers=indices.stream().sorted().map(i->Integer.toString(i+1))
+                .collect(java.util.stream.Collectors.joining(","));
+            reply(player,"Approved "+indices.size()+"/"+project.commandCount()+
+                " scripts (#"+numbers+"). Commissioning starts now. "+
+                "Unselected command blocks remain without executable scripts.");
+            return 1;
+        }catch(Exception ex){
+            reply(player,"Approval rejected: "+ex.getMessage());return 0;
+        }
+    }
     @Override public void onInitialize() {
         com.hanco.buildai.build.BuildBlocks.register();
         PayloadTypeRegistry.playC2S().register(BlueprintChunkPayload.ID,BlueprintChunkPayload.CODEC);
@@ -45,6 +63,7 @@ public final class BuildAIMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(PlacementReplyPayload.ID,PlacementReplyPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(com.hanco.buildai.net.ProjectStatusPayload.ID,
             com.hanco.buildai.net.ProjectStatusPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(CommandReviewPayload.ID,CommandReviewPayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(BlueprintChunkPayload.ID,(payload,context)->{
             ServerPlayerEntity player=context.player();
@@ -213,57 +232,61 @@ public final class BuildAIMod implements ModInitializer {
                     reply(player,"Placement preview hidden. Blueprint and built blocks unchanged.");
                     return 1;
                 }))
-                .then(literal("commands").requires(s->s.hasPermissionLevel(2))
+                .then(literal("commands").requires(src->src.hasPermissionLevel(2))
                     .then(literal("list").executes(c->{
                         ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                         ConstructionProject p=ConstructionManager.get(player);
                         if(p==null){reply(player,"No blueprint loaded.");return 0;}
-                        int size=p.commandCount();
-                        reply(player,"Command plan: "+size+" blocks | "+
-                            (p.commandsApproved()?"approved":"NOT APPROVED")+
-                            " | stable physical build order by Y/Z/X, local XYZ -> locked world XYZ. "+
-                            "Review and approve as operator-level 4.");
-                        for(int i=0;i<Math.min(10,size);i++){
+                        reply(player,"Command plan: "+p.commandCount()+" blocks, phase "+p.phase+
+                            ", approved "+p.approvedCommandCount()+". All commands remain inert "+
+                            "until YOU choose the approved numbers (OP4).");
+                        for(int i=0;i<p.commandCount();i++){
                             var block=p.blueprint.commands().get(i);
                             BlockPos at=p.origin.add(block.x(),block.y(),block.z());
                             reply(player,"#"+(i+1)+" local["+block.x()+","+block.y()+","+block.z()+"]"+
                                 " world["+at.toShortString()+"] "+
-                                (block.auto()?"always-active":"redstone-driven")+"  "+
-                                block.command().substring(0,Math.min(100,block.command().length())));
+                                (block.auto()?"automatic":"redstone-driven")+" "+
+                                block.command().substring(0,Math.min(90,block.command().length())));
                         }
-                        if(size>10)reply(player,"More commands: /buildai commands show <index> (0.."+(size-1)+"). "+
-                                "Or review the paged in-game GUI in F8 > Placement / Export > Design QA.");
+                        if(p.phase==ConstructionProject.Phase.WAITING_COMMAND_APPROVAL)
+                            reply(player,"Choose /buildai commands approve all or "+
+                                "/buildai commands approve 1,2,4,7. In-game command review opens automatically.");
                         return 1;
                     }))
                     .then(literal("show")
-                        .then(argument("index",com.mojang.brigadier.arguments.IntegerArgumentType.integer(0))
+                        .then(argument("number",com.mojang.brigadier.arguments.IntegerArgumentType.integer(1))
                             .executes(c->{
                                 ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                                 ConstructionProject p=ConstructionManager.get(player);
                                 if(p==null){reply(player,"No blueprint.");return 0;}
-                                int index=com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c,"index");
-                                if(index>=p.commandCount()){reply(player,"No command at index "+index);return 0;}
-                                var block=p.blueprint.commands().get(index);
+                                int number=com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c,"number");
+                                if(number>p.commandCount()){
+                                    reply(player,"Valid command numbers: 1-"+p.commandCount());return 0;
+                                }
+                                var block=p.blueprint.commands().get(number-1);
                                 BlockPos at=p.origin.add(block.x(),block.y(),block.z());
-                                reply(player,"#"+(index+1)+" local("+block.x()+","+block.y()+","+
+                                reply(player,"#"+number+" local("+block.x()+","+block.y()+","+
                                     block.z()+") => world("+at.toShortString()+") "+
-                                    Blueprint.id(p.blueprint.get(block.x(),block.y(),block.z()))+" "+
-                                    (block.auto()?"always-active":"requires redstone")+
-                                    ": "+block.command());
+                                    Blueprint.id(p.blueprint.get(block.x(),block.y(),block.z()))+
+                                    (block.auto()?" always-active":" redstone-triggered")+
+                                    " : "+block.command());
                                 return 1;
                             })))
-                    .then(literal("approve").requires(src->src.hasPermissionLevel(4)).executes(c->{
-                        ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
-                        ConstructionProject p=ConstructionManager.get(player);
-                        if(p==null){reply(player,"No blueprint.");return 0;}
-                        try{
-                            p.approveCommands(player);
-                            reply(player,"Approved "+p.commandCount()+
-                                " command-block instructions. Confirm build to begin; scripts install "+
-                                "only AFTER construction and normalization. Review full commands before approving.");
-                            return 1;
-                        }catch(Exception ex){reply(player,"Command approval rejected: "+ex.getMessage());return 0;}
-                    })))
+                    .then(literal("approve").requires(src->src.hasPermissionLevel(4))
+                        .executes(c->{
+                            reply(c.getSource().getPlayerOrThrow(),"Specify 'approve all' or "+
+                                "'approve 1,2,4' after the physical map finishes.");return 0;
+                        })
+                        .then(literal("all").executes(c->
+                            approveSelected(c.getSource().getPlayerOrThrow(),"all")))
+                        .then(argument("indices",StringArgumentType.greedyString()).executes(c->
+                            approveSelected(c.getSource().getPlayerOrThrow(),
+                                StringArgumentType.getString(c,"indices")))))
+                    // Short form: /buildai commands 1, 2, 4, 7
+                    .then(argument("selection",StringArgumentType.greedyString())
+                        .requires(src->src.hasPermissionLevel(4)).executes(c->
+                            approveSelected(c.getSource().getPlayerOrThrow(),
+                                StringArgumentType.getString(c,"selection")))))
                 .then(literal("confirm").requires(s->s.hasPermissionLevel(2)).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);

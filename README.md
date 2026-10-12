@@ -73,6 +73,33 @@ with a concise history-based **ETA inside the bar**. ETA is an estimate,
 not model-certified percent complete; it can become uncertain during
 large designs. The former oversized under-statistics ETA rectangle is gone.
 
+## Native file picking and architectural reference folder
+
+BuildAI uses the **same LWJGL TinyFileDialogs picker as ChainFrames** for
+local PNG/JPEG pixel-art images, external schematic feedback, and whole-build
+style references, avoiding Java AWT's headless desktop limitation.
+Go to **F8 → Feedback & Styles → Style References → Analyze a Whole Build**.
+Use **Browse File(s)** to select an external `.schem`, `.schematic`,
+`.litematic` or `.nbt`; multiple schematics can be selected and
+analyzed together (up to 12 per batch, originals left unchanged).
+
+The existing **Scan Folder** workflow is unchanged: it processes up to
+12 supported files from `<game directory>/buildai/style-references/`.
+Use its new adjacent **Open Folder** button to open exactly that folder
+in Windows Explorer, macOS Finder or the Linux file manager and drop
+downloaded schematics there. Return to Minecraft and press **Scan Folder**.
+This does not upload the whole folder to an external site or execute
+schematic commands.
+
+After any failed generation, the monitor shows a short observed-cause
+diagnosis. **Copy Failure Report** copies the actual HTTP acceptance status,
+last SSE event, event age, received character count, auto-stop state,
+full exception chain and any local recovery-file path. OpenAI's reported
+`response.failed`/`response.incomplete` codes are extracted from SSE
+events when present. An unexpected stream EOF is reported as an observation:
+BuildAI cannot prove whether it was caused by OpenAI, a network gateway
+or a local connection drop.
+
 ## Image upload → offline pixel art
 
 Use **F8 → Create / AI → Upload Image > Pixel Art** to turn a local PNG,

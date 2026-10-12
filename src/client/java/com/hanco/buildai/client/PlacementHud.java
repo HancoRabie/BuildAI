@@ -15,19 +15,19 @@ public final class PlacementHud {
             BlockPos pos=BuildAIClient.previewOrigin;
             String headline=BuildAIClient.previewLocked
                 ?"BuildAI | LOCATION LOCKED"
-                :"BuildAI | CHOOSE GROUND LOCATION";
+                :"BuildAI | POSITION PREVIEW";
             String controls=BuildAIClient.previewLocked
                 ?"Inspect the locked facade normally | R retries"
                 :PlacementMode.groundSelected()
-                    ?"Scroll: world Z | LEFT/RIGHT: rotate 90 degrees"
-                    :"Building is IN FRONT of you | Scroll: world Z | LEFT/RIGHT: rotate";
+                    ?"LEFT/RIGHT: sideways | UP/DOWN: height | CTRL+L/R: rotate"
+                    :"Building follows you | G: freeze at visible spot (no block target)";
             String action=BuildAIClient.previewLocked
                 ?"F8 > Confirm & Build | R: retry"
                 :PlacementMode.waitingForLock()
                     ?"Checking XYZ with server..."
                     :PlacementMode.groundSelected()
-                        ?"Ground selected | Press ENTER to LOCK XYZ"
-                        :"Aim at ground top + press G | Then ENTER to LOCK";
+                        ?"CTRL+UP/DOWN or wheel: depth | ENTER: lock XYZ"
+                        :"G: freeze XYZ | adjust with arrows | ENTER: lock";
             int left=8,top=8,width=Math.max(90,Math.min(mc.getWindow().getScaledWidth()-16,450));
             ctx.fill(left-5,top-5,left+width,top+59,0xDD111D23);
             ctx.drawTextWithShadow(mc.textRenderer,headline,left,top,0x55EDAF);
@@ -35,7 +35,7 @@ public final class PlacementHud {
             ctx.drawTextWithShadow(mc.textRenderer,mc.textRenderer.trimToWidth(action,width-8),left,top+24,0xC5D2DC);
             ctx.drawTextWithShadow(mc.textRenderer,
                 mc.textRenderer.trimToWidth("Rotation: "+(PlacementMode.rotation()*90)+
-                    " degrees | World-Z offset: "+PlacementMode.wheelOffset(),width-8),
+                    " degrees | Preview anchored: "+PlacementMode.groundSelected(),width-8),
                 left,top+36,0xFFDDA8);
             if(pos!=null)ctx.drawTextWithShadow(mc.textRenderer,
                 mc.textRenderer.trimToWidth("Origin: X "+pos.getX()+" / Y "+pos.getY()+" / Z "+pos.getZ(),width-8),

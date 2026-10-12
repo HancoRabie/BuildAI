@@ -436,6 +436,22 @@ public final class AIArchitect {
         return new DesignResult(compiled,compilation.correctedSpecification(),inspiration);
     }
 
+    /**
+     * One intentional farm repair using the existing specification as a
+     * reference. Reuse the successful initial research; do not browse again.
+     * Caller decides whether the revised design is actually an improvement.
+     */
+    static DesignResult repairWithCachedResearch(String repairPrompt,
+                       String previous,String key,boolean connectedChat,
+                       GenerationProgress progress,
+                       InspirationResearch.Result priorResearch) throws Exception {
+        if(connectedChat)
+            return generateWithChatGPTAttempt(repairPrompt,previous,progress,
+                false,priorResearch,null);
+        return requestDesignAttempt(key,repairPrompt,previous,progress,
+            false,priorResearch,null);
+    }
+
     private static DesignResult requestDesign(String key,String prompt,String previous,
                                               GenerationProgress progress) throws Exception {
         return requestDesignAttempt(key,prompt,previous,progress,false,null,null);

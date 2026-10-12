@@ -37,6 +37,19 @@ public final class BuildAIScreen extends Screen {
         if(prompt!=null)promptValue=prompt.getText();
         if(key!=null)keyValue=key.getText();
     }
+    /** Clear both the live text and the restart backup. Used by the
+     * editor and by Cancel & Refine, so F8 cannot resurrect old text.
+     */
+    public void clearRetainedPrompt(){
+        promptValue="";
+        if(prompt!=null){
+            prompt.setText("");
+            prompt.setFocused(true);
+        }
+        boolean cleared=GenerationPromptJournal.clear();
+        status=cleared?"Prompt cleared. Saved prompt backup removed.":
+            "Text cleared, but saved backup could not be removed.";
+    }
     private void switchTab(int index){
         if(busy){status="Wait for the current operation to finish.";return;}
         saveFields();tab=index;
@@ -88,13 +101,7 @@ public final class BuildAIScreen extends Screen {
             addDrawableChild(prompt);
             ButtonWidget clearPrompt=ButtonWidget.builder(
                 text("×"),button->{
-                    promptValue="";
-                    prompt.setText("");
-                    boolean cleared=GenerationPromptJournal.clear();
-                    prompt.setFocused(true);
-                    status=cleared
-                        ?"Prompt cleared. The retained prompt backup was removed."
-                        :"Prompt cleared here, but saved backup could not be deleted.";
+                    clearRetainedPrompt();
                 }).dimensions(left+panelWidth-clearWidth,row(3),
                     clearWidth,promptHeight).build();
             clearPrompt.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(

@@ -139,6 +139,13 @@ public final class BuildAIScreen extends Screen {
                 key=new TextFieldWidget(textRenderer,left,row(7),panelWidth,buttonHeight,text("OpenAI developer API key"));
                 key.setMaxLength(500);key.setText(keyValue.isBlank()?BuildAIClient.getKey():keyValue);
                 addDrawableChild(key);
+            }else{
+                add("Upload Image > Pixel Art  |  Offline, No AI Credits",
+                    left,row(7),panelWidth,buttonHeight,b->{
+                        if(busy){status="Finish the current operation first.";return;}
+                        saveFields();
+                        client.setScreen(new BuildAIPixelArtScreen(this));
+                    });
             }
             add("Generate New",left,row(8),half,buttonHeight,b->requestAI(false));
             add("Revise Existing",left+half+gap,row(8),half,buttonHeight,b->requestAI(true));

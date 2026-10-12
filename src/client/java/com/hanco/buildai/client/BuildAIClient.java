@@ -164,12 +164,18 @@ public final class BuildAIClient implements ClientModInitializer {
                 new BuildAIGenerationScreen(new BuildAIScreen(),pending));
             return;
         }
-        message(previous==null?"Generating new architectural blueprint...":"Revising existing blueprint...");
+        message(previous!=null?"Revising existing blueprint...":
+            StagedFarmPlan.applies(description)?
+                "Staged design: generating architecture, each farm floor and shared systems.":
+                "Generating new architectural blueprint...");
         MinecraftClient.getInstance().setScreen(
             new BuildAIGenerationScreen(new BuildAIScreen(),progress));
         CompletableFuture.supplyAsync(()->{
             progress.bindWorker();
             try{
+                if(previous==null && StagedFarmPlan.applies(description))
+                    return StagedFarmArchitect.generate(description,key,
+                        ChatGPTSignIn.connected(),progress);
                 if(ChatGPTSignIn.connected())return AIArchitect.generateWithChatGPT(description,previous,progress);
                 return previous==null
                     ? AIArchitect.generateDesign(key,description,progress)

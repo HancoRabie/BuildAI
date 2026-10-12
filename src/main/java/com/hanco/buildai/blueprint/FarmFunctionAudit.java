@@ -42,6 +42,25 @@ public final class FarmFunctionAudit {
     private static boolean piston(String id){
         return id.equals("minecraft:piston")||id.equals("minecraft:sticky_piston");
     }
+    /** Follow hopper output faces, not just adjacency. A hopper facing
+     * empty air is NOT an item-transport connection. */
+    private static boolean feedsStorage(Blueprint b,int x,int y,int z){
+        Set<Integer> visited=new HashSet<>();
+        for(int steps=0;steps<4096;steps++){
+            if(!inside(b,x,y,z))return false;
+            String state=b.get(x,y,z),id=Blueprint.id(state);
+            if(chest(id))return true;
+            if(!id.equals("minecraft:hopper"))return false;
+            if(!visited.add(b.index(x,y,z)))return false; // directed loop
+            if(state.contains("facing=down"))y--;
+            else if(state.contains("facing=north"))z--;
+            else if(state.contains("facing=south"))z++;
+            else if(state.contains("facing=west"))x--;
+            else if(state.contains("facing=east"))x++;
+            else return false;
+        }
+        return false;
+    }
     private static boolean control(String id){
         return id.equals("minecraft:lever")||id.endsWith("_button")||
             id.equals("minecraft:observer")||id.equals("minecraft:daylight_detector")||
@@ -61,6 +80,7 @@ public final class FarmFunctionAudit {
         Arrays.fill(maxX,-1);Arrays.fill(maxZ,-1);
         List<int[]> sourceCells=new ArrayList<>();
         List<int[]> pistonCells=new ArrayList<>();
+        List<int[]> hopperCells=new ArrayList<>();
         // The crop Y plane is the occupied plant block, not the farmland below.
         for(int y=0;y<b.height;y++)for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
             String id=Blueprint.id(b.get(x,y,z));
@@ -78,7 +98,10 @@ public final class FarmFunctionAudit {
                 if(pistonCells.size()<10_000)pistonCells.add(new int[]{x,y,z});
             }
             if(control(id))controls++;
-            if(id.equals("minecraft:hopper"))hoppers++;
+            if(id.equals("minecraft:hopper")){
+                hoppers++;
+                if(hopperCells.size()<10_000)hopperCells.add(new int[]{x,y,z});
+            }
             if(chest(id))containers++;
             if(id.equals("minecraft:water")){
                 waters++;
@@ -151,9 +174,26 @@ public final class FarmFunctionAudit {
                     "Harvested items have no demonstrated hopper collection route.");
             }
         }
-        if((roots>0||cane>0)&&containers==0)
-            cautions.add("No storage chest or barrel exists in this blueprint; "+
-                "verify that the output connects to the shared storage stage.");
+        boolean stageOnly=prompt!=null&&prompt.startsWith("BUILDAI STAGED GENERATION");
+        if((roots>0||cane>0)&&containers==0){
+            String note="No storage chest or barrel exists; harvested items "+
+                "cannot be stored until a shared storage route is added.";
+            if(stageOnly)cautions.add(note);
+            else blockers.add(note);
+        }
+        if((roots>0||cane>0)&&hoppers>0){
+            int connected=0;
+            for(int[] h:hopperCells)
+                if(feedsStorage(b,h[0],h[1],h[2]))connected++;
+            if(connected==0 && !stageOnly)
+                blockers.add("All "+hoppers+" hopper output(s) lack a directed "+
+                    "hopper-to-chest/barrel path. A hopper facing air or "+
+                    "an incorrect side does not deliver harvested items.");
+            else if(connected<hoppers)
+                cautions.add((hoppers-connected)+"/"+hoppers+" hopper(s) "+
+                    "do not have a verified directed path to storage "+
+                    "(individual floor connections may be completed later).");
+        }
         if(dispensers>0){
             cautions.add(dispensers+" dispenser(s) present. They are EMPTY in a block-only "+
                 "BuildAI blueprint; bone meal and water buckets cannot function without "+

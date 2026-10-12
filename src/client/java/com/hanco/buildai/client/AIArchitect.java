@@ -37,6 +37,20 @@ public final class AIArchitect {
         Never claim the game ran a simulation you did not execute.
         Prioritize reliable function over decorative redstone complexity.
 
+        SIGN LABELS (Minecraft Java 1.21.1): Signs are BLOCK ENTITIES:
+        placing minecraft:oak_sign alone does NOT write any text. When the
+        player requests signs, labels, numbered stations, testing bays,
+        directions, exhibits or instructions, include actual sign geometry
+        plus a separate root "signs" JSON array, each entry:
+        {"x":4,"y":2,"z":8,"lines":["01","NORTH","1-tick","Signal"]}.
+        Local XYZ must point to an ACTUAL sign block placed in operations.
+        Up to 512 signs, 1 to 4 plain text lines, max 24 characters per line
+        (shorter is clearer). Optional "back_lines" for reverse.
+        For grids number signs in the stable prompt order, #01 through #30,
+        matching each separate mechanism. Keep labels visible next to controls.
+        Never claim stations are labeled without sign entries. Do not
+        embed NBT, JSON chat components or commands in labels. The server
+        installs literal sign text after placing and normalizing the blocks.
         Shape: {"name":"Title","width":25,"height":14,"length":20,"operations":[
           {"kind":"fill","block":"minecraft:stone_bricks","x1":0,"y1":0,"z1":0,"x2":24,"y2":0,"z2":19}
         ]}.

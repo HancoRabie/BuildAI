@@ -1,5 +1,6 @@
 package com.hanco.buildai.client;
 
+import com.hanco.buildai.blueprint.ModelStreamDraftJournal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.nio.charset.StandardCharsets;

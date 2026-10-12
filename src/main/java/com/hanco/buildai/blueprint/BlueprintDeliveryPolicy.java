@@ -47,6 +47,37 @@ public final class BlueprintDeliveryPolicy {
         return refusal&&validationExcuse;
     }
 
+    /** Keep prior refusal as a *category*, not a prior assistant turn in a new
+     * model request. This never forwards external text/instructions.
+     */
+    public static String recoveryForResponse(String previousResponse){
+        String category=previousResponse==null?"":previousResponse;
+        try{
+            JsonElement parsed=JsonParser.parseString(category);
+            if(parsed.isJsonObject()){
+                JsonObject obj=parsed.getAsJsonObject();
+                if(obj.has("error")&&obj.get("error").isJsonPrimitive())
+                    category=obj.get("error").getAsString();
+            }
+        }catch(JsonParseException ignored){}
+        String guidance=suggestClarification(category);
+        return correction()+(!guidance.isBlank()
+            ?"\nSPECIFIC ENGINEERING CORRECTION FOR THIS NEW, INDEPENDENT "+
+             "REQUEST:\n"+guidance
+            :"\nPREVIOUS ATTEMPT NEEDED ACTUAL BLUEPRINT GEOMETRY, "+
+             "NOT A CAVEAT-ONLY RESPONSE.");
+    }
+    public static String shortReason(String previousResponse){
+        if(previousResponse==null)return "";
+        try{
+            JsonElement obj=JsonParser.parseString(previousResponse);
+            if(obj.isJsonObject()&&obj.getAsJsonObject().has("error"))
+                previousResponse=obj.getAsJsonObject().get("error").getAsString();
+        }catch(JsonParseException ignored){}
+        String normalized=previousResponse.replaceAll("[\\r\\n\\t]+"," ");
+        return normalized.length()>400?normalized.substring(0,400):normalized;
+    }
+
     /** User-visible, editable suggestion derived from model failure CATEGORY,
      * never a copied assistant transcript or opaque model "memory".
      */

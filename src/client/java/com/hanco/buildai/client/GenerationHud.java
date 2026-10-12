@@ -36,8 +36,10 @@ public final class GenerationHud {
             ctx.fill(x,y+46,x+width-6,y+49,0xFF2D4855);
             if(s.finished())
                 ctx.fill(x,y+46,x+width-6,y+49,s.failed()?0xFFDD7469:0xFF56D7A5);
-            else ctx.fill(x+Math.max(0,stripe),y+46,
-                x+Math.min(width-6,stripe+34),y+49,0xFF55DDBF);
+            else {
+                int left=Math.max(0,stripe),right=Math.min(width-6,stripe+34);
+                if(right>left)ctx.fill(x+left,y+46,x+right,y+49,0xFF55DDBF);
+            }
         });
     }
 }

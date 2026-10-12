@@ -47,6 +47,38 @@ Saved files live in the active Minecraft game directory under `buildai/blueprint
 
 **Important for existing sessions:** a BuildAI client launched *before* this feature was pulled does not have auto-save. Restarting it will lose an unsaved design. Use Upload & Preview → placement/confirm if you only need the structure in that disposable world; this is not equivalent to exporting a reimportable blueprint.
 
+### Remake or revise older blueprints — always as a NEW file
+
+Open **F8 > Create / AI > My Blueprints / Import**, select a saved
+`.schem`, and choose **Remake / Revise**. BuildAI offers two distinct actions:
+
+- **REMAKE SAME PROMPT** reruns the precise **original user prompt** from the
+  source file, without reusing its prior geometry, so the AI can produce a
+  completely fresh interpretation. You may edit the text before generating.
+- **REVISE SAVED BUILD** takes the chosen schematic as its design reference.
+  Type the requested changes and generate a complete, revised COPY, without
+  modifying the original. When the older file has no saved AI operation JSON,
+  BuildAI reconstructs a bounded, geometrically faithful source specification
+  from its actual block states and command mapping. An exceptionally detailed
+  legacy design may exceed the single-request AI context limit; in that case
+  BuildAI explains the limit and does not erase any work.
+
+Newer AI-generated `.schem` files embed the original user prompt (UTF-8)
+and inert design JSON in custom BuildAI metadata. **Files saved by older
+BuildAI versions did not preserve the original prompt**, so its exact words
+cannot be recovered by inspecting the schematic; the Remake field is editable
+so you can supply it yourself. External files also need their own prompt.
+Neither Regenerate nor Revise modifies or overwrites the source .schem;
+success uses the existing unique-timestamp auto-save. A failed generation
+leaves the active blueprint and source file unchanged. This is a local
+file-based workflow and does not modify any blocks in the existing Minecraft
+world until a separately confirmed placement.
+
+The command commissioning screen now has a clear **DONE > RETURN TO MINECRAFT**
+button after successful authorization; before approval, **RETURN TO GAME
+(REVIEW LATER)** leaves the server's approval pause intact. Neither action
+requires Escape or sends implicit approval.
+
 ## Adaptive builder feedback and executable minigame systems
 
 **F8 > Feedback & Styles > My Build Feedback** stores reviews against the

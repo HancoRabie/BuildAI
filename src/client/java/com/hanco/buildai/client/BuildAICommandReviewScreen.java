@@ -114,7 +114,10 @@ public final class BuildAICommandReviewScreen extends Screen {
     @Override protected void init(){
         int x=left()+9,w=panelWidth()-18;
         if(height<245){
-            add("BACK",x,Math.max(5,height-27),w,20,this::close);
+            add(approved?"DONE  >  RETURN TO MINECRAFT":
+                (serverReview?"RETURN TO GAME (REVIEW LATER)":"BACK TO BUILDAI"),
+                x,Math.max(5,height-27),w,20,
+                serverReview?this::returnToGame:this::close);
             return;
         }
         int gap=5,third=(w-2*gap)/3,half=(w-gap)/2;

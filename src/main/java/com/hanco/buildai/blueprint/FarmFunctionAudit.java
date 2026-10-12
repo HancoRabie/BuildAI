@@ -52,7 +52,9 @@ public final class FarmFunctionAudit {
             if(chest(id))return true;
             if(!id.equals("minecraft:hopper"))return false;
             if(!visited.add(b.index(x,y,z)))return false; // directed loop
-            if(state.contains("facing=down"))y--;
+            // Vanilla hopper default orientation is DOWN when no explicit
+            // facing state is supplied; normalize that before auditing.
+            if(state.contains("facing=down")||!state.contains("facing="))y--;
             else if(state.contains("facing=north"))z--;
             else if(state.contains("facing=south"))z++;
             else if(state.contains("facing=west"))x--;

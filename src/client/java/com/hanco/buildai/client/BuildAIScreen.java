@@ -260,7 +260,7 @@ public final class BuildAIScreen extends Screen {
                     status="Join a world before confirming.";return;
                 }
                 client.getNetworkHandler().sendChatCommand("buildai confirm");
-                status="Construction requested; watch server status and the BuildAI HUD.";
+                status="Default full-clear build requested. For mountain embeds, use Minecraft chat: /buildai confirm foundation:no excavate:no instead of this button.";
             });
         }
         add("Close",left,row(11),panelWidth,buttonHeight,b->close());

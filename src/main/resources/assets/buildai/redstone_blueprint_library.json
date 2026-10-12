@@ -96,8 +96,8 @@
     {
       "symbol": "O>",
       "alias": "OE",
-      "meaning": "Observer OUTPUT toward east; sensor toward west",
-      "exampleBlock": "minecraft:observer[facing=east,powered=false]"
+      "meaning": "Observer redstone OUTPUT east; Java facing points to sensed INPUT west",
+      "exampleBlock": "minecraft:observer[facing=west,powered=false]"
     },
     {
       "symbol": "P>",

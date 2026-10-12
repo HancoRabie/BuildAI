@@ -31,40 +31,61 @@ Commands are preserved in BuildAI network JSON and a private,
 **non-executable** `BuildAICommandPlan` metadata field in exported Sponge
 v3 `.schem` files. Reimported files **never automatically activate** scripts.
 
-## Server requirements
+## No-rush post-build approval
 
-1. A trusted **level-4 server operator** reviews the game scripts.
-2. For a dedicated 1.21.1 server set `enable-command-block=true` in
-   `server.properties` and restart. This setting is also checked by BuildAI.
-   Do not open this capability to arbitrary multiplayer clients.
-3. Generate the build in F8 and **Upload & Preview**.
-4. Command-driven maps currently use **zero-degree rotation only**. Rotating
-   relative command coordinates safely will require future work.
-5. Lock the world location using G, then Enter.
-6. Stay **inside Minecraft** for the entire review. Open
-   **F8 > Placement / Export > Design QA / Warnings > Review Command Block Map**.
-   This native GUI pages through every script, physical placement ordinal,
-   exact local XYZ coordinate, block type, redstone mode, and wrapped command
-   text, without opening a browser or external editor.
-   In Minecraft chat, `/buildai commands list` and
-   `/buildai commands show <index>` also display the locked world XYZ for
-   each command. The chat `show` index starts at 0; the GUI uses #1 onward.
-7. As a trusted OP 4, run `/buildai commands approve`. This is a separate,
-   explicit choice; mere upload is never authorization to run scripts.
-8. Run `/buildai confirm` to start the ordinary excavation/construction.
+Approval happens **after** the physical structure is fully constructed, cleanup
+and connection normalization are finished. Fast or tiny builds never bypass
+review. When a blueprint contains command instructions, the server enters
+`WAITING_COMMAND_APPROVAL` and **stays paused indefinitely**. No scripts are
+programmed or enabled by the countdown or by build speed.
 
-During physical construction the generated command blocks are inert. Once
-the **cleanup** and **normalization** phases finish, the new **COMMISSION**
-phase installs command text and flags into actual
-`CommandBlockBlockEntity` objects. After all are programmed, BuildAI
-arms only entries explicitly marked as Always Active. Commands requiring
-redstone stay signal-triggered. If construction fails or is cancelled,
-BuildAI attempts to disarm known installed scripts.
+The server automatically sends the owner a verified map of the actual scripts,
+including one-based command numbers, block IDs and facing, local XYZ and
+locked world XYZ. BuildAI opens an in-game review GUI when possible. If you're
+in another screen you can return to the game or reopen review through
+**F8 > Placement / Export > Design QA > Review Command Block Map**.
 
-Command blocks are not obtainable through normal Survival crafting:
-approved operator-installed map machinery is excluded from the ordinary
-Survival material manifest, rather than deadlocking the build at a resource
-no legitimate chest can supply.
+Inspect each command and select **Approve All** or mark any subset and choose
+**Approve Marked**. The GUI sends the same Minecraft chat command as typing:
+
+```mcfunction
+/buildai commands list
+/buildai commands show 1
+/buildai commands approve all
+/buildai commands approve 1,2,4,7,8,9
+/buildai commands 1, 2, 4, 7
+```
+
+All command numbers are **1-based everywhere**, including chat, the review
+screen and the approval parser. You may close the GUI and come back later;
+the server will keep waiting without installing scripts. Only a trusted
+**level-4 operator who owns the project** can approve.
+
+**Partial approval:** approving #1, #2 and #4 commissions those exact three
+coordinate-mapped scripts. Other command-block cells are actively left blank
+and disarmed. An approval selection completes the review for the project;
+changing that selection after commissioning requires a future editing/review
+workflow (not yet implemented). Never assume only part of a CTF script is a
+functioning game.
+
+### Server configuration and execution ordering
+
+For a dedicated Java 1.21.1 server, set `enable-command-block=true` in
+`server.properties` and restart before approving scripts. The build can
+construct its physical geometry beforehand, but approval is rejected until
+command blocks are enabled. Command-driven maps currently use **zero-degree
+rotation only** to avoid altering relative command coordinates unsafely.
+
+During commissioning, BuildAI verifies each selected block's exact local
+position, world position, type and facing. It programs or explicitly clears
+all script cells first, then arms only approved Always Active entries. A
+failed verification halts the project instead of guessing which script
+belongs to which command block.
+
+The commands remain subject to Minecraft's world security rules and server
+permissions. Command blocks are unobtainable through ordinary Survival
+crafting; approved map machinery is excluded from the Survival materials
+manifest.
 
 ## Restriction / security model
 
@@ -117,6 +138,7 @@ are rejected, and missing scripts produce Design QA warnings rather than
 silently assigning a neighbor's command. This is coordinate mapping, not
 "first block gets first random script" or a dependence on packet arrival order.
 
-The in-game reviewer shows the client blueprint. The server remains the source
-of truth for permission, approved placement and world coordinates. Approving
-commands still requires trusted operator level 4 and is done in Minecraft chat.
+The automatic in-game reviewer uses a fresh server-authoritative snapshot,
+not a possibly outdated local schematic. Server-side OP4 permission and
+mapping validation are mandatory. Approval commands are sent from inside
+Minecraft and are never initiated by a timeout.

@@ -24,7 +24,7 @@ public class RedstoneKnowledgeTest {
         }
     }
     @Test void revisionKeepsTechnicalManualEvenIfUserJustSaysChangeTheRoof(){
-        String past=String.raw"""
+        String past="""
             {"operations":[{"block":"minecraft:redstone_wire","kind":"line"}],
               "redstone_plan":{"circuits":[{"name":"Door"}]}}
             """;

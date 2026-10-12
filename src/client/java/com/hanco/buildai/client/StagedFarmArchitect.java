@@ -23,6 +23,7 @@ final class StagedFarmArchitect {
         StagedFarmPlan plan=StagedFarmPlan.from(original);
         if(progress!=null&&progress.cancellationRequested())
             throw new java.util.concurrent.CancellationException("Cancelled.");
+        if(progress!=null)progress.stagedPlan(plan.stages().size());
         if(progress!=null)progress.stage("Engineering plan created",
             "Divided into "+plan.stages().size()+" independently generated "+
             "modules with one shared "+plan.width()+"x"+plan.height()+
@@ -44,6 +45,8 @@ final class StagedFarmArchitect {
                 throw new java.util.concurrent.CancellationException(
                     "Stopped before stage "+(i+1));
             StagedFarmPlan.Stage stage=plan.stages().get(i);
+            if(progress!=null)progress.stagedModule(
+                i+1,plan.stages().size(),stage.name());
             String saved=checkpoint.load(i);
             if(saved!=null){
                 try{
@@ -77,6 +80,7 @@ final class StagedFarmArchitect {
         if(progress!=null&&progress.cancellationRequested())
             throw new java.util.concurrent.CancellationException("Stopped before final QA");
         String specification=merged.finish();
+        if(progress!=null)progress.stagedFinalReview();
         if(progress!=null)progress.stage("Integrating the full farm",
             "All "+merged.total()+" independent modules returned geometry. "+
             "Checking combined overlaps, block states and redstone plans.");

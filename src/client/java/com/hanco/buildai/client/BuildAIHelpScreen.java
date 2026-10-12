@@ -30,6 +30,9 @@ public final class BuildAIHelpScreen extends Screen {
             "You can import community schematics and construct them without any AI account."
         },
         {
+            "Online Inspiration is ON by default. F8 > Create / AI > Online Inspiration switches real web research on or off. When available, BuildAI first searches for published Minecraft build examples and sends a short cited design brief to the blueprint generator.",
+            "Research may add time, API-key charges and plan usage. The model/tool must support web search; BuildAI honestly reports when research failed or had no usable citations, and still generates the structure using the normal local architectural references.",
+            "After an actually sourced generation, source links appear as clickable Minecraft chat messages. Reopen them via F8 > Placement / Export > Design QA / Warnings > View Cited Web Inspiration Sources. Online text inspires original geometry, not a direct copy; web-search results do not guarantee the model has seen images.",
             "Type your building request in F8 and click Generate New.",
             "Example: A 24x20 medieval cottage with a slate roof, two floors, porch, glass windows and an interior stairwell.",
             "After generation, BuildAI auto-saves the completed .schem in Minecraft's buildai/blueprints folder. The editable design is also kept in memory for revisions until the game closes.",

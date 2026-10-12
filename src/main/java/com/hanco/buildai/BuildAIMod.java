@@ -162,6 +162,32 @@ public final class BuildAIMod implements ModInitializer {
             approvalResult(player,false,"Approval rejected: "+ex.getMessage());return 0;
         }
     }
+    private static int confirmProject(ServerPlayerEntity player,ConstructionOptions options){
+        ConstructionProject p=ConstructionManager.get(player);
+        if(p==null){reply(player,"No project");return 0;}
+        try{
+            p.confirm(options);
+            clearGhost(player);
+            reply(player,"Build confirmed: excavate:"+(options.excavate()?"yes":"no")+
+                " foundation:"+(options.foundation()?"yes":"no")+". "+
+                (options.excavate()
+                    ? "Clearing the original full blueprint footprint before building. "
+                    : "Overlay mode: surrounding/blueprint-AIR terrain is preserved; "+
+                      "blocks at actual planned positions may be REPLACED. ")+
+                (!options.foundation()
+                    ? "Identified foundation blocks omitted: "+p.omittedFoundationBlocks()+". "
+                    : "")+
+                "Protected blocks and inventories are never overwritten. /buildai status");
+            if(!options.foundation()&&p.omittedFoundationBlocks()==0)
+                reply(player,"No confidently identifiable bottom foundation was found. "+
+                    "Nothing was removed from the blueprint; specify a simple "+
+                    "separate base in the design if you want it omitted.");
+            return 1;
+        }catch(Exception e){
+            reply(player,"Cannot confirm: "+e.getMessage());return 0;
+        }
+    }
+
     @Override public void onInitialize() {
         com.hanco.buildai.build.BuildBlocks.register();
         PayloadTypeRegistry.playC2S().register(BlueprintChunkPayload.ID,BlueprintChunkPayload.CODEC);
@@ -457,15 +483,20 @@ public final class BuildAIMod implements ModInitializer {
                         .requires(src->src.hasPermissionLevel(2)).executes(c->
                             approveSelected(c.getSource().getPlayerOrThrow(),
                                 StringArgumentType.getString(c,"selection")))))
-                .then(literal("confirm").requires(s->s.hasPermissionLevel(2)).executes(c->{
-                    ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
-                    ConstructionProject p=ConstructionManager.get(player);
-                    if(p==null){reply(player,"No project");return 0;}
-                    try{p.confirm();clearGhost(player);reply(player,
-                        p.cinematic?"Construction approved. Preparing cinematic excavation; the site will clear together, then blocks spiral into a black hole before construction.":
-                            "Construction approved. Fast excavation and progressive building started.");return 1;}
-                    catch(Exception e){reply(player,"Cannot confirm: "+e.getMessage());return 0;}
-                }))
+                .then(literal("confirm").requires(s->s.hasPermissionLevel(2))
+                    .executes(c->confirmProject(c.getSource().getPlayerOrThrow(),
+                        ConstructionOptions.DEFAULT))
+                    .then(argument("flags",StringArgumentType.greedyString())
+                        .executes(c->{
+                            ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                            try{
+                                return confirmProject(player,ConstructionOptions.parse(
+                                    StringArgumentType.getString(c,"flags")));
+                            }catch(IllegalArgumentException e){
+                                reply(player,"Invalid confirm flags: "+e.getMessage());
+                                return 0;
+                            }
+                        })))
                 .then(literal("cancel").requires(s->s.hasPermissionLevel(2)).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);

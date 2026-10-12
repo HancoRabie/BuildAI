@@ -52,6 +52,10 @@ public final class BuildAIScreen extends Screen {
     }
     @Override protected void init(){
         if(prompt!=null||key!=null)saveFields();
+        // Recover prior request across Minecraft restart or a stalled session.
+        // Never overwrite text the user has already typed in this UI.
+        if(prompt==null && promptValue.isBlank())
+            promptValue=GenerationPromptJournal.load();
         panelWidth=Math.min(510,Math.max(140,width-16));
         left=(width-panelWidth)/2;
         // Reserve explicit space for the status footer BELOW the Close button.

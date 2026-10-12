@@ -132,13 +132,13 @@ public final class StagedFarmPlan {
             %s
             """.formatted(width,height,length,index+1,stages.size(),
                 stage.name(),stage.purpose(),
+                knownInterfaces==null||knownInterfaces.isBlank()?
+                    "No previous interface points yet.":knownInterfaces,
                 stage.fullBounds()?"All global Y levels permitted; protect "+
                     "previous stage work and pre-existing corridors.":
                     "ONLY modify cells in global Y="+stage.firstY()+".."+
                     stage.lastY()+" inclusive. Do not spill into other floors.",
-                knownInterfaces==null||knownInterfaces.isBlank()?
-                    "No previous interface points yet.":
-                    knownInterfaces,original);
+                original);
         if(discipline.length()>4000)
             throw new IllegalArgumentException("Player's request plus scoped "+
                 "staged instructions exceed the 4000-character model limit. "+

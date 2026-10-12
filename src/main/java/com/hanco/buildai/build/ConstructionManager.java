@@ -36,6 +36,7 @@ public final class ConstructionManager {
                         project.phase==ConstructionProject.Phase.WAITING_SUPPLIES||
                         project.phase==ConstructionProject.Phase.CLEANUP||
                         project.phase==ConstructionProject.Phase.NORMALIZE||
+                        project.phase==ConstructionProject.Phase.COMMISSION||
                         project.phase==ConstructionProject.Phase.COMPLETE||
                         project.phase==ConstructionProject.Phase.PAUSED_ERROR)){
                         owner.sendMessage(net.minecraft.text.Text.literal(

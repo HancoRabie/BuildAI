@@ -24,7 +24,7 @@ public final class ProjectHud {
             int panelW=Math.min(256,Math.max(118,screenW/3));
             int x=Math.max(5,screenW-panelW-8),y=12;
             BlockPos chest=s.chest();
-            boolean nearChest=chest.getY()!=-9999 &&
+            boolean nearChest=chest.getY()!=-2048 &&
                 mc.player.squaredDistanceTo(chest.getX()+0.5,chest.getY()+0.5,chest.getZ()+0.5)<=20*20;
             List<String> lines=new ArrayList<>();
             lines.add("BuildAI | "+s.title());

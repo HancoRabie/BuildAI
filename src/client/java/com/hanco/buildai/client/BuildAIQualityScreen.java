@@ -56,8 +56,9 @@ public final class BuildAIQualityScreen extends Screen {
             width/2,27,0xD8E5EE);
         ctx.drawTextWithShadow(textRenderer,findings.size()+" potential issue(s). "+
             "Heuristic warnings; inspect in-game.",x+5,43,0xE6CA91);
-        int y=(!blueprint.commands().isEmpty()&&BuildAIClient.lastResearch().verified())?103:
-            (!blueprint.commands().isEmpty()||BuildAIClient.lastResearch().verified())?84:60;
+        boolean hasCommands=blueprint!=null&&!blueprint.commands().isEmpty();
+        int y=(hasCommands&&BuildAIClient.lastResearch().verified())?103:
+            (hasCommands||BuildAIClient.lastResearch().verified())?84:60;
         if(findings.isEmpty()){
             ctx.drawTextWithShadow(textRenderer,"No automated warnings recorded.",x+5,y,0xA3F1C9);
             ctx.drawTextWithShadow(textRenderer,"This is not proof that rooms and stairs are walkable.",

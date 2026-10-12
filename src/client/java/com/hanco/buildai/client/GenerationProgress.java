@@ -11,10 +11,15 @@ public final class GenerationProgress {
     public record Snapshot(String stage, String detail, List<String> milestones,
                            long elapsedSeconds, long secondsSinceActivity,
                            int receivedCharacters, boolean finished, boolean failed,
-                           double charactersPerSecond) {}
+                           double charactersPerSecond, String workflow) {}
 
     private final String category;
     private final String originalPrompt;
+    // Persistent local workflow metadata, independent of generic model events.
+    private final boolean stagedEligible;
+    private int stagedTotal=0, stagedCurrent=0;
+    private String stagedModule="";
+    private boolean stagedFinalReview=false;
     private final long startedNanos=System.nanoTime();
     private long lastStreamEventNanos=0;
     private String lastStreamEvent="None yet";
@@ -29,10 +34,41 @@ public final class GenerationProgress {
     public GenerationProgress(){this(null);}
     public GenerationProgress(String prompt){
         originalPrompt=prompt==null?"":prompt;
+        stagedEligible=com.hanco.buildai.blueprint.StagedFarmPlan.applies(originalPrompt);
         category=GenerationHistory.category(prompt);
     }
     public String category(){return category;}
     public String originalPrompt(){return originalPrompt;}
+
+    /** Module counters are local workflow facts, never model-predicted. */
+    public synchronized void stagedPlan(int total){
+        if(finished||total<2)throw new IllegalArgumentException("Invalid staged module count");
+        stagedTotal=total;
+        stagedCurrent=0;
+        stagedModule="Planning / inspiration";
+        stagedFinalReview=false;
+    }
+    public synchronized void stagedModule(int module,int total,String name){
+        if(finished||total!=stagedTotal||module<1||module>total)
+            throw new IllegalArgumentException("Invalid staged module update");
+        stagedCurrent=module;
+        stagedModule=name==null?"Unnamed module":name;
+    }
+    public synchronized void stagedFinalReview(){
+        if(stagedTotal>0){stagedCurrent=stagedTotal;stagedFinalReview=true;}
+    }
+    public synchronized String workflow(){
+        if(stagedTotal>0){
+            if(stagedFinalReview)return "STAGED FARM | All "+stagedTotal+" modules returned | Final QA";
+            if(stagedCurrent>0)return "STAGED FARM | "+stagedCurrent+"/"+stagedTotal+
+                " | "+stagedModule;
+            return "STAGED FARM | "+stagedTotal+" modules | "+stagedModule;
+        }
+        if(revising)return "REVISION | Single-request pipeline";
+        return stagedEligible
+            ?"STAGED FARM ELIGIBLE | Awaiting module planning"
+            :"SINGLE REQUEST | Staged farm trigger not matched";
+    }
 
     public synchronized void requestSent(String model){
         modelLabel=model==null||model.isBlank()?"Unknown":model;
@@ -57,7 +93,7 @@ public final class GenerationProgress {
         return (revising?"REVISION (previous blueprint supplied)":
             "GENERATE NEW (no previous blueprint supplied)")+
             " | Auto-stop "+(autoStopEnabled?"ON":"OFF")+
-            " | Model "+modelLabel+" | "+connection+" | "+
+            " | "+workflow()+" | Model "+modelLabel+" | "+connection+" | "+
             receivedCharacters+" blueprint characters | "+event+
             " | elapsed "+age+"s. "+
             "A successful connection check cannot verify that "+
@@ -96,14 +132,9 @@ public final class GenerationProgress {
             // A user who waited past the old deadline with auto-stop OFF
             // must get a brand-new full grace period when enabling again.
             autoStopRearmedAtNanos=System.nanoTime();
-            stage("Auto-stop ON","Started a fresh silence window: "+
-                "8 minutes before first blueprint text, 3 minutes after "+
-                "text begins. Your current model request is unchanged.");
-        }else{
-            stage("Auto-stop OFF","BuildAI will not automatically end this "+
-                "request for output silence. It continues until the model "+
-                "responds, the connection fails or you cancel it.");
         }
+        // The button displays this preference; never overwrite the actual
+        // generation stage or reset model-activity telemetry for a toggle.
     }
     private final java.util.concurrent.atomic.AtomicReference<Thread> worker=
         new java.util.concurrent.atomic.AtomicReference<>();
@@ -181,6 +212,6 @@ public final class GenerationProgress {
         return new Snapshot(stage,detail,List.copyOf(milestones),
             Math.max(0,(now-startedNanos)/1_000_000_000L),
             Math.max(0,(now-lastActivityNanos)/1_000_000_000L),
-            receivedCharacters,finished,failed,rate);
+            receivedCharacters,finished,failed,rate,workflow());
     }
 }

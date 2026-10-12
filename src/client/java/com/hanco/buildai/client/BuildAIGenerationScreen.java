@@ -131,20 +131,29 @@ public final class BuildAIGenerationScreen extends Screen {
         drawIfFits(ctx,progress.lastStreamSummary(),inset,
             top+unit*7,usable,footerY,0xFFB7D8E5);
 
+        // Single slim activity track; ETA is INSIDE the bar rather than
+        // occupying an empty opaque block under the statistics. This
+        // animation is deliberately indeterminate, not fake percent-done.
         int barY=top+unit*8;
-        int barX=inset,barW=usable;
-        if(barY+7<footerY) {
-            ctx.fill(barX,barY,barX+barW,barY+7,0xFF344753);
-            if(s.finished())ctx.fill(barX,barY,barX+barW,barY+7,
-                s.failed()?0xFFDC746B:0xFF5FE6AC);
-            else {
-                // Indeterminate animation reflects activity, not percentage.
+        int barX=inset,barW=usable,barH=12;
+        if(barY+barH<footerY){
+            ctx.fill(barX,barY,barX+barW,barY+barH,0xFF29424A);
+            if(s.finished()){
+                ctx.fill(barX,barY,barX+barW,barY+barH,
+                    s.failed()?0xFFB95955:0xFF3F977C);
+            }else{
                 int highlight=Math.max(12,barW/5);
                 int offset=(int)((System.nanoTime()/25_000_000L)%
                     (barW+highlight))-highlight;
                 int from=Math.max(0,offset),to=Math.min(barW,offset+highlight);
-                if(to>from)ctx.fill(barX+from,barY,barX+to,barY+7,0xFF6BE3C8);
+                if(to>from)
+                    ctx.fill(barX+from,barY,barX+to,barY+barH,0xFF4DC8AB);
             }
+            ctx.drawBorder(barX,barY,barW,barH,0xFF527B82);
+            String eta=compactEta(s);
+            ctx.drawCenteredTextWithShadow(textRenderer,
+                textRenderer.trimToWidth(eta,barW-12),barX+barW/2,
+                barY+(barH-9)/2,0xFFFFFFFF);
         }
 
         long seconds=s.elapsedSeconds();
@@ -154,25 +163,6 @@ public final class BuildAIGenerationScreen extends Screen {
             inset,top+unit*10+5,usable,footerY,0xFFDBE7E8);
         drawIfFits(ctx,"Output rate (average): "+String.format(java.util.Locale.ROOT,"%.0f",s.charactersPerSecond())+
             " characters/second",inset,top+unit*11+5,usable,footerY,0xFFDBE7E8);
-        // Always show the ETA in its own clear, non-interactive row just
-        // below output rate. This previously blended into the large idle
-        // space (and was easy to mistake for a missing estimate).
-        String estimate=GenerationHistory.estimate(s,progress.category());
-        int etaY=top+unit*12+3;
-        if(etaY+12<footerY){
-            int etaBottom=Math.min(footerY-3,etaY+25);
-            ctx.fill(inset-2,etaY-3,inset+usable+2,etaBottom,0xD5224145);
-            ctx.fill(inset-2,etaY-3,inset,etaBottom,0xFF72E3C6);
-            java.util.List<OrderedText> etaLines=
-                textRenderer.wrapLines(Text.literal(estimate),usable-8);
-            for(int i=0;i<Math.min(2,etaLines.size());i++){
-                int y=etaY+i*11;
-                if(y+10>=etaBottom)break;
-                ctx.drawTextWithShadow(textRenderer,etaLines.get(i),
-                    inset+3,y,0xFFF0FFFA);
-            }
-        }
-
         String check=progress.checkStatus();
         String note=!check.isBlank()?check:
             progress.cancellationRequested()
@@ -219,6 +209,22 @@ public final class BuildAIGenerationScreen extends Screen {
         // background; our renderBackground override above makes that a no-op.
         // Calling it LAST keeps buttons, text and history sharp and clickable.
         super.render(ctx,mouseX,mouseY,delta);
+    }
+
+    private String compactEta(GenerationProgress.Snapshot snapshot){
+        if(snapshot.finished())return snapshot.failed()
+            ?"Generation failed":"Blueprint ready";
+        String estimate=GenerationHistory.estimate(snapshot,progress.category());
+        String prefix="Estimated time remaining: ";
+        if(estimate.startsWith(prefix))estimate=estimate.substring(prefix.length());
+        int explanatory=estimate.indexOf(" (rough;");
+        if(explanatory>=0)estimate=estimate.substring(0,explanatory);
+        if(estimate.startsWith("uncertain"))
+            return "ETA uncertain - longer than previous builds";
+        if(estimate.startsWith("learning"))
+            return snapshot.receivedCharacters()==0
+                ?"Waiting for model output...":"Estimating remaining time...";
+        return "ETA "+estimate;
     }
 
     private void drawIfFits(DrawContext ctx,String text,int x,int y,int maxWidth,

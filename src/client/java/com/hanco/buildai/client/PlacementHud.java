@@ -17,19 +17,29 @@ public final class PlacementHud {
                 ?"BuildAI | LOCATION LOCKED"
                 :"BuildAI | CHOOSE GROUND LOCATION";
             String controls=BuildAIClient.previewLocked
-                ?"Walk/fly normally to inspect | R retries placement"
-                :"Normal movement/Creative flight | Aim at ground and press G";
+                ?"Inspect the locked facade normally | R retries"
+                :PlacementMode.groundSelected()
+                    ?"Scroll: world Z | LEFT/RIGHT: rotate 90 degrees"
+                    :"Building is IN FRONT of you | Scroll: world Z | LEFT/RIGHT: rotate";
             String action=BuildAIClient.previewLocked
-                ?"F8 > Confirm & Build, or type /buildai confirm"
-                :"Enter locks XYZ after G | R retry | F8 menu";
-            int left=8,top=8,width=Math.max(90,Math.min(mc.getWindow().getScaledWidth()-16,410));
-            ctx.fill(left-5,top-5,left+width,top+47,0xDD111D23);
+                ?"F8 > Confirm & Build | R: retry"
+                :PlacementMode.waitingForLock()
+                    ?"Checking XYZ with server..."
+                    :PlacementMode.groundSelected()
+                        ?"Ground selected | Press ENTER to LOCK XYZ"
+                        :"Aim at ground top + press G | Then ENTER to LOCK";
+            int left=8,top=8,width=Math.max(90,Math.min(mc.getWindow().getScaledWidth()-16,450));
+            ctx.fill(left-5,top-5,left+width,top+59,0xDD111D23);
             ctx.drawTextWithShadow(mc.textRenderer,headline,left,top,0x55EDAF);
             ctx.drawTextWithShadow(mc.textRenderer,mc.textRenderer.trimToWidth(controls,width-8),left,top+12,0xE7F3F4);
             ctx.drawTextWithShadow(mc.textRenderer,mc.textRenderer.trimToWidth(action,width-8),left,top+24,0xC5D2DC);
+            ctx.drawTextWithShadow(mc.textRenderer,
+                mc.textRenderer.trimToWidth("Rotation: "+(PlacementMode.rotation()*90)+
+                    " degrees | World-Z offset: "+PlacementMode.wheelOffset(),width-8),
+                left,top+36,0xFFDDA8);
             if(pos!=null)ctx.drawTextWithShadow(mc.textRenderer,
                 mc.textRenderer.trimToWidth("Origin: X "+pos.getX()+" / Y "+pos.getY()+" / Z "+pos.getZ(),width-8),
-                left,top+36,0xF1D18F);
+                left,top+48,0xF1D18F);
         });
     }
 }

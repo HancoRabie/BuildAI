@@ -253,7 +253,7 @@ public final class BuildAIMod implements ModInitializer {
                         throw new IllegalArgumentException("Move the proposal closer to your real character (100 block limit)");
                     p.selectOrigin(candidate,turn);
                     String msg="Placement locked at "+candidate.toShortString()+" (rotation "+(turn*90)+"°); "+p.collisions+
-                        " existing blocks overlap. Inspect normally, /buildai retry, or /buildai confirm.";
+                        " occupied cells in the proposed volume. Default /buildai confirm CLEARS the full volume; to preserve terrain use /buildai confirm foundation:no excavate:no.";
                     if(ServerPlayNetworking.canSend(player,PlacementReplyPayload.ID))
                         ServerPlayNetworking.send(player,new PlacementReplyPayload(true,true,msg,p.origin));
                     reply(player,msg);
@@ -300,8 +300,11 @@ public final class BuildAIMod implements ModInitializer {
                             "Missing loaded chunks may pause progress.");
                     }else{
                         reply(player,p.phase+" | "+p.blueprint.name+" | "+p.placed()+"/"+p.total()+
-                            " placed | "+p.excavated()+"/"+p.cells()+" cells inspected | "+p.actuallyRemoved()+
-                            " removed | "+p.collisions+" collisions | "+p.normalizedPanes()+
+                            " placed | excavation:"+(p.constructionOptions().excavate()?"yes":"no")+
+                            " | foundation:"+(p.constructionOptions().foundation()?"yes":"no")+
+                            " ("+p.omittedFoundationBlocks()+" base cells omitted) | "+
+                            p.excavated()+"/"+p.cells()+" cells inspected | "+p.actuallyRemoved()+
+                            " removed | "+p.collisions+" proposal overlaps | "+p.normalizedPanes()+
                             " pane/fence/wall links | "+p.normalizedRedstone()+
                             " redstone dust links | "+p.refreshedRedstone()+
                             " redstone components notified.");

@@ -68,9 +68,13 @@ public final class ChatGPTSignIn {
         return account;
     }
     public static boolean connected(){Account a=current();return a!=null&&a.canGenerate();}
+    /**
+     * Privacy by default: never expose the account email or identity in
+     * Minecraft UI, chat, recorded demos, or status strings. OAuth still
+     * uses the private locally stored account data for authentication.
+     */
     public static String accountLabel(){
-        Account a=current();
-        return a==null?"Not connected":a.email.isBlank()?"ChatGPT account connected":a.email;
+        return connected()?"Connected":"Not connected";
     }
     public static synchronized void disconnect(){
         account=null;loaded=true;
@@ -211,7 +215,7 @@ public final class ChatGPTSignIn {
                 if(connected.access.isBlank())throw new IOException("OpenAI returned no inference token");
                 browserStatus="Account verified; saving the authorized session...";
                 save(connected);account=connected;loaded=true;
-                return "ChatGPT connected: "+accountLabel();
+                return "ChatGPT connected";
             }catch(Exception e){throw new CompletionException(e);}
             finally{
                 if(server!=null)server.stop(0);

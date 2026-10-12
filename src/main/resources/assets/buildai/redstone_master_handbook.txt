@@ -1,0 +1,144 @@
+BUILDAI REDSTONE MASTER HANDBOOK v2.0 | MINECRAFT JAVA 1.21.1 ONLY
+STATUS: Engineering reference and design-review rules. NOT a physics simulator, proof of operation, or tested schematic.
+Player's functional request ALWAYS takes precedence over decorative references. Use valid 1.21.1 registry IDs/properties.
+AUTHORING RULE: Treat redstone as an engineered system: define INPUT -> POWER PATH -> LOGIC/MEMORY/TIMING -> OUTPUT -> RESET/SAFE FAILURE before drawing any block. Trace all six sides and vertical wiring. Deliver functioning circuit geometry, not ornaments or just names.
+When relevant, include top-level redstone_plan: {"circuits":[{"name":"...","input":"...","signalPath":"...","output":"...","timing":"...","reset":"...","test":"..."}]}. This is an audit manifest, NOT executable redstone. Return valid JSON as required by BuildAI's normal output contract. Avoid unverified claims.
+
+SECTION 1: FUNDAMENTALS — SIGNAL, TICKS, POWER AND SUPPORT
+- Minecraft Java 1.21.1 server runs nominally 20 game ticks/s (0.05 s/tick at full TPS). One redstone tick = TWO game ticks = 0.1 s at full TPS. Repeaters' delay=1..4 means 1..4 REDSTONE ticks = 2..8 game ticks, not 1..4 game ticks. Server lag affects real time.
+- Redstone dust power is integer 0..15, decays by one per horizontal dust segment. Refresh with a properly oriented repeater (output 15). Dust has north/east/south/west side connections: none/side/up; power and shape are separate properties. Visible shape/connectivity does not prove power reaches intended recipient. Isolate unrelated wires and watch unintended cross-connections.
+- Strong power vs weak power: redstone-powered solid opaque cubes transmit/relay differently from transparent or non-full blocks. A weak-powered block can activate adjacent devices but often cannot pass power onward to dust as a strong-powered block can. Check block conductivity, support, direct vs indirect power and output orientation. Glass and many translucent blocks are not generic redstone conductors.
+- Dust on floors needs a valid support; side/up/down slopes require actual neighboring supporting solids and air clearances. Two parallel dust buses adjacent may unexpectedly short. Separate buses with spaces or non-conducting materials; use repeaters for strictly one-way branches.
+- Neighbor updates, scheduled ticks, block events and entity/inventory transitions are different mechanisms. A circuit can be geometrically connected yet not fire until a neighbor update; state restored by FORCE_STATE placement may suppress natural shape/power updates. BuildAI's three-stage normalization recomputes dust arms then sends native neighbor updates; it DOES NOT invent missing wires or repair wrong circuit topology.
+- Different server editions, snapshots and experimental toggles have different update orders. DO NOT use Java 1.21.2+ experimental redstone wire update-order semantics for 1.21.1. Minecraft 1.21.1 Java redstone may be locational/update-order sensitive: don't assume a compact timing-sensitive design is rotation-independent.
+- Always design a safe OFF/default state, power isolation, named inputs and outputs, explicit reset, test points, player-friendly controls and physical access for maintenance. Never silently set powered=true or a toggled latch if a machine should start off.
+
+SECTION 2: SOURCES, BUTTONS, ANALOG AND SENSORS
+redstone_wire: Power 0-15; sides north/east/south/west = none|side|up and power=0..15. Purely placing 'powered dust' with FORCE_STATE is not a durable power source. Normalization can reconnect adjacent wire; it cannot bridge air gaps.
+redstone_block: constant strength-15 source, movable by pistons; can trigger adjacent machinery unintentionally when moved. Do not use as a placeholder inside a system requiring pulse edges.
+redstone_torch / redstone_wall_torch: invert power from support block; wall variant needs facing and strong physical support. Oscillating torches can burn out temporarily after rapid toggling; torch towers incur delays and can cause races. Use known invert/repeater logic instead of unbounded loops.
+lever: latched/manual power, states face=floor|wall|ceiling, facing and powered. Requires suitable support; lever OUTPUT direction is not necessarily identical to visually imagined wire direction. Label ON/OFF.
+*_button: rising pulse from player (some buttons interact with arrows), wooden buttons last longer than stone; exact duration depends on material. face/facing/powered and solid support. A short pulse can be missed by slow logic: add repeater/edge detector when appropriate.
+*_pressure_plate: entity-triggered momentary input; wooden, stone and polished-blackstone types differ in eligible entity/items; weighted plates supply analog strength from entities/items. Don't assume any plate detects all players, dropped items and mobs identically.
+tripwire / tripwire_hook: taut line with two oriented hooks and supported span, redstone trigger when intersected/broken. Proper attachment and vertical alignment matter. Hooks, wires and hooks cannot be sprinkled with gaps.
+daylight_detector: non-constant output affected by time of day, sky conditions/roofing and inverted state. Outdoor access to sky matters; use weather/time tests.
+target: projectile-hits generate pulses whose strength reflects hit accuracy. Use arrow access and avoid unintended projectiles. The comparator-like 0..15 response is position-dependent.
+sculk_sensor: detects eligible vibrations in its sensing area, outputs analog strength by event; wool occludes vibrations and unintended machines/players can false-trigger. Has cooldown/state and may require calibrated variant for filtering.
+calibrated_sculk_sensor: selector input on its amethyst-bearing side filters vibration frequency categories (1..15). Carefully orient sensor and supply correct analog selection; verify event tables for 1.21.1. Sensitivity and relay interactions are directional.
+lightning_rod: lightning strikes create redstone pulse; weather-dependent and no reliable on-demand clock. Needs clear exposure for reliable strikes, not for manual buttons.
+trapped_chest: powers based on players opening it; comparator also reads inventory; do not treat normal chest as the same power source.
+lectern: comparator output reflects book page (depends on page count), opening/turning pages can pulse nearby observers; requires book data. Default empty lectern will NOT emulate a populated puzzle.
+item_frame / glow_item_frame: comparator through attached solid backing reads contents/rotation as signal (typically 1..8 when occupied); the frame is an ENTITY and may not survive BuildAI's schematic block-only export. Don't claim frame-input controls work unless entities exist.
+chiseled_bookshelf: comparator output indicates last interacted slot (1..6), 0 before interaction; inventory and slot state require real block entity data and player events.
+beehive / bee_nest: comparator signal tracks honey level 0..5, not fullness like a chest; bee activity/environment matter.
+composter: comparator signal depends on fill level 0..8, with composting transition time; good analog threshold and random-fill automated farms.
+cauldrons: comparator readings vary with level and contents; distinguish water/powder snow/lava state; don't invent a universal 0-15 range.
+cake: comparator signal declines as slices are consumed; edible and therefore a one-way manual analog puzzle until replaced.
+jukebox: comparator signal determined by the inserted disc, not music loudness/time remaining; disk inventory/entity context matters.
+respawn_anchor: comparator reads charges in fixed steps; dangerous explosion interactions in unsupported dimensions and not a casual redstone power source.
+decorated_pot: block stores an item and comparator responds to presence/content conditions; inspect exact 1.21.1 behavior before building item-sorting logic around it.
+command_block: impulse/chain/repeating have DIFFERENT activation semantics and command block entities contain executable text; placement alone NEVER programs them. BuildAI scripts are bound by XYZ, reviewed in-game and commissioned only after human authorization; never claim an empty command block is functional.
+
+SECTION 3: LOGIC, DIRECTION, TIMING, MEMORY
+repeater: facing=direction of OUTPUT, accepts rear INPUT only; its delay=1..4 in redstone ticks; side-fed repeaters can LOCK an existing output state. Use to isolate buses, restore strength=15 and tune timing. Repeater lock does not mean any adjacent redstone is valid locking input; the side signal must meet vanilla rules.
+comparator: front OUTPUT, back PRIMARY input, sideways secondary input; mode=compare or subtract. Compare outputs back only when back >= side, else zero. Subtract outputs max(0,back - max(sideInputs)). It reads directly adjacent containers and some through a single solid full block where vanilla permits. Comparator output is analog and can be less than 15; preserving facing, mode, powered flag and path matters.
+container comparator math: chest/barrel/hopper/dispenser/furnace inventory fullness determines analog output, influenced by stack limits and number of slots; a single item often yields >=1. Test actual thresholds with representative items. Do not hardcode item counts by intuition.
+copper_bulb family: toggles lit state on rising redstone pulses, retains lit state once signal disappears: built-in T flip-flop / compact memory element. Copper oxidation affects EMITTED LIGHT (fresh=15, exposed=12, weathered=8, oxidized=4), NOT timing. Waxing freezes oxidation. Comparator output indicates bulb lit state (15 if lit); copper bulb is NOT a generic conducting full redstone cube. Be mindful of powered vs lit flags.
+redstone_lamp: emits light while powered; when power ends its off transition can lag. It is NOT a persistent memory bit like a copper bulb; outputs are not guaranteed identical.
+NOT gate: power a support block to turn an attached redstone torch off.
+AND gate: arrange two required inputs to keep an output from activating until BOTH true (often using inverted torches). Avoid confusing negative and positive logic.
+OR gate: either signal can trigger output, but use repeaters to prevent backfeeding into the other control.
+XOR / XNOR: output when inputs differ / agree; test full 00/01/10/11 truth table.
+RS-NOR or RS latch: define SET and RESET priority, state retention, and behavior under simultaneous inputs. Don't build undefined oscillation.
+T flip-flop: copper bulb or memory/latch circuit converts an input pulse to persistent toggle; ensure only a single rising edge per button press.
+Rising/falling edge detectors: observer or pulse-shortening logic; suppress spurious repeated rising edges.
+Pulse extenders: comparator loops or clocked latches; ensure no runaway feedback, specify desired duration.
+Hopper clock: paired hoppers with latch and item counts; output timing depends on inventory and hopper transfer/cooldown; remember hopper must be unlocked in the intended phase.
+Clock: repeater loop, comparator clock, hopper clock, observer clock or daylight based on required frequency; add a disable line and TPS budget. Unconditional 20-Hz loops can cause severe lag.
+Binary counters/decoders: reset path and overflow behavior; persistent memory often needs actual state setup not guaranteed by a bare schematic.
+Timing: schedule pulses in REDSTONE ticks, account for multiple stages, pulse lengths, cross-chunk boundaries, and power/neighbor update order. Java 1.21.1 instant/redstone update quirks cannot be promised to survive 90-degree rotations or version changes.
+Avoid relying on a button pulse arriving at several independent branches in deterministic order; use clock/control signals to synchronize.
+For every logic network, trace: source power -> conductor orientation -> output block -> triggering edge -> mechanical action -> recovery/reset.
+
+SECTION 4: MECHANICAL, TRANSPORT AND INVENTORY
+observer: arrow/output side opposite the observing face; block 'face' visually matters, facing property is not an arbitrary forward arrow. In Java 1.21.1, state updates on sensed face can schedule short redstone pulses; a pulse may happen during build normalization if active. Observer loops can lock the world with rapid updates; provide an off switch.
+piston / sticky_piston: facing determines HEAD direction; movement up to 12 MOVABLE blocks, obstruction rejects action; immovable blocks (e.g. bedrock/obsidian) and tile/block-entity mobility depend on Java rules. Sticky piston normally retracts one movable block; brief-pulse/0-tick-like tricks can leave a block behind. Do not assume piston head is a player-placeable ordinary block. Place adequate head/extension clearance.
+JAVA QUASI-CONNECTIVITY (QC): pistons, dispensers and droppers can behave as if powered at the block space immediately ABOVE themselves. If quasi-powered, a neighbor update may be required for activation, producing BUD behavior. This is intentional Java mechanics; unlike pistons/dispensers/droppers, the 1.21 crafter does NOT use this QC rule. Never mistake a QC-circuit for ordinary side power; review update-trigger placement.
+slime_block / honey_block: adhesive displacement behavior differs, and they do not glue to one another; push/pull limits and adjacent immovable fixtures matter. Flying machines need exact spatial clearance, update order and chunk-loading assumptions.
+dispenser: powered edge executes item-dependent behavior (shoot projectile, place water from bucket, equip, dispense etc), faces outward; inventory slot choice/state must be real, NOT assumed from mere block ID. Java QC applies.
+dropper: transfers/ejects one item without dispenser special use; directional facing and inventory required, pulses should not be faster than intake rate. Java QC applies.
+hopper: facing controls extraction/output path; moves items with tick-dependent cooldown. POWERED hopper LOCKS and stops transfers while powered; comparator measures fullness. Unsupported or unloaded destination can stall; design overflow and collection. A hopper under a block/inventory works differently than one pointing into it.
+hopper_minecart / chest_minecart: ENTITY transport with rails, unloading, chunk constraints; schematic voxel files may not preserve entities. Avoid promising functional rail sorters without carts.
+crafter (new in Java 1.21): crafts and ejects the valid recipe result when TRIGGERED by a pulse. facing controls front output; the 3x3 grid has manually disabled slots, which cannot hold items. Comparator signal = COUNT of occupied or disabled slots (0..9), not total ingredient quantity. Hopper/dropper input obeys crafter slot selection. A permanently powered crafter does not auto-craft continuously without new pulses. Does NOT obey Java quasi-connectivity. Real inventory and disabled slot setup requires block-entity configuration beyond ordinary block-state geometry; don't declare a filled automated factory functional based on empty crafters.
+powered_rail: adds propulsion when powered, slows when unpowered; slopes, cart speed and connected segments matter. Specific power transmission through contiguous powered rails depends on layout.
+detector_rail: produces redstone when a minecart occupies it; comparator may read container-minecart fullness. Needs actual entity/cart.
+activator_rail: powered rail of special function: ejects entities/activates particular carts; it is NOT a propulsion rail.
+rail: normal passive track; curves, slopes and rail shape are block states. Constrain rail alignment to avoid spontaneous unwanted curves.
+furnace / smoker / blast_furnace: comparator reads inventory/capacity, fuel timing and recipes; redstone alone does not feed fuel.
+brewing_stand: comparator measures bottles/ingredients; requires actual inventory, fuel and brewing time.
+pistons, observers, rails, hopper transport and flying machines depend on neighbors outside a 1-block footprint; do not generate floating single-cell prototypes described as full machines.
+TNT: explodes when primed; protect player worlds, require explicit user request, do not install autonomous traps or unpredictable loops.
+
+SECTION 5: OUTPUTS, DOORS, TRAPS, LIGHTS, AUDIO
+redstone_lamp: illuminates while powered; off-delay may change pulse shape.
+note_block: rising input plays tone; instrument depends on block underneath, note=0..24. Solid obstruction immediately above may mute sound; music must be tick-scheduled, and blockstate is not an entity song program.
+bell: can respond to projectile or redstone depending on support/orientation, useful alarms; not continuous musical tone.
+iron_door / iron_trapdoor: require redstone to open, cannot normally be manually toggled. Matched door halves, facing, hinge, powered, open states; pressure plates/buttons should actually power the intended door half.
+wooden_door / wooden_trapdoor / copper_door / copper_trapdoor: interactable by hand and redstone; copper oxidation changes look, not a new timing gate. Both door halves must match, full opening and support required.
+fence_gate: hand- and redstone-operated; preserve facing/open/in_wall state and supporting fence geometry.
+piston_door: doors need full open/close travel, timing, power cut-off, state memory if necessary, and a physical escape route if power fails. Quasi-connectivity can trigger unintended pistons in compact layouts.
+command_block_chain: place correctly oriented impulse -> chain sequence; conditional chain checks previous successful execution; automatic flags and input edges are part of commissioning. A redstone line energizing a block is not enough if its script is blank or chain orientation is wrong. Do not activate before authorization.
+redstone lamps and note blocks near rapid clocks can spam light/sound; provide pulse-length conditioning and a safe idle phase.
+
+SECTION 6: ANALOG OUTPUT REFERENCE (JAVA 1.21.1)
+- Comparators reading chest, barrel, shulker, hopper, dropper, dispenser and many other inventories: generally fullness-weighted signals 0..15; slot count, max stack and NBT contents matter.
+- Crafter: 0..9 from occupied OR disabled slots, one signal per such slot (not a normal chest fullness reading).
+- Composter: levels 0..8 (one level per fill state).
+- Honey hive/nest: honey level 0..5.
+- Lectern: progression through book pages roughly mapped across 1..15, requires valid book.
+- Item frame: rotation 1..8 when item present, zero when empty; must read through mounted block with correct arrangement.
+- Cake: decreases by 2 per bite from 14 toward 0.
+- Respawn anchor: discrete charges 0,3,7,11,15; dimension hazards.
+- Cauldron: output depends on fill level and fluid; lava/full powder snow/other contents may differ.
+- Copper bulb: comparator reads persistent lit state, normally 0/off or 15/on.
+- Sculk sensor: vibration-type frequency to analog output; calibrated filter selector strength matters.
+- Jukebox: disc-dependent analog strength; no disc -> zero.
+- Chiseled bookshelf: most recent interacted slot 1..6, zero before interaction.
+- Decorated pot and other specialist readouts: verify per target 1.21.1 behavior, block entity state and update assumptions, never assume all analog blocks output 0..15 linearly.
+
+SECTION 7: ENGINEERING TEMPLATES TO ADAPT, NOT COPY
+A. Push button -> repeater isolation -> pulse conditioner -> iron door/gate; exit button and fail-safe.
+B. Two buttons -> independent repeater-isolated inputs -> latch/AND or OR -> registered output -> reset.
+C. CTF arena -> player team-selection input -> scoreboard game-state command modules (only if approved) -> comparator/physical status indicator -> start/reset interlocks; never allow start twice or win logic outside ACTIVE phase.
+D. Vending booth -> stock container/comparator for availability -> payment-item validator (requires real hopper/item filter and inventory) -> eligibility latch -> dispenser/dropper output -> exact-one-purchase edge trigger -> reject/refund path -> stockout state. Don't assume a lever toggles payment detection.
+E. Auto-sorter -> hopper line, locked filter hoppers, comparator threshold and output chests with overflow; verify item stack-size thresholds and insufficient stock failure.
+F. Auto-crafter -> recipe grid/disabled slots verified, feed/overflow hoppers, comparator ready threshold, single reliable pulse, output collection, block entity setup.
+G. Hidden piston door -> synchronized extend/retract with independent timing stages, immovable-block screening, QC analysis, safe escape when power lost.
+H. Farm -> crop maturity detector (observer only when state truly updates) -> harvesting piston/dispenser -> item collection -> cooldown / lockout.
+I. Binary/analog lock -> encoded button or lectern input -> stable comparators -> latch/decoder -> authorized output and reset after success/failure.
+J. Timed lights -> daylight detector or hopper clock -> latch/repeater as required -> redstone lamp/copper bulb (different retention), maintenance override.
+K. Music sequencer -> clock and staged repeater delays -> notes/instruments -> start-stop gating to prevent idle lag.
+L. Minecart transport -> powered rail spacing and slopes -> detector rail -> diverter/activator -> hopper offload -> jam and chunk-boundary handling.
+
+SECTION 8: REDSTONE QA GATES BEFORE RESPONDING
+CHECK INPUT: mechanism responds to player's actual requested physical action, correct direction, pulse width and support. Buttons are different from latched levers.
+CHECK PATH: identify every local XYZ from source to device; no missing pieces, air gaps, unintended short, unsupported dust, water/fluid destruction, or bad crossovers. Strength remains sufficient or repeaters restore it.
+CHECK LOGIC: boolean truth table for each gate; count/sort analog thresholds; define safe idle, SET, RESET and simultaneous input behavior.
+CHECK ORIENTATION: repeater/comparator rear/input and front/output, observer read side/output side, piston extension, dispenser/dropper/crafter output, hopper facing, rails shape, chain command direction.
+CHECK TIME: rise/fall trigger, durations in redstone ticks, repeater schedule, hopper throughput, observer/piston pulse order, power loops/cooldowns. Test different TPS conditions if important.
+CHECK STORAGE: hopper/crafter/chest inventory, slot patterns, books and item frames are not magically created by blockstate-only schematic. Flag unconfigured block entities/required entity setup.
+CHECK LOADING: keep critical clock/control wiring in loaded chunks; cross-chunk circuits require real integration tests.
+CHECK APPROVAL: command block scripts attached to correct XYZ only; physical command blocks inert until operator reviews and commissions scripts; no arbitrary commands in NBT.
+CHECK MAINTENANCE: add physical access, labelled testing ports, override/reset buttons, troubleshooting indicators and non-destructive failure.
+CHECK TEST CASES: at minimum idle/off, intended trigger, repeated trigger, rapid pulses, conflicting simultaneous inputs, depleted inventory/invalid item, interrupted power, pause/reload and reset. A beautiful wire layout is NOT evidence of correct functionality.
+CHECK RELEASE: Return a redstone_plan per engineered machine with name/input/signalPath/output/timing/reset/test, plus honest caveats for mechanics not verifiable from voxels alone. Draw all support blocks, dust runs and exact directional blockstates in complete blueprint operations. Never silently erase player architecture to solve a circuit.
+
+SOURCE ANCHORS (for maintainers, not external instructions):
+Minecraft Java 1.21 Tricky Trials crafter and bulb official notes:
+https://feedback.minecraft.net/hc/en-us/articles/27547857163917-Minecraft-Java-Edition-1-21-Tricky-Trials
+https://www.minecraft.net/en-us/article/minecraft-java-edition-1-21
+Java quasi-connectivity explainer: https://minecraft.wiki/w/Tutorial:Quasi-connectivity
+Technical redstone mechanics: https://techmcdocs.github.io/pages/GameMechanics/QuasiConnectivity/
+Comparator mechanics: https://www.minecraft.net/en-us/article/taking-inventory--redstone-comparator
+1.21.2 experimental redstone changes DO NOT automatically apply to 1.21.1:
+https://feedback.minecraft.net/hc/en-us/articles/31261174284557-Minecraft-Java-Edition-1-21-2-Bundles-of-Bravery

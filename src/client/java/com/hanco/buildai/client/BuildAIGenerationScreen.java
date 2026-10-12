@@ -154,12 +154,23 @@ public final class BuildAIGenerationScreen extends Screen {
             inset,top+unit*10+5,usable,footerY,0xFFDBE7E8);
         drawIfFits(ctx,"Output rate (average): "+String.format(java.util.Locale.ROOT,"%.0f",s.charactersPerSecond())+
             " characters/second",inset,top+unit*11+5,usable,footerY,0xFFDBE7E8);
+        // Always show the ETA in its own clear, non-interactive row just
+        // below output rate. This previously blended into the large idle
+        // space (and was easy to mistake for a missing estimate).
         String estimate=GenerationHistory.estimate(s,progress.category());
-        java.util.List<OrderedText> etaLines=textRenderer.wrapLines(Text.literal(estimate),usable);
-        for(int i=0;i<Math.min(2,etaLines.size());i++){
-            int y=top+unit*13+i*11;
-            if(y+10>=footerY)break;
-            ctx.drawTextWithShadow(textRenderer,etaLines.get(i),inset,y,0xFF80E9CB);
+        int etaY=top+unit*12+3;
+        if(etaY+12<footerY){
+            int etaBottom=Math.min(footerY-3,etaY+25);
+            ctx.fill(inset-2,etaY-3,inset+usable+2,etaBottom,0xD5224145);
+            ctx.fill(inset-2,etaY-3,inset,etaBottom,0xFF72E3C6);
+            java.util.List<OrderedText> etaLines=
+                textRenderer.wrapLines(Text.literal(estimate),usable-8);
+            for(int i=0;i<Math.min(2,etaLines.size());i++){
+                int y=etaY+i*11;
+                if(y+10>=etaBottom)break;
+                ctx.drawTextWithShadow(textRenderer,etaLines.get(i),
+                    inset+3,y,0xFFF0FFFA);
+            }
         }
 
         String check=progress.checkStatus();

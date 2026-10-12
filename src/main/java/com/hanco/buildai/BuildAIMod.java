@@ -272,13 +272,34 @@ public final class BuildAIMod implements ModInitializer {
                     try{p.cancel(false);clearGhost(player);reply(player,"Project stopped; partial build retained.");return 1;}
                     catch(Exception e){reply(player,"Cancel failed: "+e.getMessage());return 0;}
                 }))
-                .then(literal("undo").requires(s->s.hasPermissionLevel(2)).executes(c->{
-                    ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
-                    ConstructionProject p=ConstructionManager.get(player);
-                    if(p==null){reply(player,"No project");return 0;}
-                    try{p.cancel(true);clearGhost(player);reply(player,"Blockstate rollback completed. Used materials are NOT automatically refunded in v0.1.");return 1;}
-                    catch(Exception e){reply(player,"Undo failed: "+e.getMessage());return 0;}
-                }))
+                .then(literal("undo").requires(src->src.hasPermissionLevel(2))
+                    .executes(c->{
+                        ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                        ConstructionProject p=ConstructionManager.get(player);
+                        if(p==null){reply(player,"No project to undo.");return 0;}
+                        try{
+                            int changed=p.requestUndo(false);
+                            clearGhost(player);
+                            reply(player,"Safe undo started for "+changed+
+                                " positions. Checking for protected block entities first; "+
+                                "restoration runs in batches. Follow /buildai status. Materials are not refunded.");
+                            return 1;
+                        }catch(Exception e){reply(player,"Undo unavailable: "+e.getMessage());return 0;}
+                    })
+                    .then(literal("force").requires(src->src.hasPermissionLevel(4)).executes(c->{
+                        ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                        ConstructionProject p=ConstructionManager.get(player);
+                        if(p==null){reply(player,"No project to undo.");return 0;}
+                        try{
+                            int changed=p.requestUndo(true);
+                            clearGhost(player);
+                            reply(player,"FORCE UNDO started on "+changed+
+                                " positions. WARNING: new containers, command scripts and edits "+
+                                "inside this construction area may be destroyed; bedrock is still protected. "+
+                                "Follow /buildai status. Materials and inventory contents are NOT refunded.");
+                            return 1;
+                        }catch(Exception e){reply(player,"Force undo unavailable: "+e.getMessage());return 0;}
+                    })))
             )
         );
     }

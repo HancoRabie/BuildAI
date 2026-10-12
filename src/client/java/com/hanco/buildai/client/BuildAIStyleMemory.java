@@ -93,6 +93,29 @@ public final class BuildAIStyleMemory {
             latest.has("created")?latest.get("created").getAsLong():0,
             !latest.has("projectPath"));
     }
+    /** Remove ratings/notes associated with a physically deleted saved
+     * schematic so stale feedback cannot continue steering future prompts.
+     * Keep independent learned-style examples that the player previously
+     * approved (they contain their own snapshots, not the source .schem).
+     * Never delete comments associated with similarly named outside files.
+     */
+    public static synchronized int removeFeedbackForDeleted(Path schematic) throws IOException {
+        if(schematic==null)return 0;
+        JsonObject data=load();
+        JsonArray old=data.getAsJsonArray("reviews"),retained=new JsonArray();
+        int removed=0;
+        for(JsonElement element:old){
+            if(element.isJsonObject()&&sameProject(element.getAsJsonObject(),schematic))
+                removed++;
+            else retained.add(element);
+        }
+        if(removed>0){
+            data.add("reviews",retained);
+            save(data);
+        }
+        return removed;
+    }
+
     /** Update the currently selected build, not the last edited form. */
     public static synchronized void review(Path schematic,int rating,String comments) throws IOException {
         if(schematic==null||!Files.isRegularFile(schematic))

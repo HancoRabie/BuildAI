@@ -62,7 +62,7 @@ public final class BuildAIMod implements ModInitializer {
                         response.substring(newLine+1)).getAsJsonObject());
                     ConstructionManager.begin(player,blueprint,surface);
                     uploadResult(player,true,"Blueprint accepted: "+blueprint.name+
-                        " ("+blueprint.solidCount()+" blocks). Close F8. Move normally, aim at the ground and press G, then Enter to lock; R retries.");
+                        " ("+blueprint.solidCount()+" blocks). Close F8. Press G to freeze the visible preview anywhere; arrows and wheel nudge XYZ, CTRL+left/right rotates, Enter locks. R retries.");
                 }catch(Exception e){
                     uploadResult(player,false,"Blueprint rejected: "+String.valueOf(e.getMessage()));
                 }
@@ -192,7 +192,7 @@ public final class BuildAIMod implements ModInitializer {
                     if(project==null){reply(player,"No blueprint loaded; upload one in F8.");return 0;}
                     try {
                         project.retryPlacement();
-                        String msg="Placement reset. Move normally, point at the new ground block and press G, then Enter to lock XYZ.";
+                        String msg="Placement reset. Move normally and press G to freeze the preview (no target required). Nudge with arrows/wheel and press Enter to lock XYZ.";
                         if(ServerPlayNetworking.canSend(player,PlacementReplyPayload.ID))
                             ServerPlayNetworking.send(player,new PlacementReplyPayload(true,false,msg,BlockPos.ORIGIN));
                         reply(player,msg);

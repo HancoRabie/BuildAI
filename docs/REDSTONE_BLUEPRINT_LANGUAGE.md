@@ -42,7 +42,9 @@ catalog, then ordinary blueprint JSON operations as before.
   Hence `R2>` expands to
   `minecraft:repeater[facing=west,delay=2,locked=false,powered=false]`.
   The comparator shares that rear-input convention. An observer's arrow
-  marks its **red output**; its sensed face is opposite. Piston arrow marks
+  marks its **red output**; its sensed face is opposite. Thus `O>`
+  maps to `minecraft:observer[facing=west,powered=false]` because Java
+  observer `facing` points toward the sensed/input block, not the output. Piston arrow marks
   its extension, and dispenser/dropper arrows mark their physical output.
 - Repeaters R1/R2/R3/R4 have **1–4 redstone ticks** of delay, equal to
   **2/4/6/8 game ticks** at nominal 20 TPS. `C0` compares; `C1` subtracts.

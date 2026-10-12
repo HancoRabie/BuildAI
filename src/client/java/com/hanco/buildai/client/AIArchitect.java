@@ -479,6 +479,11 @@ public final class AIArchitect {
                 if(watchdog.expired())
                     throw new java.io.IOException(watchdog.reason()+
                         draft.recoveryNotice(),failure);
+                // An explicit response.failed/response.incomplete event is a
+                // MODEL-REPORTED failure, not a guessed network interruption.
+                if(failure.getMessage()!=null&&
+                   failure.getMessage().startsWith("OpenAI SSE terminal event:"))
+                    throw failure;
                 throw new java.io.IOException(
                     "The ChatGPT streaming connection was interrupted: "+
                     failure.getMessage()+"."+

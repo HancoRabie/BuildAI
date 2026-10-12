@@ -440,8 +440,13 @@ public final class AIArchitect {
                     throw new java.io.IOException(
                         "Generation cancelled; previous blueprint unchanged.",failure);
                 if(watchdog.expired())
-                    throw new java.io.IOException(watchdog.reason(),failure);
-                throw failure;
+                    throw new java.io.IOException(watchdog.reason()+
+                        draft.recoveryNotice(),failure);
+                throw new java.io.IOException(
+                    "The ChatGPT streaming connection was interrupted: "+
+                    failure.getMessage()+"."+
+                    draft.recoveryNotice()+
+                    " Previous blueprint unchanged.",failure);
             }
             if(progress!=null&&progress.cancellationRequested())
                 throw new java.io.IOException(
@@ -515,9 +520,10 @@ public final class AIArchitect {
             // merely because a *non-essential* quality heuristic misbehaves.
             compiled.warnings.add("Architectural QA could not finish. Inspect stairs, rooms and openings manually.");
         }
-        // Only successful compilation + basic QA removes the recovery file.
-        // Failed/incomplete data remains on disk for diagnosis instead.
-        draft.discard();
+        // Keep unverified recovered output on disk for comparison, even if
+        // its JSON happened to compile. Only a confirmed completed response
+        // removes the stream checkpoint after successful QA.
+        if(completed)draft.discard();
         return new DesignResult(compiled,compilation.correctedSpecification(),inspiration);
     }
 

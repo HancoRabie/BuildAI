@@ -53,6 +53,20 @@ The BuildAI generation monitor now reports real elapsed time, output character c
 
 The local history at `buildai/generation-timings.tsv` contains only generation categories, elapsed seconds and character counts—not prompts, OpenAI tokens, blueprints or account data.
 
+## Minimized generation and multiplayer status reliability
+
+Click **Return to Game (Keep Generating)** to close the large generation modal without stopping the AI request. The normal game remains playable; a compact nonblocking HUD shows the actual generation stage, elapsed time, and received characters. Successful completion keeps the blueprint and autosaves it, with a brief HUD confirmation. F8 reopens the controls without restarting the request.
+
+The server's optional `buildai:project_status` packet limits long AI-generated names and material descriptions before encoding; progress packets are best-effort and should never pause construction. If another packet issue occurs, please provide `run/logs/latest.log` along with the screenshot. The prototype still requires careful world backups and does not recover active construction journals after a process restart.
+
+## Local feedback and sign-labeled decoration style packs
+
+F8 → **Feedback & Styles** lets players select a previously saved design, assign a 1–5 rating, and describe changes they liked or disliked. These notes are saved under `buildai/style-memory.json` in the local Minecraft game directory, never committed to GitHub. Only user-saved entries influence future ChatGPT/API prompts. This is **retrieval of preferences in a later prompt**, not fine-tuning or a modification of OpenAI's model.
+
+To teach BuildAI a decorative style, create a normal `.schem` decoration pack with individual examples separated in the world. Put a sign directly in front of each model; its first line is `[BuildAI]`, and its second line is a short label such as `Chair`, `Table`, `Fountain`, `Bookshelf`, or `Chandelier`. A sign containing just one of the recognized object names also works. In **Feedback & Styles**, select the saved blueprint or paste the full path to an external file, then click **Learn Labeled Decorations from Schematic**. For each sign it recognizes, BuildAI samples nearby non-air block states and stores a compact, user-approved style reference to help future designs use similar detailing when requested.
+
+Currently sign extraction works for **Sponge `.schem` and vanilla `.nbt`**, provided the file actually retains sign block-entity text. Imported Litematica files may be opened for review, but automatic sign extraction from `.litematic` is not implemented yet. Crops are bounded to local neighborhoods near each label; this first iteration does **not** infer perfect object boundaries, learn textures outside the crop, or guarantee exact multi-block copies. Schematic content is treated as untrusted data and no embedded commands, inventories, or entities are executed. Users should only import/reference content they have rights to reuse.
+
 ## Launch BuildAI directly from IntelliJ
 
 Open the local `BuildAI` project (not ChainFrames), set **Gradle JVM to Java 21**, and run these in the IntelliJ Terminal:

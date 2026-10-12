@@ -56,6 +56,22 @@ public final class BlueprintLibrary {
         }
     }
 
+    public record DeletionResult(Path deleted,String warning) {}
+    /** Permanent delete, only for a single file in this Minecraft
+     * instance's own blueprints directory; never for imported external files.
+     * The caller must display an explicit irreversible-action confirmation.
+     */
+    public static DeletionResult deleteSaved(Path selected) throws IOException {
+        com.hanco.buildai.blueprint.SavedBlueprintDeletion.delete(directory(),selected);
+        String warning="";
+        try {
+            BuildAIStyleMemory.removeFeedbackForDeleted(selected);
+        }catch(IOException problem) {
+            warning="File deleted, but old review cleanup failed: "+problem.getMessage();
+        }
+        return new DeletionResult(selected,warning);
+    }
+
     public static boolean supported(Path path) {
         String name=path.getFileName().toString().toLowerCase(Locale.ROOT);
         return EXTENSIONS.stream().anyMatch(name::endsWith);

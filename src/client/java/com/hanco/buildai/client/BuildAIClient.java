@@ -168,14 +168,22 @@ public final class BuildAIClient implements ClientModInitializer {
         MinecraftClient.getInstance().setScreen(
             new BuildAIGenerationScreen(new BuildAIScreen(),progress));
         CompletableFuture.supplyAsync(()->{
+            progress.bindWorker();
             try{
                 if(ChatGPTSignIn.connected())return AIArchitect.generateWithChatGPT(description,previous,progress);
                 return previous==null
                     ? AIArchitect.generateDesign(key,description,progress)
                     : AIArchitect.reviseDesign(key,description,previous,progress);
             }catch(Exception error){throw new RuntimeException(error);}
+            finally{progress.releaseWorker();}
         }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
             endGeneration(progress);
+            if(progress.cancellationRequested()){
+                progress.cancelled();
+                message("Cancelled previous attempt. F8 > Create / AI keeps your "+
+                    "original prompt; use Refine & Start Fresh.");
+                return; // Never overwrite with results from cancelled workers.
+            }
             if(error!=null){
                 String reason=rootCause(error);
                 progress.failure(reason);

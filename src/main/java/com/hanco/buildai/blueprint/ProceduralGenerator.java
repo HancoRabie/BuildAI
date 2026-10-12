@@ -117,6 +117,10 @@ public final class ProceduralGenerator {
                     "script and will remain unprogrammed. Inspect the map plan.");
             }
         }
+        if(b.commands().isEmpty()&&CommandBlockPlan.unassignedBlocks(b)>0)
+            b.warnings.add("UNCONFIGURED COMMAND BLOCKS: "+CommandBlockPlan.unassignedBlocks(b)+
+                " block(s) lack actual instructions. /buildai commands approve all "+
+                "cannot work until a revision supplies the missing command plan.");
         b.validateSlices();
         return new Compilation(b,root.toString());
     }

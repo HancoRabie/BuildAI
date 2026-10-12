@@ -47,6 +47,35 @@ Saved files live in the active Minecraft game directory under `buildai/blueprint
 
 **Important for existing sessions:** a BuildAI client launched *before* this feature was pulled does not have auto-save. Restarting it will lose an unsaved design. Use Upload & Preview → placement/confirm if you only need the structure in that disposable world; this is not equivalent to exporting a reimportable blueprint.
 
+## Adaptive builder feedback and executable minigame systems
+
+**F8 > Feedback & Styles > My Build Feedback** stores reviews against the
+selected full schematic path. Repeated updates now keep the *history* of
+feedback on that build (up to the most recent 120 reviews overall), while
+selecting a project loads its latest rating and note. Every future generation
+gets an evidence-based topical style profile distilled from the stored review
+history, plus concrete recent comments: roof treatment, materials, scale,
+natural detail, function, etc. This is **local preference context**, not
+machine-learning fine-tuning or proof the model will always obey it.
+The newest user prompt remains authoritative.
+
+**Working command-block arena prototype**: an AI-generated blueprint can
+include command-block cells and a separate bounded list of actual Java 1.21.1
+commands. Command metadata survives client/server transport and local
+`.schem` exports as inert metadata. An operator must inspect the commands,
+lock the unrotated location, and explicitly approve them with
+`/buildai commands approve` before `/buildai confirm`. The server then
+installs text into the real block entities **after** normal construction,
+cleanup and connectivity normalization. Command-driven systems need the
+server's command-block setting enabled and trusted op-4 authorization.
+
+A real functional CTF arena still requires hands-on acceptance testing of
+teams, loadouts, flag carrying/return, scoring, win states and resets. The
+first version has a CTF quality checklist, bounded scripting and a limited
+safe command allowlist, **not** a full minigame simulator. See
+[docs/COMMAND_BLOCKS.md](docs/COMMAND_BLOCKS.md) before enabling this on a
+server. Command-driven maps cannot yet rotate after AI generation.
+
 ## Automatic real-web architectural inspiration
 
 **F8 > Create / AI > Online Inspiration** defaults to ON. For every new

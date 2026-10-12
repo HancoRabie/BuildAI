@@ -88,6 +88,22 @@ public final class BuildAIScreen extends Screen {
                 add("View Running Generation | Return to Game Does Not Cancel",left,row(6),
                     panelWidth,buttonHeight,b->client.setScreen(
                         new BuildAIGenerationScreen(this,running)));
+            }else{
+                add("Online Inspiration: "+(InspirationSettings.enabled()?"ON":"OFF")+
+                    " | research examples before building",
+                    left,row(6),panelWidth,buttonHeight,button->{
+                        try{
+                            boolean next=!InspirationSettings.enabled();
+                            InspirationSettings.setEnabled(next);
+                            button.setMessage(text("Online Inspiration: "+(next?"ON":"OFF")+
+                                " | research examples before building"));
+                            status=next
+                                ?"Online research enabled for every new build/revision. May add time and API charges."
+                                :"Online research disabled. BuildAI uses local references and design rules.";
+                        }catch(Exception ex){
+                            status="Could not change inspiration setting: "+ex.getMessage();
+                        }
+                    });
             }
             if(showApiKey){
                 key=new TextFieldWidget(textRenderer,left,row(7),panelWidth,buttonHeight,text("OpenAI developer API key"));

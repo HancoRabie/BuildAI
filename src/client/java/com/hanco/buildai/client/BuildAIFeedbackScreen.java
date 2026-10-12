@@ -130,11 +130,22 @@ public final class BuildAIFeedbackScreen extends Screen {
                 noteField.setMaxLength(1100);noteField.setText(noteText);
                 noteField.setPlaceholder(Text.literal("What looked great? What needs improving?"));
                 addDrawableChild(noteField);
-                button("RATING "+stars+"/5  *",x+8,y+87,half-10,h,b->{
+                // Rate / Save / Delete share one row; this keeps the
+                // feedback editor usable at fullscreen Minecraft GUI scale
+                // without pushing the footer or obscuring the saved note.
+                int actions=(w-16-2*gap)/3;
+                button("RATING "+stars+"/5",x+8,y+87,actions,h,b->{
                     stars=stars%5+1;
-                    b.setMessage(Text.literal("RATING "+stars+"/5  *"));
+                    b.setMessage(Text.literal("RATING "+stars+"/5"));
                 }).active=!busy;
-                button("SAVE FEEDBACK",x+half+gap,y+87,half-8,h,b->saveFeedback()).active=!busy;
+                button("SAVE FEEDBACK",x+8+actions+gap,y+87,actions,h,
+                    b->saveFeedback()).active=!busy;
+                ButtonWidget delete=button("DELETE FILE...",x+8+2*(actions+gap),
+                    y+87,w-16-2*(actions+gap),h,b->confirmDeleteProject());
+                delete.active=!busy&&active!=null&&BlueprintLibrary.isLocalSavedPath(active);
+                delete.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(
+                    Text.literal("Permanently delete the selected saved schematic from "+
+                        "Minecraft's files. Requires explicit confirmation.")));
             }else if(mode==1){
                 button("ANALYZE A WHOLE BUILD",x+8,y+20,w-16,h,b->{
                     if(!busy){capture();client.setScreen(new BuildAIArchitectureScreen(this));}
@@ -151,6 +162,30 @@ public final class BuildAIFeedbackScreen extends Screen {
             }
         }
         button("BACK TO BUILDAI",x,layout.footerY(),w,h,b->close());
+    }
+
+    private void confirmDeleteProject(){
+        if(busy||active==null||!BlueprintLibrary.isLocalSavedPath(active)){
+            status="Only blueprints saved in BuildAI's own folder can be deleted. "+
+                "External imports are protected.";
+            return;
+        }
+        capture();
+        Path doomed=active;
+        if(client!=null)client.setScreen(new BlueprintDeleteConfirmScreen(
+            this,doomed,result->{
+                // File is already deleted on the worker thread. Remove
+                // unsaved text for only that project; don't transfer its
+                // note/rating to the next selected schematic.
+                drafts.remove(key(doomed));
+                active=null;activeIndex=-1;saved=null;noteField=null;
+                noteText="";stars=4;mode=0;
+                status=result.warning().isBlank()
+                    ?"Permanently deleted saved file and attached feedback: "+
+                        result.deleted().getFileName()
+                    :result.warning();
+                // init/loadBuilds selects next surviving project.
+            }));
     }
 
     private void useExternal(){
@@ -226,7 +261,7 @@ public final class BuildAIFeedbackScreen extends Screen {
             small(ctx,"Reduce Minecraft GUI Scale or enlarge the window to edit reviews.",
                 x+8,top+13,w-16,GOLD,0.83f);
         }else if(mode==0){
-            small(ctx,"01  SELECT BUILD   /   02  RATE & COMMENT   /   03  SAVE",
+            small(ctx,"01  SELECT BUILD  /  02  RATE & SAVE  /  03  DELETE FILE",
                 x+8,top+3,w-16,BLUE,0.8f);
             small(ctx,active==null?"NO BUILD SELECTED":active.getFileName().toString(),
                 x+9,top+42,w-18,active==null?GOLD:LIGHT,0.85f);

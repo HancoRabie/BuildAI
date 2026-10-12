@@ -30,6 +30,8 @@ public final class ConstructionProject {
     private int excavationIndex=0,removedCount=0,constructionIndex=0,normalizeIndex=0,normalizedPanes=0;
     private int normalizePass=0,normalizedRedstone=0,refreshedRedstone=0;
     private boolean manualNormalize=false;
+    private boolean waterSourceFunded=false;
+    private long lastFluidRetry=-100;
     private final Map<BlockPos,BlockState> originals=new LinkedHashMap<>();
     private final Set<BlockPos> modified=new HashSet<>();
     private final Set<BlockPos> supports=new LinkedHashSet<>();
@@ -252,6 +254,15 @@ public final class ConstructionProject {
     public int normalizedRedstone() { return normalizedRedstone; }
     public int refreshedRedstone() { return refreshedRedstone; }
     public void tick() {
+        // Construction may pause while obtaining the one-time renewable
+        // water charge or a lava bucket. Resume the FLUID normalization pass,
+        // never restart BUILD/CLEANUP or bill the same fluid twice.
+        if(phase==Phase.WAITING_SUPPLIES && normalizePass==2 &&
+           constructionIndex>=order.size()){
+            if(world.getTime()-lastFluidRetry<20)return;
+            lastFluidRetry=world.getTime();
+            phase=Phase.NORMALIZE;
+        }
         if(phase==Phase.ROLLBACK_CHECK){
             int scanned=0;
             while(rollbackCheckIndex<rollbackOrder.size()&&scanned++<4096){
@@ -290,34 +301,55 @@ public final class ConstructionProject {
         }
         if(phase==Phase.NORMALIZE) {
             int scanned=0;
-            // Three ordered, bounded passes. First stabilize all decorative
-            // neighbors, next repair dust geometry, THEN propagate redstone
-            // signals. No command scripts are installed at this point.
+            // Four bounded passes: decorative connections, redstone dust,
+            // FLUIDS (with survival material charge), then power signals.
+            // Manual repair never consumes buckets or re-places fluid.
             while(normalizeIndex<order.size() && scanned++<256) {
-                BlockPos pos=origin.add(order.get(normalizeIndex));
+                BlockPos local=order.get(normalizeIndex);
+                BlockPos pos=origin.add(local);
                 if(!world.isChunkLoaded(pos))return;
-                if(normalizePass==0) {
+                if(normalizePass==0){
                     if(PaneNormalizer.normalize(world,pos))normalizedPanes++;
+                }else if(normalizePass==1){
+                    BlockState state=world.getBlockState(pos);
+                    if(RedstoneNormalizer.isDust(state)){
+                        if(!RedstoneNormalizer.neighborsLoaded(world,pos))return;
+                        if(RedstoneNormalizer.normalizeDust(world,pos))normalizedRedstone++;
+                    }
+                }else if(normalizePass==2){
+                    String source=effective(local);
+                    if(!manualNormalize && BuildFluidRules.isFluidSource(source)){
+                        // Do NOT consume or place unless all required water
+                        // starter buckets are present. Single survival water
+                        // charge gives access to renewable source water; lava
+                        // is explicitly charged once PER placed lava source.
+                        if(!creative && BuildFluidRules.isWater(source) && !waterSourceFunded){
+                            if(!consumeWaterStarterBuckets()){
+                                phase=Phase.WAITING_SUPPLIES;return;
+                            }
+                            waterSourceFunded=true;
+                        }else if(!creative && BuildFluidRules.isLava(source)){
+                            if(!consumeFluidBucket(Items.LAVA_BUCKET)){
+                                phase=Phase.WAITING_SUPPLIES;return;
+                            }
+                        }
+                        BlockState fluid=BlockStates.parse(source);
+                        recordOriginal(pos);
+                        world.setBlockState(pos,fluid,Block.NOTIFY_ALL|Block.FORCE_STATE);
+                    }
                 }else{
                     BlockState state=world.getBlockState(pos);
-                    boolean relevant=normalizePass==1
-                        ?RedstoneNormalizer.isDust(state)
-                        :RedstoneNormalizer.isSignalDevice(state);
-                    // Never mark a component repaired while a neighboring
-                    // chunk is unloaded. Resume next tick instead.
-                    if(relevant && !RedstoneNormalizer.neighborsLoaded(world,pos))return;
-                    if(normalizePass==1){
-                        if(relevant && RedstoneNormalizer.normalizeDust(world,pos))
-                            normalizedRedstone++;
-                    }else if(relevant && RedstoneNormalizer.refreshSignal(world,pos))
-                        refreshedRedstone++;
+                    if(RedstoneNormalizer.isSignalDevice(state)){
+                        if(!RedstoneNormalizer.neighborsLoaded(world,pos))return;
+                        if(RedstoneNormalizer.refreshSignal(world,pos))refreshedRedstone++;
+                    }
                 }
                 normalizeIndex++;
             }
             if(normalizeIndex>=order.size()){
                 normalizeIndex=0;
                 normalizePass++;
-                if(normalizePass>=3){
+                if(normalizePass>=4){
                     phase=manualNormalize?Phase.COMPLETE:
                         (commandCount()>0?Phase.WAITING_COMMAND_APPROVAL:Phase.COMPLETE);
                     manualNormalize=false;
@@ -423,6 +455,12 @@ public final class ConstructionProject {
             BlockPos pos=origin.add(local);
             if(!world.isChunkLoaded(pos))return;
             String stateText=effective(local);
+            // Source fluids are intentionally deferred until NORMALIZE,
+            // after retaining walls, solid supports and redstone dust exist.
+            if(BuildFluidRules.isFluidSource(stateText)){
+                constructionIndex++;
+                continue;
+            }
             BlockState target=BlockStates.parse(stateText);
             // Command blocks cannot be crafted or bought in Survival.
             // Administrative map machinery is placed under explicit op-4
@@ -506,14 +544,19 @@ public final class ConstructionProject {
             case EXCAVATE->"Excavating only obstructing blocks; existing air is untouched";
             case CINEMATIC_PULL->"Excavation complete; terrain spirals into black hole";
             case BUILD->"Building blueprint in progressive layers";
-            case WAITING_SUPPLIES->"Waiting for supply chests to receive materials";
+            case WAITING_SUPPLIES->normalizePass==2 && constructionIndex>=order.size()
+                ? "Waiting for fluid supplies: 2 water buckets total (renewable) "+
+                  "and 1 lava bucket per source, then fluid normalization resumes"
+                : "Waiting for supply chests to receive materials";
             case CLEANUP->"Removing temporary construction supports";
             case NORMALIZE->switch(normalizePass){
                 case 0->"Normalizing glass panes, fences, walls and iron bars ("+
                     normalizeIndex+"/"+order.size()+")";
                 case 1->"Connecting redstone dust using vanilla 1.21.1 wire shapes ("+
                     normalizeIndex+"/"+order.size()+", repaired "+normalizedRedstone+")";
-                default->"Refreshing redstone signal neighbors after wiring is complete ("+
+                case 2->"Placing contained water/lava source blocks after construction ("+
+                    normalizeIndex+"/"+order.size()+")";
+                default->"Refreshing redstone signal neighbors after fluids and wiring ("+
                     normalizeIndex+"/"+order.size()+", devices "+refreshedRedstone+")";
             };
             case WAITING_COMMAND_APPROVAL->"Build physically complete. COMMAND REVIEW REQUIRED: "+
@@ -536,13 +579,63 @@ public final class ConstructionProject {
     public int cells(){return blueprint.width*blueprint.height*blueprint.length;}
     public Map<String,Integer> requirements(){
         Map<String,Integer> result=new TreeMap<>();
+        int water=0,lava=0;
         for(BlockPos local:order){
             String value=effective(local);
-            if(!blueprint.secondHalf(value) && !CommandBlockPlan.isCommandBlock(value)
-                && !BuildFluidRules.isFluidSource(value))
+            if(BuildFluidRules.isWater(value)){water++;continue;}
+            if(BuildFluidRules.isLava(value)){lava++;continue;}
+            if(!blueprint.secondHalf(value) && !CommandBlockPlan.isCommandBlock(value))
                 result.merge(Blueprint.id(value),1,Integer::sum);
         }
+        if(water>0)result.merge("minecraft:water_bucket",
+            BuildFluidRules.requiredWaterBuckets(water),Integer::sum);
+        if(lava>0)result.merge("minecraft:lava_bucket",
+            BuildFluidRules.requiredLavaBuckets(lava),Integer::sum);
         return result;
+    }
+
+    /** Fluid buckets return to their marked supply-chest slots empty.
+     * Preflight ensures the BOTH starter water buckets are present before
+     * changing inventory or placing the first source.
+     */
+    private int availableFluidBuckets(Item fluidItem){
+        if(world.getTime()-lastChestScan>=40||supplies.isEmpty())refreshChests();
+        int total=0;
+        for(BlockPos chest:supplies){
+            if(!(world.getBlockEntity(chest) instanceof Inventory inv))continue;
+            for(int i=0;i<inv.size();i++){
+                ItemStack stack=inv.getStack(i);
+                if(stack.isOf(fluidItem))total+=stack.getCount();
+            }
+        }
+        return total;
+    }
+    private boolean consumeWaterStarterBuckets(){
+        if(availableFluidBuckets(Items.WATER_BUCKET)<2)return false;
+        // Non-stackable buckets each occupy an inventory slot; swapping
+        // filled for empty returns two physical reusable buckets.
+        return consumeFluidBucket(Items.WATER_BUCKET) &&
+            consumeFluidBucket(Items.WATER_BUCKET);
+    }
+    private boolean consumeFluidBucket(Item fluidItem){
+        if(availableFluidBuckets(fluidItem)<1)return false;
+        for(BlockPos chest:supplies){
+            if(!(world.getBlockEntity(chest) instanceof Inventory inv))continue;
+            for(int i=0;i<inv.size();i++){
+                ItemStack stack=inv.getStack(i);
+                if(!stack.isOf(fluidItem)||stack.isEmpty())continue;
+                // Vanilla water/lava buckets are unstackable. Fail safely
+                // instead of overwriting unrelated stacked/injected items.
+                if(stack.getCount()!=1)
+                    throw new IllegalStateException("Fluid bucket stack has invalid count at "+
+                        chest.toShortString());
+                inv.setStack(i,new ItemStack(Items.BUCKET));
+                inv.markDirty();
+                consumed.merge(Registries.ITEM.getId(fluidItem).toString(),1,Integer::sum);
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean consume(Item item) {

@@ -87,6 +87,46 @@ permissions. Command blocks are unobtainable through ordinary Survival
 crafting; approved map machinery is excluded from the Survival materials
 manifest.
 
+## Fixing an existing blank command block — no rebuild required
+
+A generated physical command block can be EMPTY if an earlier AI output did
+not include a matching `commands` array. The message `Command plan: 0`
+means there are no scripts to approve. **Approval cannot invent the command
+text.** To recover an existing world build (even after restarting Minecraft):
+
+1. Look directly at the empty command block from within eight blocks.
+2. As a level-4 operator, stage a script using one of the presets below, or
+   use `/buildai commands set <command without leading slash>`.
+3. The BuildAI in-game review opens with the real block's world coordinates.
+4. Run `/buildai commands approve all` or approve selected entries in the UI.
+5. The command is written to the actual existing command-block entity,
+   retaining the existing block and world. Presets default to redstone
+   triggering so a button can activate the block safely.
+
+```mcfunction
+/buildai commands preset day
+/buildai commands preset night
+/buildai commands preset sun
+/buildai commands preset rain
+/buildai commands preset thunder
+/buildai commands set time set noon
+/buildai commands list
+/buildai commands review
+/buildai commands approve all
+```
+
+**Important:** The targeted block must be empty; BuildAI won't silently replace
+a command already entered by a player. Singleplayer cheats/server operator 4
+and enabled command blocks are required. Standalone staged changes are
+in-memory until approved, but once written, the actual command block is saved
+as ordinary world block-entity data. If approval fails, the world block stays
+unchanged. Command reviews can be reopened inside Minecraft with
+`/buildai commands review`.
+
+Chat Mode is for natural-language blueprint requests, not the command
+configuration syntax above. Typing `gpt` alone in Chat Mode was previously
+treated as a new/revision prompt; it now explains the correct controls.
+
 ## Restriction / security model
 
 Only the following initial command roots are accepted:

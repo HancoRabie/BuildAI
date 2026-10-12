@@ -131,7 +131,7 @@ public final class AIArchitect {
             JsonObject old=new JsonObject();old.addProperty("role","assistant");
             old.addProperty("content",previous);input.add(old);
         }
-        JsonObject user=new JsonObject();user.addProperty("role","user");user.addProperty("content",prompt);
+        JsonObject user=new JsonObject();user.addProperty("role","user");user.addProperty("content",prompt+BuildAIStyleMemory.promptContext());
         input.add(user);body.add("input",input);
         HttpRequest request=HttpRequest.newBuilder(URI.create("https://api.openai.com/v1/responses"))
             .timeout(Duration.ofSeconds(180))
@@ -220,7 +220,7 @@ public final class AIArchitect {
                 "Return a COMPLETE replacement JSON design using the same schema; do not return a diff. "+
                 "Keep all previous valid geometry operations except when necessary for requested changes.";
         JsonObject system=new JsonObject();system.addProperty("role","system");system.addProperty("content",systemInstructions);
-        JsonObject user=new JsonObject();user.addProperty("role","user");user.addProperty("content",prompt);
+        JsonObject user=new JsonObject();user.addProperty("role","user");user.addProperty("content",prompt+BuildAIStyleMemory.promptContext());
         messages.add(system);
         if(previous!=null) {
             JsonObject former=new JsonObject();

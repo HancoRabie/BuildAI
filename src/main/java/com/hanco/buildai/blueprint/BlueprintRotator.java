@@ -43,6 +43,15 @@ public final class BlueprintRotator {
                     BlockPos dest=position(x,y,z,source.width,source.length,t);
                     result.set(dest.getX(),dest.getY(),dest.getZ(),corrected);
                 }
+        if(!source.signs().isEmpty()){
+            List<SignTextPlan.Entry> rotatedLabels=new ArrayList<>();
+            for(SignTextPlan.Entry e:source.signs()){
+                BlockPos p=position(e.x(),e.y(),e.z(),source.width,source.length,t);
+                rotatedLabels.add(new SignTextPlan.Entry(p.getX(),p.getY(),p.getZ(),
+                    e.front(),e.back()));
+            }
+            result.setSigns(rotatedLabels);
+        }
         return result;
     }
     private static String rotatedState(String raw,int turns){

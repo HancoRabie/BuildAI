@@ -260,6 +260,7 @@ public final class AIArchitect {
         try{
             compiled.warnings.addAll(ArchitectureAudit.inspect(compiled,prompt,spec));
             compiled.warnings.addAll(CommandGameAudit.inspect(compiled,prompt));
+            compiled.warnings.addAll(ChainGapAudit.inspect(compiled));
         }catch(RuntimeException auditError){
             // Never discard a successfully generated multi-minute blueprint
             // merely because a *non-essential* quality heuristic misbehaves.
@@ -323,6 +324,7 @@ public final class AIArchitect {
         try{
             compiled.warnings.addAll(ArchitectureAudit.inspect(compiled,prompt,json));
             compiled.warnings.addAll(CommandGameAudit.inspect(compiled,prompt));
+            compiled.warnings.addAll(ChainGapAudit.inspect(compiled));
         }catch(RuntimeException auditError){
             // Never discard a successfully generated multi-minute blueprint
             // merely because a *non-essential* quality heuristic misbehaves.

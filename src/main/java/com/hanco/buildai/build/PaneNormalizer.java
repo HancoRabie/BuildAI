@@ -22,17 +22,29 @@ public final class PaneNormalizer {
     /**
      * Manual repair for existing builds from older mod versions that no longer
      * have an in-memory ConstructionProject after relaunch. Server op only.
+     * Signal refresh can pulse already-programmed existing redstone devices;
+     * run this only on a test site or after disabling live machinery.
      */
     public static int normalizeNearby(ServerWorld world, BlockPos center) {
         final int horizontal=20, vertical=14;
         int repaired=0;
+        java.util.List<BlockPos> dust=new java.util.ArrayList<>();
+        java.util.List<BlockPos> signals=new java.util.ArrayList<>();
         for(int dy=-vertical;dy<=vertical;dy++)
             for(int dz=-horizontal;dz<=horizontal;dz++)
                 for(int dx=-horizontal;dx<=horizontal;dx++) {
                     BlockPos pos=center.add(dx,dy,dz);
                     if(!world.isInBuildLimit(pos)||!world.isChunkLoaded(pos))continue;
                     if(normalize(world,pos))repaired++;
+                    BlockState state=world.getBlockState(pos);
+                    if(RedstoneNormalizer.isDust(state))dust.add(pos);
+                    if(RedstoneNormalizer.isSignalDevice(state))signals.add(pos);
                 }
+        // Match automatic construction: repair all wire arms first, and
+        // only then refresh native redstone neighbor/power propagation.
+        for(BlockPos pos:dust)
+            if(RedstoneNormalizer.normalizeDust(world,pos))repaired++;
+        for(BlockPos pos:signals)RedstoneNormalizer.refreshSignal(world,pos);
         return repaired;
     }
     public static boolean normalize(ServerWorld world, BlockPos pos) {

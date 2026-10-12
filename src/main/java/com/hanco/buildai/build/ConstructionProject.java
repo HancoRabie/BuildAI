@@ -61,8 +61,8 @@ public final class ConstructionProject {
      * Physical project remains intact; normal review/commissioning resumes.
      */
     public int stageExistingCommand(ServerPlayerEntity operator,BlockPos target,String script){
-        if(!operator.getUuid().equals(owner)||!operator.hasPermissionLevel(4))
-            throw new IllegalStateException("Only the owning server operator level 4 can configure commands");
+        if(!CommandAuthorization.canApprove(operator,owner))
+            throw new IllegalStateException(CommandAuthorization.explanation(operator));
         if(!(phase==Phase.COMPLETE && commandCount()==0) &&
             phase!=Phase.WAITING_COMMAND_APPROVAL)
             throw new IllegalStateException("Configure commands on an existing completed build, "+
@@ -98,8 +98,8 @@ public final class ConstructionProject {
     public void approveCommands(ServerPlayerEntity administrator,Set<Integer> selected){
         if(phase!=Phase.WAITING_COMMAND_APPROVAL)
             throw new IllegalStateException("Wait until construction finishes and BuildAI opens command review");
-        if(!administrator.hasPermissionLevel(4))
-            throw new IllegalStateException("Server operator level 4 is required for command approval");
+        if(!CommandAuthorization.canApprove(administrator,owner))
+            throw new IllegalStateException(CommandAuthorization.explanation(administrator));
         if(!world.getServer().areCommandBlocksEnabled())
             throw new IllegalStateException("Command blocks are disabled: set enable-command-block=true in server.properties and restart");
         if(selected==null||selected.isEmpty())
@@ -117,7 +117,10 @@ public final class ConstructionProject {
                !CommandBlockPlan.isCommandBlock(
                    Registries.BLOCK.getId(world.getBlockState(pos).getBlock()).toString()) ||
                !world.getBlockState(pos).equals(BlockStates.parse(blueprint.get(e.x(),e.y(),e.z()))))
-                throw new IllegalStateException("Selected command block #"+(i+1)+" no longer matches the reviewed map");
+                throw new IllegalStateException("Command #"+(i+1)+" at "+pos.toShortString()+
+                    " differs from the approved design (expected "+
+                    blueprint.get(e.x(),e.y(),e.z())+", actual "+
+                    world.getBlockState(pos)+"). Inspect/rebuild that cell before approval.");
         }
         approvedCommandIndices=Set.copyOf(selected);
         commandsApproved=true;

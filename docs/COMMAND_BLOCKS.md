@@ -31,6 +31,31 @@ Commands are preserved in BuildAI network JSON and a private,
 **non-executable** `BuildAICommandPlan` metadata field in exported Sponge
 v3 `.schem` files. Reimported files **never automatically activate** scripts.
 
+## Scrollable commissioning checklist and approval diagnostics
+
+On completion, F8 automatically opens a Minecraft-native checklist of the
+**actual server command plan**. Scroll the left-hand list to review all the
+commands; each row displays a checkbox, the unique stable #number, a short
+**heuristic** description of its role in the build, and a command preview.
+Select a row to inspect the full command on the right (on a sufficiently wide
+window); **Show Full Script in Chat** is available on narrower screens.
+The description is based on command syntax and does **not** certify that the
+game logic is correct.
+
+Choose **Select All**, **Approve Checked**, or **Approve All**. These controls
+send an approval request directly to BuildAI's server and the GUI displays
+the actual result in place. If approval fails due to permission, disabled
+command blocks, or a changed blockstate, the interface shows the exact reason.
+The server still checks ownership, selected indices and command-block
+position/facing. Failed approval leaves the map waiting without programming
+any scripts.
+
+**Permissions:** dedicated servers and any shared multiplayer/LAN instance
+require the map owner's level-4 operator authorization. On a private
+singleplayer integrated server with **exactly one connected player**, the
+owner can approve with cheat-enabled level-2 permission. This exception
+does not bypass permission checks on public servers.
+
 ## No-rush post-build approval
 
 Approval happens **after** the physical structure is fully constructed, cleanup
@@ -58,8 +83,8 @@ Inspect each command and select **Approve All** or mark any subset and choose
 
 All command numbers are **1-based everywhere**, including chat, the review
 screen and the approval parser. You may close the GUI and come back later;
-the server will keep waiting without installing scripts. Only a trusted
-**level-4 operator who owns the project** can approve.
+the server will keep waiting without installing scripts. Only the authorized project owner can approve: OP4 on shared/dedicated
+servers, or the sole cheat-enabled singleplayer owner at OP2.
 
 **Partial approval:** approving #1, #2 and #4 commissions those exact three
 coordinate-mapped scripts. Other command-block cells are actively left blank

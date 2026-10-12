@@ -143,7 +143,7 @@ public final class BuildRequirementAudit {
         }
         if(!hoppers.isEmpty()&&(includes(prompt,"sorting")||
             includes(prompt,"collection")||includes(prompt,"storage")||
-            includes(prompt,"hopper")||includes(prompt,"farm"))){
+            includes(prompt,"hopper")||includes(prompt,"item"))){
             int valid=0;
             for(int[] h:hoppers)if(feedsStorage(b,h[0],h[1],h[2]))valid++;
             if(valid==0)

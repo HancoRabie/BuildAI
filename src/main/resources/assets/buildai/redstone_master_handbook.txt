@@ -51,26 +51,39 @@ Add rail shape/orientation, proper supporting blocks, guardrails/safe boarding,
 and repeated powered test laps. Keep cart ENTITIES separate from rail voxels;
 normal .schem files may not carry a minecart.
 
-FLUID ENGINEERING: minecraft:water and minecraft:lava are actual in-world
-SOURCE BLOCKS; minecraft:water_bucket and minecraft:lava_bucket are ITEMS,
-not placeable blockstate IDs. BuildAI can place the SOURCE BLOCK directly
-at its final XYZ using world placement; never demand a bucket inventory just
-to construct a water source for a farm, irrigation channel, fountain or
-flushing system, or a lava source for a requested feature. Don't refuse a
-viable generated blueprint because a bucket is missing. Never substitute
-stone bricks or empty space for a source. Source water/lava should be placed
-AFTER containing solid geometry, channel walls and collection drains. Check
-actual flow routes, water/lava block destruction, fire/cobblestone reactions,
-drain positions, mob/player safety, crop hydration and overflow containment.
-An actual DISPENSER that dispenses/retracts fluid during a game or operating
-farm DOES require a water/lava bucket ITEM in its inventory, OR redesign
-around gated flow/pistons, existing persistent world fluid and no NBT bucket
-requirement. Don't confuse such a dispenser's REAL inventory needs with a
-static world source placement. 1.21.1 Java Nether generally vaporizes water
-placed by normal interactions; world-generated water may not behave normally
-there. If water is a core part of a Nether build, highlight dimensional
-mechanics and offer a physically viable alternate design rather than falsely
-claiming a working farm.
+SURVIVAL/CREATIVE FLUID ECONOMY (BUILDAI JAVA 1.21.1):
+- CREATIVE mode: unlimited block placement includes both water and lava source
+  states, with NO bucket item costs and no supply pauses.
+- SURVIVAL water: require EXACTLY TWO minecraft:water_bucket ITEMS TOTAL for
+  ANY amount of water source placement in ONE PROJECT. This models the two
+  buckets to start a renewable infinite-water supply. Remove the two filled
+  buckets when fluid normalization begins, then return the two empty buckets
+  to the marked BuildAI supply chest. All further water source cells in that
+  blueprint are covered by that initial two-bucket charge.
+- SURVIVAL lava: require ONE minecraft:lava_bucket for EACH source lava cell.
+  Return the empty bucket to the chest when each source is placed. Lava is
+  NOT freely renewable from two source buckets; never use water's accounting
+  rule for lava.
+- Source fluid block IDs are minecraft:water and minecraft:lava. Bucket
+  IDs are ITEMS, not block states. The AI must output actual water/lava source
+  geometry, never a fake water_bucket/lava_bucket voxel.
+- PHASE ORDER: Solid construction and temporary-support cleanup; pane/fence
+  normalization; redstone dust shape normalization; fluid source placement
+  behind finished walls, channels and drains; LAST refresh signal neighbors.
+  Then wait for operator command approval if this blueprint has scripts.
+- If Survival chest stock lacks the specified bucket count, WAIT for supply
+  and RESUME only fluid normalization. Never restart excavation, charge
+  previous placements again or refuse the whole finished design.
+- Manually rerunning /buildai normalize on a finished project NEVER charges
+  additional buckets and NEVER replaces or refills existing fluids.
+- A dispenser-based pump or an actual dispenser that uses/withdraws fluid
+  NEEDS real bucket inventory items for gameplay, above the static source
+  build-budget. Inventories and NBT are separate from voxel source placement.
+- Validate fluid containment, crop hydration, flow route, safe collection,
+  water-flow damage to dust/torches, lava ignition and cobblestone/obsidian
+  creation. Minecraft Java Nether dimension disallows normal placed water
+  behavior, so flag Nether-specific mechanics rather than claiming a water
+  farm works there.
 
 SECTION 1: FUNDAMENTALS — SIGNAL, TICKS, POWER AND SUPPORT
 - Minecraft Java 1.21.1 server runs nominally 20 game ticks/s (0.05 s/tick at full TPS). One redstone tick = TWO game ticks = 0.1 s at full TPS. Repeaters' delay=1..4 means 1..4 REDSTONE ticks = 2..8 game ticks, not 1..4 game ticks. Server lag affects real time.

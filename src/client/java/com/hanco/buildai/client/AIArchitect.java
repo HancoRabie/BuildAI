@@ -441,15 +441,21 @@ public final class AIArchitect {
      * reference. Reuse the successful initial research; do not browse again.
      * Caller decides whether the revised design is actually an improvement.
      */
-    static DesignResult repairWithCachedResearch(String repairPrompt,
+    static DesignResult repairWithCachedResearch(String originalPrompt,
                        String previous,String key,boolean connectedChat,
                        GenerationProgress progress,
-                       InspirationResearch.Result priorResearch) throws Exception {
+                       InspirationResearch.Result priorResearch,
+                       String repairGuidance) throws Exception {
+        // Treat this as the one explicit corrective request. The original
+        // player/stage prompt stays intact (<=4000 chars). Instructions go
+        // to the developer/system context and reuse the prior research.
+        // recovery=true also prevents an unrelated second automatic refusal
+        // retry from multiplying expensive repair attempts.
         if(connectedChat)
-            return generateWithChatGPTAttempt(repairPrompt,previous,progress,
-                false,priorResearch,null);
-        return requestDesignAttempt(key,repairPrompt,previous,progress,
-            false,priorResearch,null);
+            return generateWithChatGPTAttempt(originalPrompt,previous,progress,
+                true,priorResearch,repairGuidance);
+        return requestDesignAttempt(key,originalPrompt,previous,progress,
+            true,priorResearch,repairGuidance);
     }
 
     private static DesignResult requestDesign(String key,String prompt,String previous,

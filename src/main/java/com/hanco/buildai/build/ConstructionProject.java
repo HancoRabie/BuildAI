@@ -16,7 +16,7 @@ import net.minecraft.util.math.*;
  * This first version deliberately refuses excavating block entities and bedrock.
  */
 public final class ConstructionProject {
-    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, COMMISSION, CINEMATIC_PULL, COMPLETE, CANCELLED, PAUSED_ERROR }
+    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, COMMISSION, CINEMATIC_PULL, COMPLETE, CANCELLED, ROLLBACK_CHECK, ROLLBACK, PAUSED_ERROR }
     public Blueprint blueprint;
     private final Blueprint sourceBlueprint;
     private int rotation=0;
@@ -42,6 +42,11 @@ public final class ConstructionProject {
     private final Set<BlockPos> linkedChests=new LinkedHashSet<>();
     private long lastChestScan=0;
     private boolean hasSnapshot=false;
+    private List<BlockPos> rollbackOrder=List.of();
+    private int rollbackCheckIndex=0,rollbackIndex=0;
+    private boolean rollbackOverride=false;
+    public int rollbackProgress(){return rollbackIndex;}
+    public int rollbackSize(){return rollbackOrder.size();}
     private boolean commandsApproved=false;
     private int programmingIndex=0,armingIndex=0;
     public int commandCount(){return blueprint.commands().size();}
@@ -168,6 +173,36 @@ public final class ConstructionProject {
     }
     public int normalizedPanes() { return normalizedPanes; }
     public void tick() {
+        if(phase==Phase.ROLLBACK_CHECK){
+            int scanned=0;
+            while(rollbackCheckIndex<rollbackOrder.size()&&scanned++<4096){
+                BlockPos pos=rollbackOrder.get(rollbackCheckIndex);
+                if(!world.isChunkLoaded(pos))return;
+                verifyUndoTarget(pos,rollbackOverride);
+                rollbackCheckIndex++;
+            }
+            if(rollbackCheckIndex>=rollbackOrder.size())phase=Phase.ROLLBACK;
+            return;
+        }
+        if(phase==Phase.ROLLBACK){
+            int changed=0;
+            while(rollbackIndex<rollbackOrder.size()&&changed++<2048){
+                BlockPos pos=rollbackOrder.get(rollbackIndex);
+                if(!world.isChunkLoaded(pos))return;
+                // Repeat safety check: players may interact with the site
+                // while a large project is being reversed.
+                verifyUndoTarget(pos,rollbackOverride);
+                BlockState previous=originals.getOrDefault(pos,Blocks.AIR.getDefaultState());
+                world.setBlockState(pos,previous,Block.NOTIFY_ALL|Block.FORCE_STATE);
+                rollbackIndex++;
+            }
+            if(rollbackIndex>=rollbackOrder.size()){
+                phase=Phase.CANCELLED;
+                modified.clear();originals.clear();rollbackOrder=List.of();
+                hasSnapshot=false;
+            }
+            return;
+        }
         if(phase==Phase.CINEMATIC_PULL){
             // Absolutely no construction before the cleared-site cinematic ends.
             if(++blackHoleTicks>=BLACK_HOLE_TICKS)phase=Phase.BUILD;
@@ -357,6 +392,8 @@ public final class ConstructionProject {
             case CLEANUP->"Removing temporary construction supports";
             case NORMALIZE->"Connecting glass panes, fences, walls and iron bars";
             case COMMISSION->"Installing approved 1.21.1 command-block logic after physical construction";
+            case ROLLBACK_CHECK->"Undo safety scan: checking "+rollbackCheckIndex+"/"+rollbackOrder.size()+" affected positions";
+            case ROLLBACK->"Restoring original block states: "+rollbackIndex+"/"+rollbackOrder.size();
             case COMPLETE->"Construction complete";
             case PAUSED_ERROR->"Construction paused due to a safety issue";
             case CANCELLED->"Project cancelled";
@@ -451,25 +488,67 @@ public final class ConstructionProject {
         }
     }
 
-    public void cancel(boolean undo) {
-        disarmCommands();
-        excavationCue(com.hanco.buildai.net.CinematicExcavationPayload.STOP,0);
-        // Temporary staging never survives a cancellation.
-        for(BlockPos p:new ArrayList<>(supports)){
-            BlockState s=world.getBlockState(p);
-            if(s.isOf(BuildBlocks.CONSTRUCTION_BLOCK)||s.isOf(BuildBlocks.CONSTRUCTION_SLAB))
-                world.setBlockState(p,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
-        }
-        supports.clear();
-        if(undo && hasSnapshot) {
-            // Conflict safe: refuse rollback if a block has become a block entity since our placement.
-            for(BlockPos p:modified)if(world.getBlockState(p).hasBlockEntity())
-                throw new IllegalStateException("Undo blocked by new container or block entity at "+p.toShortString());
-            for(BlockPos position:modified){
-                BlockState original=originals.getOrDefault(position,Blocks.AIR.getDefaultState());
-                world.setBlockState(position,original,Block.NOTIFY_ALL|Block.FORCE_STATE);
+    private void verifyUndoTarget(BlockPos pos,boolean override) {
+        BlockState state=world.getBlockState(pos);
+        if(state.isOf(Blocks.BEDROCK))
+            throw new IllegalStateException("Undo will not overwrite bedrock at "+pos.toShortString());
+        if(!state.hasBlockEntity())return;
+        if(override)return;
+        // Command blocks placed by BuildAI are safe to reverse IF their
+        // executable contents still match our approved plan (or are empty).
+        // Player-edited scripts or unrelated inventories require explicit
+        // force and cannot be silently destroyed by ordinary undo.
+        if(state.getBlock() instanceof net.minecraft.block.AbstractCommandBlock &&
+            world.getBlockEntity(pos) instanceof CommandBlockBlockEntity tile) {
+            int x=pos.getX()-origin.getX(),y=pos.getY()-origin.getY(),z=pos.getZ()-origin.getZ();
+            if(x>=0&&y>=0&&z>=0&&x<blueprint.width&&y<blueprint.height&&z<blueprint.length&&
+                CommandBlockPlan.isCommandBlock(blueprint.get(x,y,z))) {
+                String current=tile.getCommandExecutor().getCommand();
+                String expected="";
+                for(CommandBlockPlan.Entry e:blueprint.commands())
+                    if(e.x()==x&&e.y()==y&&e.z()==z){expected=e.command();break;}
+                if(current.isEmpty()||current.equals(expected))return;
             }
         }
+        throw new IllegalStateException("Undo blocked by a changed block entity at "+
+            pos.toShortString()+". Ordinary rollback preserves it. "+
+            "A trusted operator can deliberately use /buildai undo force to discard its data.");
+    }
+
+    /**
+     * Undo runs in bounded tick batches, including a full non-mutating safety
+     * preflight. It is available after COMPLETE, PAUSED_ERROR or earlier
+     * cancellation; no state is claimed restored until ROLLBACK actually ends.
+     */
+    public int requestUndo(boolean override) {
+        if(phase==Phase.ROLLBACK||phase==Phase.ROLLBACK_CHECK)
+            throw new IllegalStateException("Undo already in progress: "+phaseDescription());
+        if(!hasSnapshot||modified.isEmpty())
+            throw new IllegalStateException("No in-memory construction changes to undo. "+
+                "Undo history does not currently survive a server restart or replacement project.");
+        disarmCommands();
+        excavationCue(com.hanco.buildai.net.CinematicExcavationPayload.STOP,0);
+        rollbackOrder=new ArrayList<>(modified);
+        rollbackOrder.sort(Comparator.comparingInt(BlockPos::getY)
+            .thenComparingInt(BlockPos::getZ).thenComparingInt(BlockPos::getX).reversed());
+        rollbackOverride=override;
+        rollbackIndex=0;rollbackCheckIndex=0;
+        phase=Phase.ROLLBACK_CHECK;
+        return rollbackOrder.size();
+    }
+
+    public void cancel(boolean undo) {
+        if(undo){requestUndo(false);return;}
+        if(phase==Phase.ROLLBACK||phase==Phase.ROLLBACK_CHECK)
+            throw new IllegalStateException("Undo is in progress; wait for rollback to finish");
+        disarmCommands();
+        excavationCue(com.hanco.buildai.net.CinematicExcavationPayload.STOP,0);
+        for(BlockPos pos:new ArrayList<>(supports)){
+            BlockState state=world.getBlockState(pos);
+            if(state.isOf(BuildBlocks.CONSTRUCTION_BLOCK)||state.isOf(BuildBlocks.CONSTRUCTION_SLAB))
+                world.setBlockState(pos,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
+        }
+        supports.clear();
         phase=Phase.CANCELLED;
     }
 }

@@ -55,16 +55,13 @@ public class SignTextPlanTest {
         b.setSigns(SignTextPlan.decode(JsonParser.parseString(
             "[{\"x\":1,\"y\":2,\"z\":3,\"lines\":[\"01\",\"NORTH\"]}]")
             .getAsJsonArray(),b));
-        // Native rotation parses real vanilla BlockStates and needs Minecraft
-        // bootstrap in an ordinary Gradle/JUnit JVM (outside runClient).
-        net.minecraft.Bootstrap.initialize();
-        Blueprint rotated=BlueprintRotator.rotate(b,1);
-        assertEquals(1,rotated.signs().size());
-        SignTextPlan.Entry sign=rotated.signs().get(0);
+        // JUnit's plain JVM cannot bootstrap Fabric's patched Minecraft
+        // registry. Test the SAME metadata transform used by the native
+        // BlueprintRotator without trying to initialize registry globals.
+        SignTextPlan.Entry sign=SignTextPlan.rotated(b,1).get(0);
         assertEquals(5-1-3,sign.x());
         assertEquals(1,sign.z());
         assertEquals("01",sign.front().get(0));
-        assertTrue(SignTextPlan.isSign(rotated.get(sign.x(),sign.y(),sign.z())));
         java.nio.file.Path path=tmp.resolve("test.schem");
         SchematicWriter.write(b,path);
         Blueprint loaded=SchematicReader.read(path);

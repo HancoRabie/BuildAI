@@ -110,6 +110,29 @@ public final class GenerationProgress {
         checking=false;
     }
     public synchronized String checkStatus(){return probeResult;}
+    /** Concise health display kept inside the always-visible header area. */
+    public synchronized String briefCheckStatus(){
+        if(probeResult.isBlank())return "";
+        if(checking)return "Independent API reachability check running; active build unchanged.";
+        if(probeResult.startsWith("OpenAI reachable"))
+            return "API reachable (HTTP 200). This does NOT prove active model progress.";
+        if(probeResult.startsWith("OpenAI probe returned HTTP ")){
+            int end=probeResult.indexOf('.',0);
+            return (end>0?probeResult.substring(0,end):probeResult)+
+                ". Active model state is unknown.";
+        }
+        if(probeResult.startsWith("Connection check unavailable"))
+            return "API check unavailable (no current credentials). Active build unchanged.";
+        return probeResult.length()>140?probeResult.substring(0,140):probeResult;
+    }
+    public synchronized String lastStreamSummary(){
+        if(lastStreamEventNanos==0)
+            return "Active request: "+(responseAccepted?"HTTP 200":"awaiting HTTP response")+
+                " | No SSE stream event received yet";
+        return "Active request: "+(responseAccepted?"HTTP 200":"connecting")+
+            " | Last SSE: "+lastStreamEvent+" "+
+            ((System.nanoTime()-lastStreamEventNanos)/1_000_000_000L)+"s ago";
+    }
     public synchronized boolean checking(){return checking;}
     private long lastActivityNanos=startedNanos;
     private String stage="Preparing request";

@@ -309,6 +309,16 @@ public final class BuildAIClient implements ClientModInitializer {
         });
         ClientSendMessageEvents.ALLOW_CHAT.register(message->{
             if(!chatMode)return true;
+            if(message.trim().equalsIgnoreCase("gpt")||
+                message.trim().equalsIgnoreCase("gpt?")||
+                message.trim().equalsIgnoreCase("help")){
+                BuildAIClient.message("Chat Mode treats messages as BUILD requests/revisions, "+
+                    "not a general chat assistant. Example: 'new create a clock tower'. "+
+                    "For EXISTING blank command blocks, look at the block and use "+
+                    "/buildai commands preset day (or sun/night/rain), then "+
+                    "/buildai commands approve all. Type 'exit' to leave Chat Mode.");
+                return false;
+            }
             if(message.trim().equalsIgnoreCase("exit")){
                 chatMode=false;BuildAIClient.message("Chat Mode disabled.");return false;
             }

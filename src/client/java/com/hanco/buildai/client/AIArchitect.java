@@ -272,6 +272,8 @@ public final class AIArchitect {
         try{
             compiled.warnings.addAll(ArchitectureAudit.inspect(compiled,prompt,spec));
             compiled.warnings.addAll(CommandGameAudit.inspect(compiled,prompt));
+            compiled.warnings.addAll(RedstoneAudit.inspect(compiled,prompt,
+                spec));
             compiled.warnings.addAll(ChainGapAudit.inspect(compiled));
         }catch(RuntimeException auditError){
             // Never discard a successfully generated multi-minute blueprint
@@ -336,6 +338,8 @@ public final class AIArchitect {
         try{
             compiled.warnings.addAll(ArchitectureAudit.inspect(compiled,prompt,json));
             compiled.warnings.addAll(CommandGameAudit.inspect(compiled,prompt));
+            compiled.warnings.addAll(RedstoneAudit.inspect(compiled,prompt,
+                json));
             compiled.warnings.addAll(ChainGapAudit.inspect(compiled));
         }catch(RuntimeException auditError){
             // Never discard a successfully generated multi-minute blueprint

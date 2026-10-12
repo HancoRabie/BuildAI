@@ -15,8 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * This does not change model output or lower quality for healthy requests.
  */
 final class ModelStreamWatchdog implements AutoCloseable {
-    static final long NO_TEXT_NANOS=8L*60*1_000_000_000L;
-    static final long MID_STREAM_NANOS=3L*60*1_000_000_000L;
+
     private final InputStream input;
     private final GenerationProgress progress;
     private final AtomicLong lastText=new AtomicLong(System.nanoTime());
@@ -33,7 +32,8 @@ final class ModelStreamWatchdog implements AutoCloseable {
         thread.start();
     }
     static boolean isSilentTooLong(long now,long lastText,boolean everReceived){
-        return now-lastText >= (everReceived?MID_STREAM_NANOS:NO_TEXT_NANOS);
+        return com.hanco.buildai.blueprint.StreamSilencePolicy.expired(
+            now,lastText,everReceived);
     }
     void textArrived(){
         begun.set(true);lastText.set(System.nanoTime());

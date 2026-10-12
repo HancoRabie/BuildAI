@@ -498,7 +498,7 @@ public final class ConstructionProject {
         // executable contents still match our approved plan (or are empty).
         // Player-edited scripts or unrelated inventories require explicit
         // force and cannot be silently destroyed by ordinary undo.
-        if(state.getBlock() instanceof net.minecraft.block.AbstractCommandBlock &&
+        if(CommandBlockPlan.isCommandBlock(Registries.BLOCK.getId(state.getBlock()).toString()) &&
             world.getBlockEntity(pos) instanceof CommandBlockBlockEntity tile) {
             int x=pos.getX()-origin.getX(),y=pos.getY()-origin.getY(),z=pos.getZ()-origin.getZ();
             if(x>=0&&y>=0&&z>=0&&x<blueprint.width&&y<blueprint.height&&z<blueprint.length&&

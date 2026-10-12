@@ -20,7 +20,8 @@ public final class CommandGameAudit {
                 "embedded command scripts. No commands exist to approve. This build is "+
                 "NOT functional. Generate a revision supplying a root 'commands' array with "+
                 "one local XYZ and actual 1.21.1 command per required block.");
-            return ctf?List.of("CTF has NO command blocks or scripts: terrain only, NOT a game."):List.of();
+            return ctf?List.of("CTF map has NO executable command-block plan: no command blocks/scripts found. "+
+                "Terrain only; not a functional capture-the-flag game."):List.of();
         }
         List<String> warnings=new ArrayList<>();
         int unassigned=CommandBlockPlan.unassignedBlocks(blueprint);

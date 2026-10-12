@@ -67,6 +67,10 @@ public final class BuildAIScreen extends Screen {
         add("Placement / Export",left+third+gap,row(1),third,buttonHeight,b->switchTab(1));
         add("How To",left+2*(third+gap),row(1),panelWidth-2*(third+gap),buttonHeight,
             b->{saveFields();client.setScreen(new BuildAIHelpScreen(this));});
+        add("Feedback & Styles | Personal Building Library",
+            left,row(2),panelWidth,buttonHeight,b->{
+                saveFields();client.setScreen(new BuildAIFeedbackScreen(this));
+            });
 
         if(tab==0){
             prompt=new TextFieldWidget(textRenderer,left,row(3),panelWidth,buttonHeight,text("Building description"));

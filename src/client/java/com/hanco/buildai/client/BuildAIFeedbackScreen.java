@@ -71,8 +71,11 @@ public final class BuildAIFeedbackScreen extends Screen {
             b->saveFeedback()).dimensions(x,actions,w,buttonH).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Learn Labeled Decorations from Schematic"),
             b->addExamples()).dimensions(x,actions+row,w,buttonH).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Analyze Whole Builds / Reference Library"),
+            widget->{capture();client.setScreen(new BuildAIArchitectureScreen(this));})
+            .dimensions(x,actions+2*row,w,buttonH).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Back to BuildAI"),
-            b->close()).dimensions(x,Math.min(height-26,actions+2*row+4),w,buttonH).build());
+            widget->close()).dimensions(x,Math.min(height-26,actions+3*row+4),w,buttonH).build());
     }
     private void capture(){
         if(pathField!=null)pathText=pathField.getText();

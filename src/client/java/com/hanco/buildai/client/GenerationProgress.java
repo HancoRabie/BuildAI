@@ -56,6 +56,7 @@ public final class GenerationProgress {
                 ((now-lastStreamEventNanos)/1_000_000_000L)+"s ago";
         return (revising?"REVISION (previous blueprint supplied)":
             "GENERATE NEW (no previous blueprint supplied)")+
+            " | Auto-stop "+(autoStopEnabled?"ON":"OFF")+
             " | Model "+modelLabel+" | "+connection+" | "+
             receivedCharacters+" blueprint characters | "+event+
             " | elapsed "+age+"s. "+
@@ -82,6 +83,28 @@ public final class GenerationProgress {
     private boolean finished=false;
     private boolean failed=false;
     private volatile boolean cancelRequested=false;
+    // Per-request operator preference; changing this does not reissue the
+    // OpenAI request, reset the submitted prompt or mutate the model stream.
+    private volatile boolean autoStopEnabled=true;
+    private volatile long autoStopRearmedAtNanos=0L;
+    public boolean autoStopEnabled(){return autoStopEnabled;}
+    public long autoStopRearmedAtNanos(){return autoStopRearmedAtNanos;}
+    public synchronized void setAutoStopEnabled(boolean enabled){
+        if(finished||autoStopEnabled==enabled)return;
+        autoStopEnabled=enabled;
+        if(enabled){
+            // A user who waited past the old deadline with auto-stop OFF
+            // must get a brand-new full grace period when enabling again.
+            autoStopRearmedAtNanos=System.nanoTime();
+            stage("Auto-stop ON","Started a fresh silence window: "+
+                "8 minutes before first blueprint text, 3 minutes after "+
+                "text begins. Your current model request is unchanged.");
+        }else{
+            stage("Auto-stop OFF","BuildAI will not automatically end this "+
+                "request for output silence. It continues until the model "+
+                "responds, the connection fails or you cancel it.");
+        }
+    }
     private final java.util.concurrent.atomic.AtomicReference<Thread> worker=
         new java.util.concurrent.atomic.AtomicReference<>();
     private volatile String lastModelLimitation="";

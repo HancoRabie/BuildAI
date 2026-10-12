@@ -164,7 +164,9 @@ public final class FarmFunctionAudit {
                     "directly beneath them; they may break or fail to grow.");
             cautions.add("Carrots, potatoes, wheat and beetroot require replanting after "+
                 "destructive water harvest. Vanilla redstone alone cannot replant them; "+
-                "use manual replanting or a supported villager/worker system.");
+                "manual replanting is required unless the player explicitly "+
+                "requested a separately supported alternative. Do NOT invent "+
+                "workers, villagers or mods.");
         }
         if((roots>0||cane>0)&&hoppers==0){
             // Staged floor could lead to a later shared downward collector.

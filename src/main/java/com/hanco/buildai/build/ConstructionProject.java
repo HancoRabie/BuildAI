@@ -124,7 +124,7 @@ public final class ConstructionProject {
         phase=Phase.REVIEW;
     }
     public void confirm() {
-        if(phase!=Phase.REVIEW)throw new IllegalStateException("Placement is not locked. Close F8, aim at a ground block TOP and press G, then press ENTER to lock XYZ before /buildai confirm.");
+        if(phase!=Phase.REVIEW)throw new IllegalStateException("Placement is not locked. Close F8, press G to freeze the visible preview (no ground target required), adjust with arrows/wheel, then ENTER to lock before /buildai confirm.");
         if(commandCount()>0&&!commandsApproved)
             throw new IllegalStateException("Review commands with /buildai commands list, then explicitly /buildai commands approve (op level 4) BEFORE confirm.");
         if(commandCount()>0&&!world.getServer().areCommandBlocksEnabled())

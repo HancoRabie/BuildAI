@@ -177,10 +177,13 @@ public final class BuildAIClient implements ClientModInitializer {
                 if(previous==null && StagedFarmPlan.applies(description))
                     return StagedFarmArchitect.generate(description,key,
                         ChatGPTSignIn.connected(),progress);
-                if(ChatGPTSignIn.connected())return AIArchitect.generateWithChatGPT(description,previous,progress);
-                return previous==null
-                    ? AIArchitect.generateDesign(key,description,progress)
-                    : AIArchitect.reviseDesign(key,description,previous,progress);
+                AIArchitect.DesignResult result=ChatGPTSignIn.connected()
+                    ?AIArchitect.generateWithChatGPT(description,previous,progress)
+                    :previous==null
+                        ?AIArchitect.generateDesign(key,description,progress)
+                        :AIArchitect.reviseDesign(key,description,previous,progress);
+                return FarmFunctionRepair.review(description,result,key,
+                    ChatGPTSignIn.connected(),progress);
             }catch(Exception error){throw new RuntimeException(error);}
             finally{progress.releaseWorker();}
         }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{

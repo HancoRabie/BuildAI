@@ -109,6 +109,11 @@ public final class BuildAIGenerationScreen extends Screen {
             textRenderer.trimToWidth("BUILDAI  |  AI ARCHITECTURE STUDIO",usable),
             width/2,top+unit,0x77F4CC);
 
+        // Workflow and module are separate from model streaming/auto-stop status.
+        ctx.drawCenteredTextWithShadow(textRenderer,
+            textRenderer.trimToWidth(s.workflow(),usable),
+            width/2,top+unit*2,0xFF80E9CB);
+
         ctx.drawCenteredTextWithShadow(textRenderer,
             textRenderer.trimToWidth(s.stage(),usable),
             width/2,top+unit*3,s.failed()?0xFFA99B:0xFFF0F7F7);

@@ -24,6 +24,16 @@ public final class AiBlockRepair {
     public record Result(String block, String warning) {}
 
     public static Result repair(String raw) {
+        // The AI sometimes confuses a bucket ITEM with the source FLUID BLOCK
+        // needed for a farm irrigation channel or lava feature. Replace it
+        // directly with a valid source rather than stone bricks or an
+        // impossible player supply requirement.
+        if(BuildFluidRules.isFluidBucket(raw)){
+            String source=BuildFluidRules.sourceForBucket(raw);
+            return new Result(source,"AI fluid placement corrected: "+raw+
+                " is an ITEM, so the world build uses source block "+source+
+                " instead; no bucket inventory is needed.");
+        }
         try {
             BlockStates.parse(raw);
             return new Result(raw, null);

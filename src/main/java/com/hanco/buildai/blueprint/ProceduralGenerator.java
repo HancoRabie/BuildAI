@@ -5,7 +5,14 @@ import java.util.*;
 /** Compiles model-authored geometry operations into deterministic, bounded voxel data. */
 public final class ProceduralGenerator {
     private ProceduralGenerator() {}
+    public record Compilation(Blueprint blueprint, String correctedSpecification) {}
+
     public static Blueprint compile(String json) {
+        return compileDesign(json).blueprint();
+    }
+
+    /** The corrected JSON is retained so follow-up edits don't repeat AI mistakes. */
+    public static Compilation compileDesign(String json) {
         JsonObject root=JsonParser.parseString(json).getAsJsonObject();
         if(root.has("error"))
             throw new IllegalArgumentException("AI cannot produce this blueprint at the requested scale: "+
@@ -14,12 +21,25 @@ public final class ProceduralGenerator {
         Blueprint b=new Blueprint(root.has("name")?root.get("name").getAsString():"AI Design",w,h,d);
         JsonArray ops=root.getAsJsonArray("operations");
         if(ops==null||ops.size()<1||ops.size()>16000)throw new IllegalArgumentException("Expected 1-16000 design operations");
+        // Repairs are cached by original state, not repeated for each voxel.
+        // Keep at most 24 individual repair notices readable in Design QA.
+        Map<String,AiBlockRepair.Result> repairedStates=new HashMap<>();
+        int repairCount=0;
+        Set<String> reportedStates=new HashSet<>();
         for(JsonElement e:ops) {
             JsonObject op=e.getAsJsonObject();
             String kind=op.get("kind").getAsString().toLowerCase(Locale.ROOT);
             String block=op.get("block").getAsString();
             if(block.length()>180||!block.matches("[a-z0-9_.-]+:[a-z0-9_./-]+(\\[[a-z0-9_,=.-]+\\])?"))
                 throw new IllegalArgumentException("Invalid block state "+block);
+            AiBlockRepair.Result repaired=repairedStates.computeIfAbsent(block,AiBlockRepair::repair);
+            if(repaired.warning()!=null && reportedStates.add(block)) {
+                // One warning per distinct invalid AI state, even across many operations.
+                if(repairCount<24)b.warnings.add(repaired.warning());
+                repairCount++;
+            }
+            block=repaired.block();
+            op.addProperty("block",block);
             int x1=number(op,"x1",0,w-1),y1=number(op,"y1",0,h-1),z1=number(op,"z1",0,d-1);
             int x2=number(op,"x2",0,w-1),y2=number(op,"y2",0,h-1),z2=number(op,"z2",0,d-1);
             int ax=Math.min(x1,x2),ay=Math.min(y1,y2),az=Math.min(z1,z2);
@@ -71,8 +91,9 @@ public final class ProceduralGenerator {
                 default -> throw new IllegalArgumentException("Unknown primitive "+kind);
             }
         }
+        if(repairCount>24)b.warnings.add((repairCount-24)+" further AI block-state repairs made; review the design visually.");
         b.validateSlices();
-        return b;
+        return new Compilation(b,root.toString());
     }
     private static int number(JsonObject o,String key,int min,int max) {
         int n=o.get(key).getAsInt();

@@ -4,6 +4,74 @@ Player's functional request ALWAYS takes precedence over decorative references. 
 AUTHORING RULE: Treat redstone as an engineered system: define INPUT -> POWER PATH -> LOGIC/MEMORY/TIMING -> OUTPUT -> RESET/SAFE FAILURE before drawing any block. Trace all six sides and vertical wiring. Deliver functioning circuit geometry, not ornaments or just names.
 When relevant, include top-level redstone_plan: {"circuits":[{"name":"...","input":"...","signalPath":"...","output":"...","timing":"...","reset":"...","test":"..."}]}. This is an audit manifest, NOT executable redstone. Return valid JSON as required by BuildAI's normal output contract. Avoid unverified claims.
 
+CRITICAL CORRECTION — JAVA 1.21.1 DIRECTION AND MATERIALS (READ FIRST)
+Minecraft's "facing" semantics vary BY BLOCK. You must distinguish block-state
+FACING from the intuitive player's view, visual arrows and flow direction.
+For minecraft:repeater and minecraft:comparator Java blockstates:
+    facing = direction of REAR/INPUT side (direction the PLAYER stands while placing).
+    FRONT/OUTPUT direction = OPPOSITE of blockstate facing.
+    EXAMPLE A: Source at (3,1,5) -> repeater at (4,1,5) -> lamp at (5,1,5)
+      input WEST, output EAST => minecraft:repeater[facing=west,delay=1,locked=false,powered=false]
+    EXAMPLE B: Source EAST at (5,1,5) -> repeater (4,1,5) -> lamp WEST (3,1,5)
+      input EAST, output WEST => minecraft:repeater[facing=east,delay=1,locked=false,powered=false]
+    EXAMPLE C: Source NORTH at (4,1,4) -> repeater (4,1,5) -> lamp SOUTH (4,1,6)
+      input NORTH, output SOUTH => minecraft:repeater[facing=north,delay=2,locked=false,powered=false]
+    EXAMPLE D: Source SOUTH at (4,1,6) -> repeater (4,1,5) -> lamp NORTH (4,1,4)
+      input SOUTH, output NORTH => minecraft:repeater[facing=south,delay=2,locked=false,powered=false]
+    Minecraft: +X EAST; -X WEST; +Z SOUTH; -Z NORTH; +Y UP.
+    repeaters and comparators accept rear only, emit to physical front only.
+    The output is NOT necessarily in the direction spelled by blockstate "facing".
+    For comparators use the identical rear/input facing convention, but preserve
+    mode=compare/subtract and actual side inputs; never flip a side-locking gate on guesswork.
+For observer, piston, dispenser, dropper, hopper, crafter, and wall fixtures,
+DO NOT project repeater's special input-facing rule; check EACH block's native
+facing meaning independently. Draw an explicit circuit path with absolute
+local XYZ and input/output for every one-way gate, and check it AGAIN after
+rotation and after redstone normalization.
+
+RAIL ENGINEERING: A roller coaster MUST NOT be all powered rails unless
+the player explicitly requests it. Most track should be minecraft:rail;
+powered rails are discrete boosters where required. Nor is a solid
+minecraft:redstone_block UNDER EACH RAIL necessary. For Java vanilla level
+track as a rough STARTING POINT: occupied carts maintain speed with
+about ONE powered rail per 38 track blocks on flat sustained straights.
+EMPTY utility carts may need ~1 every 27; FULL utility carts can need much
+denser boosts (~1 per 6), and sustained uphill track needs about one powered
+rail every three rails depending on slope and load. Launches, steep climbs,
+short runs, curves, braking and special park segments have DIFFERENT needs;
+engineer those separately. The optimal interval is conditional on carts,
+terrain and speed, not a hard universal template.
+A powered rail only boosts when ACTUALLY powered. Power can come from a
+SINGLE adjacent lever, redstone torch, redstone power block where it makes
+architectural sense, or directional wiring. Adjacent CONNECTED powered rails
+propagate power up to eight rails away from a directly powered rail.
+You absolutely DO NOT need a redstone block for every normal rail or powered
+rail. Unpowered powered rails BRAKE carts; intentionally use them for stops.
+Add rail shape/orientation, proper supporting blocks, guardrails/safe boarding,
+and repeated powered test laps. Keep cart ENTITIES separate from rail voxels;
+normal .schem files may not carry a minecart.
+
+FLUID ENGINEERING: minecraft:water and minecraft:lava are actual in-world
+SOURCE BLOCKS; minecraft:water_bucket and minecraft:lava_bucket are ITEMS,
+not placeable blockstate IDs. BuildAI can place the SOURCE BLOCK directly
+at its final XYZ using world placement; never demand a bucket inventory just
+to construct a water source for a farm, irrigation channel, fountain or
+flushing system, or a lava source for a requested feature. Don't refuse a
+viable generated blueprint because a bucket is missing. Never substitute
+stone bricks or empty space for a source. Source water/lava should be placed
+AFTER containing solid geometry, channel walls and collection drains. Check
+actual flow routes, water/lava block destruction, fire/cobblestone reactions,
+drain positions, mob/player safety, crop hydration and overflow containment.
+An actual DISPENSER that dispenses/retracts fluid during a game or operating
+farm DOES require a water/lava bucket ITEM in its inventory, OR redesign
+around gated flow/pistons, existing persistent world fluid and no NBT bucket
+requirement. Don't confuse such a dispenser's REAL inventory needs with a
+static world source placement. 1.21.1 Java Nether generally vaporizes water
+placed by normal interactions; world-generated water may not behave normally
+there. If water is a core part of a Nether build, highlight dimensional
+mechanics and offer a physically viable alternate design rather than falsely
+claiming a working farm.
+
 SECTION 1: FUNDAMENTALS — SIGNAL, TICKS, POWER AND SUPPORT
 - Minecraft Java 1.21.1 server runs nominally 20 game ticks/s (0.05 s/tick at full TPS). One redstone tick = TWO game ticks = 0.1 s at full TPS. Repeaters' delay=1..4 means 1..4 REDSTONE ticks = 2..8 game ticks, not 1..4 game ticks. Server lag affects real time.
 - Redstone dust power is integer 0..15, decays by one per horizontal dust segment. Refresh with a properly oriented repeater (output 15). Dust has north/east/south/west side connections: none/side/up; power and shape are separate properties. Visible shape/connectivity does not prove power reaches intended recipient. Isolate unrelated wires and watch unintended cross-connections.
@@ -40,8 +108,8 @@ decorated_pot: block stores an item and comparator responds to presence/content 
 command_block: impulse/chain/repeating have DIFFERENT activation semantics and command block entities contain executable text; placement alone NEVER programs them. BuildAI scripts are bound by XYZ, reviewed in-game and commissioned only after human authorization; never claim an empty command block is functional.
 
 SECTION 3: LOGIC, DIRECTION, TIMING, MEMORY
-repeater: facing=direction of OUTPUT, accepts rear INPUT only; its delay=1..4 in redstone ticks; side-fed repeaters can LOCK an existing output state. Use to isolate buses, restore strength=15 and tune timing. Repeater lock does not mean any adjacent redstone is valid locking input; the side signal must meet vanilla rules.
-comparator: front OUTPUT, back PRIMARY input, sideways secondary input; mode=compare or subtract. Compare outputs back only when back >= side, else zero. Subtract outputs max(0,back - max(sideInputs)). It reads directly adjacent containers and some through a single solid full block where vanilla permits. Comparator output is analog and can be less than 15; preserving facing, mode, powered flag and path matters.
+repeater: facing=direction of REAR/INPUT (OUTPUT is opposite), accepts rear INPUT only; its delay=1..4 in redstone ticks; side-fed repeaters can LOCK an existing output state. Use to isolate buses, restore strength=15 and tune timing. Repeater lock does not mean any adjacent redstone is valid locking input; the side signal must meet vanilla rules.
+comparator: blockstate facing=BACK/INPUT direction, front OUTPUT is opposite; back PRIMARY input, sideways secondary input; mode=compare or subtract. Compare outputs back only when back >= side, else zero. Subtract outputs max(0,back - max(sideInputs)). It reads directly adjacent containers and some through a single solid full block where vanilla permits. Comparator output is analog and can be less than 15; preserving facing, mode, powered flag and path matters.
 container comparator math: chest/barrel/hopper/dispenser/furnace inventory fullness determines analog output, influenced by stack limits and number of slots; a single item often yields >=1. Test actual thresholds with representative items. Do not hardcode item counts by intuition.
 copper_bulb family: toggles lit state on rising redstone pulses, retains lit state once signal disappears: built-in T flip-flop / compact memory element. Copper oxidation affects EMITTED LIGHT (fresh=15, exposed=12, weathered=8, oxidized=4), NOT timing. Waxing freezes oxidation. Comparator output indicates bulb lit state (15 if lit); copper bulb is NOT a generic conducting full redstone cube. Be mindful of powered vs lit flags.
 redstone_lamp: emits light while powered; when power ends its off transition can lag. It is NOT a persistent memory bit like a copper bulb; outputs are not guaranteed identical.
@@ -70,7 +138,7 @@ dropper: transfers/ejects one item without dispenser special use; directional fa
 hopper: facing controls extraction/output path; moves items with tick-dependent cooldown. POWERED hopper LOCKS and stops transfers while powered; comparator measures fullness. Unsupported or unloaded destination can stall; design overflow and collection. A hopper under a block/inventory works differently than one pointing into it.
 hopper_minecart / chest_minecart: ENTITY transport with rails, unloading, chunk constraints; schematic voxel files may not preserve entities. Avoid promising functional rail sorters without carts.
 crafter (new in Java 1.21): crafts and ejects the valid recipe result when TRIGGERED by a pulse. facing controls front output; the 3x3 grid has manually disabled slots, which cannot hold items. Comparator signal = COUNT of occupied or disabled slots (0..9), not total ingredient quantity. Hopper/dropper input obeys crafter slot selection. A permanently powered crafter does not auto-craft continuously without new pulses. Does NOT obey Java quasi-connectivity. Real inventory and disabled slot setup requires block-entity configuration beyond ordinary block-state geometry; don't declare a filled automated factory functional based on empty crafters.
-powered_rail: adds propulsion when powered, slows when unpowered; slopes, cart speed and connected segments matter. Specific power transmission through contiguous powered rails depends on layout.
+powered_rail: adds propulsion when powered, BRAKES when unpowered. Place sparse boosters on long flats (passenger carts roughly one per 38 rails, not all-powered tracks); denser up slopes and full utility carts. Connected powered rails propagate direct power up to 8 further linked rails. No redstone block is needed beneath every rail. Track shape, slopes, load and speed matter.
 detector_rail: produces redstone when a minecart occupies it; comparator may read container-minecart fullness. Needs actual entity/cart.
 activator_rail: powered rail of special function: ejects entities/activates particular carts; it is NOT a propulsion rail.
 rail: normal passive track; curves, slopes and rail shape are block states. Constrain rail alignment to avoid spontaneous unwanted curves.
@@ -118,7 +186,7 @@ H. Farm -> crop maturity detector (observer only when state truly updates) -> ha
 I. Binary/analog lock -> encoded button or lectern input -> stable comparators -> latch/decoder -> authorized output and reset after success/failure.
 J. Timed lights -> daylight detector or hopper clock -> latch/repeater as required -> redstone lamp/copper bulb (different retention), maintenance override.
 K. Music sequencer -> clock and staged repeater delays -> notes/instruments -> start-stop gating to prevent idle lag.
-L. Minecart transport -> powered rail spacing and slopes -> detector rail -> diverter/activator -> hopper offload -> jam and chunk-boundary handling.
+L. Minecart transport -> mostly normal rails, intermittent powered boosters tuned to slopes/load -> sparse logical power sources -> detector rail -> diverter/activator -> hopper offload -> jam and chunk-boundary handling. Never all powered rails/redstone blocks by default.
 
 SECTION 8: REDSTONE QA GATES BEFORE RESPONDING
 CHECK INPUT: mechanism responds to player's actual requested physical action, correct direction, pulse width and support. Buttons are different from latched levers.

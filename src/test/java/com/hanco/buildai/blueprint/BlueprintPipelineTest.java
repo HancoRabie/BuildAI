@@ -157,6 +157,39 @@ public class BlueprintPipelineTest {
         assertTrue(leaves>100 && leaves<1000,"Organic canopy should be full but not a solid cube");
     }
 
+    @Test void quarterTurnCoordinatesAgreeWithRotatedBoundingBoxes(){
+        Blueprint original=new Blueprint("Asymmetric Front",7,5,13);
+        int[][] expected={
+            {0,0,7,13},{12,0,13,7},{6,12,7,13},{0,6,13,7}
+        };
+        for(int t=0;t<4;t++){
+            assertEquals(expected[t][2],BlueprintRotator.width(original,t));
+            assertEquals(expected[t][3],BlueprintRotator.length(original,t));
+            var front=BlueprintRotator.position(0,0,0,original.width,original.length,t);
+            assertEquals(expected[t][0],front.getX());
+            assertEquals(expected[t][1],front.getZ());
+            for(int y=0;y<original.height;y++)for(int z=0;z<original.length;z++)
+                for(int x=0;x<original.width;x++){
+                    var p=BlueprintRotator.position(x,y,z,original.width,original.length,t);
+                    assertTrue(p.getX()>=0&&p.getX()<BlueprintRotator.width(original,t));
+                    assertTrue(p.getZ()>=0&&p.getZ()<BlueprintRotator.length(original,t));
+                    assertEquals(y,p.getY());
+                }
+        }
+    }
+
+    @Test void rotationFourTimesReturnsSameCoordinate(){
+        int w=9,l=14;
+        for(int x=0;x<w;x++)for(int z=0;z<l;z++){
+            var a=BlueprintRotator.position(x,1,z,w,l,1);
+            var b=BlueprintRotator.position(a.getX(),1,a.getZ(),l,w,1);
+            var cc=BlueprintRotator.position(b.getX(),1,b.getZ(),w,l,1);
+            var d=BlueprintRotator.position(cc.getX(),1,cc.getZ(),l,w,1);
+            assertEquals(x,d.getX());
+            assertEquals(z,d.getZ());
+        }
+    }
+
     @Test void invalidBlueprintDataIsRejected() {
         assertThrows(IllegalArgumentException.class,()->new Blueprint("bad",500,500,500));
         Blueprint a=DemoBlueprint.cottage();

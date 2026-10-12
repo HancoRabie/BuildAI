@@ -218,9 +218,10 @@ public final class BlueprintLibraryScreen extends Screen {
         drawLine(ctx,"BUILDAI / MY BLUEPRINTS",x+7,9,panel-14,MINT);
         String range=saved.isEmpty()?"NO FILES":
             (offset+1)+"-"+Math.min(saved.size(),offset+view.visibleItems());
-        drawLine(ctx,saved.size()+" SAVED  |  "+range+"  |  "+
-            (pathEditor?"IMPORT OTHER FILE":"CLICK A FILE TO SELECT"),
-            x+7,22,panel-14,BLUE);
+        if(view.listTop()>=30)
+            drawLine(ctx,saved.size()+" SAVED  |  "+range+"  |  "+
+                (pathEditor?"IMPORT OTHER FILE":"CLICK A FILE TO SELECT"),
+                x+7,22,panel-14,BLUE);
 
         if(!view.compact()){
             drawLine(ctx,"Select to import, or look at an old command block and attach its scripts.",

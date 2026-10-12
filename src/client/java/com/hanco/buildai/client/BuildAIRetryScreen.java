@@ -40,12 +40,6 @@ public final class BuildAIRetryScreen extends Screen {
             Text.literal(textRenderer.trimToWidth(title,Math.max(40,bw-12))),
             b->action.run()).dimensions(bx,by,bw,20).build());
     }
-    private boolean oldRequestEnded(){
-        GenerationProgress current=BuildAIClient.currentGeneration();
-        return (current==null || current.snapshot().finished())
-            && !previous.cancellationRequested() || (current==null &&
-                previous.snapshot().finished());
-    }
     @Override protected void init(){
         save();
         panel=Math.min(740,Math.max(144,width-18));
@@ -54,19 +48,42 @@ public final class BuildAIRetryScreen extends Screen {
         sourceY=compact?42:72;
         extraY=sourceY+(compact?34:47);
         footerY=height-47;
-        original=new TextFieldWidget(textRenderer,x+8,sourceY,panel-16,19,
+        // The X controls occupy the right edge of each native text row,
+        // rather than covering typed characters, at every Minecraft scale.
+        int clearWidth=20,fieldWidth=panel-16-clearWidth;
+        original=new TextFieldWidget(textRenderer,x+8,sourceY,fieldWidth,19,
             Text.literal("Original building request"));
         original.setMaxLength(4000);
         original.setText(sourceText);
         original.setPlaceholder(Text.literal("Original prompt — edit freely"));
         addDrawableChild(original);
-        clarification=new TextFieldWidget(textRenderer,x+8,extraY,panel-16,19,
-            Text.literal("Your added clarification"));
+        ButtonWidget clearOriginal=button("×",x+8+fieldWidth,sourceY,
+            clearWidth,()->{
+                studio.clearRetainedPrompt();
+                sourceText="";
+                original.setText("");
+                original.setFocused(true);
+                status="Original prompt and retained backup cleared. "+
+                    "You may enter a completely different request.";
+            });
+        clearOriginal.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(
+            Text.literal("Clear original prompt and local backup")));
+        clarification=new TextFieldWidget(textRenderer,x+8,extraY,
+            fieldWidth,19,Text.literal("Your added clarification"));
         clarification.setMaxLength(2500);
         clarification.setText(additionalText);
         clarification.setPlaceholder(Text.literal(
             "Add corrections: water flow, redstone, inventory, tests..."));
         addDrawableChild(clarification);
+        ButtonWidget clearExtra=button("×",x+8+fieldWidth,extraY,
+            clearWidth,()->{
+                additionalText="";
+                clarification.setText("");
+                clarification.setFocused(true);
+                status="Clarification cleared; original prompt is unchanged.";
+            });
+        clearExtra.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(
+            Text.literal("Clear added clarification only")));
         int half=(panel-20)/2;
         start=button("START NEW INDEPENDENT GENERATION",x+8,footerY,panel-16,
             this::startFresh);
@@ -88,13 +105,12 @@ public final class BuildAIRetryScreen extends Screen {
         if(sourceText.isBlank()){
             status="Enter the original building request first.";return;
         }
-        String merged=sourceText.trim();
-        if(!additionalText.isBlank())
-            merged+="\n\nAdditional clarification for this new build:\n"+
-                additionalText.trim();
-        if(merged.length()>4000){
-            status="Combined request is "+merged.length()+
-                " characters; maximum 4000. Shorten the text before retrying.";
+        final String merged;
+        try{
+            merged=com.hanco.buildai.blueprint.FreshGenerationRequest
+                .merge(sourceText,additionalText);
+        }catch(IllegalArgumentException problem){
+            status=problem.getMessage();
             return;
         }
         if(studio.startFreshAfterClarification(merged)){

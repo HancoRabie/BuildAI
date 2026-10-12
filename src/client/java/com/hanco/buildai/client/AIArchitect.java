@@ -190,7 +190,8 @@ public final class AIArchitect {
         if(!completed)throw new java.io.IOException("ChatGPT stream ended without response.completed; no blueprint was applied");
         String spec=generated.toString().trim();
         report(progress,"Compiling 3D blueprint","Converting AI design operations into exact block positions.");
-        Blueprint compiled=ProceduralGenerator.compile(spec);
+        ProceduralGenerator.Compilation compilation=ProceduralGenerator.compileDesign(spec);
+        Blueprint compiled=compilation.blueprint();
         DoorPlanner.completeSafePairs(compiled);
         report(progress,"Validating Minecraft blocks","Checking block IDs and states before displaying the blueprint.");
         BlockStates.validate(compiled);
@@ -202,7 +203,7 @@ public final class AIArchitect {
             // merely because a *non-essential* quality heuristic misbehaves.
             compiled.warnings.add("Architectural QA could not finish. Inspect stairs, rooms and openings manually.");
         }
-        return new DesignResult(compiled,spec);
+        return new DesignResult(compiled,compilation.correctedSpecification());
     }
 
     private static DesignResult requestDesign(String key,String prompt,String previous,
@@ -244,7 +245,8 @@ public final class AIArchitect {
             .get("content").getAsString();
         if(progress!=null)progress.receivedCharacters(json.length());
         report(progress,"Compiling 3D blueprint","Converting AI design operations into exact block positions.");
-        Blueprint compiled=ProceduralGenerator.compile(json);
+        ProceduralGenerator.Compilation compilation=ProceduralGenerator.compileDesign(json);
+        Blueprint compiled=compilation.blueprint();
         DoorPlanner.completeSafePairs(compiled);
         report(progress,"Validating Minecraft blocks","Checking block IDs and states before displaying the blueprint.");
         BlockStates.validate(compiled);
@@ -256,6 +258,6 @@ public final class AIArchitect {
             // merely because a *non-essential* quality heuristic misbehaves.
             compiled.warnings.add("Architectural QA could not finish. Inspect stairs, rooms and openings manually.");
         }
-        return new DesignResult(compiled,json);
+        return new DesignResult(compiled,compilation.correctedSpecification());
     }
 }

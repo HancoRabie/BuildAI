@@ -37,6 +37,19 @@ catalog, then ordinary blueprint JSON operations as before.
 - **All wires/repeaters/button mounts require real support below or beside.**
 - An arrow after a directional symbol is the **physical output / moving
   direction**, not a Minecraft blockstate property copied literally.
+- **No hardcoded axes:** `R3>` is just the EAST example. The exact same
+  reusable repeater must support `R3<`, `R3^` and `R3v`, based on
+  its actual downstream target. The RBL renderer/translator chooses
+  blockstate `facing` from that intended output, and the circuit library
+  rotates all cells/supports/ports. Observer and piston directions follow
+  their individual Minecraft rules, not the repeater rule.
+- The template-expansion API is
+  `templateBlueprint(id, "north" | "south" | "east" | "west")`.
+  `orientedState("R3^", "north")` resolves repeater delay 3 with
+  `facing=south`; `directionToward(...)` derives an axis-aligned
+  heading from real blueprint coordinates. The single-argument
+  `templateBlueprint(id)` remains an EAST-ORIENTED EXAMPLE for compatibility,
+  not a recommended default for actual building plans.
 - `>` east (+X); `<` west (-X); `^` north (-Z); `v` south (+Z).
 - Repeater/comparator `facing` names the **rear INPUT** in Java 1.21.1.
   Hence `R2>` expands to
@@ -133,8 +146,12 @@ preserve state and add any required inventory. Directional blockstate
 rotation MUST use component-specific state transformations, not just
 rotate the `>` character. Retest after rotation.
 
-The first version supplies *exact reference templates to the AI*,
-and an API that expands a named template. It does **not yet**:
+The current version supplies *exact reference templates to the AI*,
+and an API that expands a named template in **all four cardinal directions**
+with rotated supporting blocks and named ports. Complex state families
+(connected dust, rails, doors, multiblock machines) deliberately reject
+unsafe generic rotation until correct per-block transforms exist.
+It does **not yet**:
 - let model output RBL and invoke a full RBL-to-blueprint compiler,
 - automatically stamp/combine modules from an AI plan,
 - simulate a design in Java engine ticks or certify gameplay,

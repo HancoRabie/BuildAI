@@ -134,6 +134,10 @@ public final class RedstoneKnowledge {
                 "JAVA-SPECIFIC POWERING AND UPDATE ORDER"));
         memo.append(section("JAVA-SPECIFIC POWERING AND UPDATE ORDER",
             "ADDITIONAL ENGINEERING RESEARCH"));
+        // Reusable canonical module recipes are a second, compact layer
+        // after the handbook. The standard blueprint JSON remains the
+        // authoritative output; model never has to decode emoji into blocks.
+        memo.append(RedstoneBlueprintLibrary.relevant(prompt,previousSpecification));
         return memo.toString();
     }
 

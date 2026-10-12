@@ -163,9 +163,12 @@ public final class BlueprintLibraryScreen extends Screen {
                 client.setScreen(null);
             }).active=selected!=null&&!loading;
 
-        control("IMPORT ANOTHER FILE...",x,util,half,buttonHeight,this::showPathEditor);
-        control("BACK TO BUILDAI",x+half+gap,util,
-            panel-half-gap,buttonHeight,this::close);
+        control("IMPORT OTHER FILE",x,util,third,buttonHeight,this::showPathEditor);
+        control("DELETE SELECTED...",x+third+gap,util,third,buttonHeight,
+            this::confirmDeleteSelected).active=selected!=null&&!loading&&
+                BlueprintLibrary.isLocalSavedPath(selected);
+        control("BACK TO BUILDAI",x+2*(third+gap),util,
+            panel-2*(third+gap),buttonHeight,this::close);
     }
     @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){
         if(!pathEditor&&mx>=listX()&&mx<listX()+listWidth()&&
@@ -177,6 +180,21 @@ public final class BlueprintLibraryScreen extends Screen {
             return true;
         }
         return super.mouseScrolled(mx,my,horizontal,vertical);
+    }
+    private void confirmDeleteSelected(){
+        if(loading||selected==null||!BlueprintLibrary.isLocalSavedPath(selected)){
+            status="Choose a saved BuildAI blueprint first. External imports cannot be deleted here.";
+            return;
+        }
+        final Path deleteTarget=selected;
+        if(client!=null)client.setScreen(new BlueprintDeleteConfirmScreen(
+            this,deleteTarget,result->{
+                selected=null;
+                status=result.warning().isBlank()
+                    ?"Permanently deleted from Minecraft saves: "+
+                        result.deleted().getFileName()
+                    :result.warning();
+            }));
     }
     private void openRemix(Path file){
         if(loading){status="Wait until the previous import completes.";return;}
@@ -251,7 +269,7 @@ public final class BlueprintLibraryScreen extends Screen {
                 x+7,22,panel-14,BLUE);
 
         if(!view.compact()){
-            drawLine(ctx,"Import, remake original prompt, revise build, or attach old command scripts.",
+            drawLine(ctx,"Select a saved blueprint to import, revise, attach commands or permanently delete.",
                 x+7,44,panel-14,DIM);
         }else if(pathEditor){
             drawLine(ctx,"Optional full .schem / .nbt file path:",

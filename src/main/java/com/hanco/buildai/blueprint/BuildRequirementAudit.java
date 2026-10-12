@@ -159,6 +159,18 @@ public final class BuildRequirementAudit {
                 "mechanical purpose and remove redundant components.");
         if(spec!=null&&!spec.isBlank())try {
             JsonObject root=JsonParser.parseString(spec).getAsJsonObject();
+            if(root.has("optimization_suggestions")&&
+               root.get("optimization_suggestions").isJsonArray()){
+                int total=0;
+                for(JsonElement idea:root.getAsJsonArray("optimization_suggestions")){
+                    if(total++>=6)break;
+                    if(idea.isJsonPrimitive()){
+                        String value=idea.getAsString().replaceAll("[\\r\\n]+"," ").trim();
+                        if(!value.isBlank())suggestions.add("MODEL PROPOSAL (unverified): "+
+                            (value.length()>160?value.substring(0,160):value));
+                    }
+                }
+            }
             if(root.has("requirements")&&root.get("requirements").isJsonArray()){
                 int seen=0;
                 for(JsonElement element:root.getAsJsonArray("requirements")){

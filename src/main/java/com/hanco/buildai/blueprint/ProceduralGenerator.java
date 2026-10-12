@@ -105,6 +105,14 @@ public final class ProceduralGenerator {
             }
         }
         if(repairCount>24)b.warnings.add((repairCount-24)+" further AI block-state repairs made; review the design visually.");
+        // AI can declare the actual command and block-entity settings separately
+        // from the geometry. Their activation always requires operator approval.
+        if(root.has("commands")){
+            b.setCommands(CommandBlockPlan.decode(root.getAsJsonArray("commands"),b));
+            if(!b.commands().isEmpty())b.warnings.add(
+                b.commands().size()+" command blocks need operator review/approval; "+
+                "they are NOT armed until post-build commissioning.");
+        }
         b.validateSlices();
         return new Compilation(b,root.toString());
     }

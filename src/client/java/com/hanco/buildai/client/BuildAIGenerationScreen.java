@@ -118,12 +118,18 @@ public final class BuildAIGenerationScreen extends Screen {
             textRenderer.trimToWidth(s.stage(),usable),
             width/2,top+unit*3,s.failed()?0xFFA99B:0xFFF0F7F7);
 
-        List<OrderedText> detailLines=textRenderer.wrapLines(Text.literal(s.detail()),usable-8);
+        // Diagnostics are shown in the VISIBLE top area even at high GUI scale.
+        String readableDetail=progress.checkStatus().isBlank()
+            ?s.detail():progress.briefCheckStatus();
+        List<OrderedText> detailLines=textRenderer.wrapLines(Text.literal(readableDetail),usable-8);
         for(int i=0;i<Math.min(3,detailLines.size());i++) {
             int y=top+unit*4+i*11;
             if(y+11>=footerY)break;
             ctx.drawCenteredTextWithShadow(textRenderer,detailLines.get(i),width/2,y,0xC5D8E1);
         }
+
+        drawIfFits(ctx,progress.lastStreamSummary(),inset,
+            top+unit*7,usable,footerY,0xFFB7D8E5);
 
         int barY=top+unit*8;
         int barX=inset,barW=usable;

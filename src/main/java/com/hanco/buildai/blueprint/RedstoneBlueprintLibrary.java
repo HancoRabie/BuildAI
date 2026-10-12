@@ -90,6 +90,16 @@ public final class RedstoneBlueprintLibrary {
                     String exemplar=Blueprint.id(symbols.get(symbol));
                     if(!Blueprint.id(state).equals(exemplar))
                         throw new IllegalStateException("Symbol mismatch "+symbol+" / "+state);
+                    // The main value of RBL is NOT having to re-infer the
+                    // direction/delay/mode of a known component. Treat
+                    // directional glyphs as exact, state-locked recipes.
+                    boolean directional=symbol.matches("R[1-4][<>^v]")||
+                        symbol.matches("C[01][<>^v]")||
+                        symbol.matches("(?:O|P|SP)[<>^v]")||
+                        symbol.startsWith("H");
+                    if(directional&&!state.equals(symbols.get(symbol)))
+                        throw new IllegalStateException("Directional glyph "+
+                            symbol+" has wrong Java 1.21.1 block state: "+state);
                     if(!state.startsWith("minecraft:"))
                         throw new IllegalStateException("Not a Minecraft block: "+state);
                     at.put(x+","+y+","+z,symbol);

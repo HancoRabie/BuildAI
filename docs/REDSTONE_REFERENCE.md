@@ -13,7 +13,7 @@ some redstone-relevant entities, which are explicitly identified as entities).
 ## Automatic AI usage
 
 Both of BuildAI's inference routes—connected ChatGPT and developer API
-generation—load the **entire packaged master handbook as developer/system
+generation—load **relevant sections of the cached packaged master handbook as developer/system
 context** whenever a player's new request or existing design involves redstone,
 automated machines, pistons, logic circuits, sorters, command blocks, or
 functional minigames. Revisions keep that context even if the immediate

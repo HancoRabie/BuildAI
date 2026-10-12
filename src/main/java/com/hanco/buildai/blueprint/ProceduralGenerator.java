@@ -105,6 +105,34 @@ public final class ProceduralGenerator {
             }
         }
         if(repairCount>24)b.warnings.add((repairCount-24)+" further AI block-state repairs made; review the design visually.");
+        if(repairer!=null){
+            // Repair only an unambiguous local pattern: upstream dedicated
+            // power source -> repeater -> output device. Both actual voxels
+            // AND the generated JSON specification receive the same patch,
+            // so saved revision history never reintroduces the wrong facing.
+            List<RedstoneFacingGuard.Fix> flips=RedstoneFacingGuard.unambiguousReversals(b);
+            int corrected=0;
+            for(RedstoneFacingGuard.Fix fix:flips){
+                if(ops.size()>=16000){
+                    b.warnings.add("REDSTONE QA: Some clearly reversed repeaters could "+
+                        "not be corrected because the 16000-operation AI output limit "+
+                        "was reached. Review their input/output direction.");
+                    break;
+                }
+                b.set(fix.x(),fix.y(),fix.z(),fix.after());
+                JsonObject patch=new JsonObject();
+                patch.addProperty("kind","fill");patch.addProperty("block",fix.after());
+                patch.addProperty("x1",fix.x());patch.addProperty("x2",fix.x());
+                patch.addProperty("y1",fix.y());patch.addProperty("y2",fix.y());
+                patch.addProperty("z1",fix.z());patch.addProperty("z2",fix.z());
+                ops.add(patch);
+                corrected++;
+            }
+            if(corrected>0)b.warnings.add("REDSTONE REPAIR: corrected "+corrected+
+                " clearly reversed repeater(s). Java 1.21.1 facing property points "+
+                "toward the INPUT; the physical front/output is opposite. "+
+                "Complex ambiguous circuits still require in-world testing.");
+        }
         // AI can declare the actual command and block-entity settings separately
         // from the geometry. Their activation always requires operator approval.
         if(root.has("commands")){

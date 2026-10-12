@@ -28,6 +28,9 @@ public final class RedstoneKnowledge {
         "functional (?:arena|game|capture the flag|ctf|machine)|"+
         "capture the flag|ctf|logic circuit|pulse generator|"+
         "item sort(?:er|ing)|auto.?craft(?:er|ing)|item filter|"+
+        "roller[ -]?coaster|minecarts?|railway|railroad|rail tracks?|"+
+        "powered rails?|train tracks?|water flush(?:ing)?|irrigation|"+
+        "water channels?|lava channels?|automated farms?|"+
         "timed gate|self.opening door|piston elevator)\\b",
         Pattern.CASE_INSENSITIVE|Pattern.UNICODE_CASE);
 

@@ -1,5 +1,58 @@
 # BuildAI Redstone Engineering Reference (Java 1.21.1)
 
+The **primary, bundled guide** is now the
+[BuildAI Redstone Master Handbook](../src/main/resources/assets/buildai/redstone_master_handbook.txt).
+This extensive Java 1.21.1 reference covers source blocks, dust, repeaters,
+comparators, memory/latches, timing, update order, quasi-connectivity,
+observers, pistons, item logistics, automating crafting, rails, command
+block commissioning, and circuit test scenarios. The
+[machine-readable glossary](../src/main/resources/assets/buildai/redstone_reference.json)
+lists the key mechanics and quirks of **59 component families** (including
+some redstone-relevant entities, which are explicitly identified as entities).
+
+## Automatic AI usage
+
+Both of BuildAI's inference routes—connected ChatGPT and developer API
+generation—load the **entire packaged master handbook as developer/system
+context** whenever a player's new request or existing design involves redstone,
+automated machines, pistons, logic circuits, sorters, command blocks, or
+functional minigames. Revisions keep that context even if the immediate
+revision asks to change only decorative architecture. For ordinary builds,
+BuildAI sends only a compact redstone reminder to avoid unnecessary latency.
+
+The AI is instructed to produce actual signal-bearing block geometry plus a
+top-level `redstone_plan.circuits` audit manifest for each functional circuit.
+Each entry documents `name`, `input`, `signalPath`, `output`, `timing`,
+`reset`, and `test`. A read-only redstone QA pass flags missing real
+components, controls/outputs, unsupported dust, default-faced directional
+blocks, and incomplete circuit plans.
+
+**Important:** referencing a technical handbook is not the same as training
+the model, proving electrical behavior or performing a game-level simulation.
+No generated redstone machine should be advertised as tested until verified in
+Minecraft Java 1.21.1. Some setups need genuine inventory NBT or entities that
+ordinary voxel schematics do not carry (e.g. crafter recipes, item frames).
+
+## Version-specific correction
+
+In Java 1.21, copper-bulb **oxidation changes brightness** (15/12/8/4),
+not redstone timing. Crafters use redstone pulses and comparator output
+0..9 based on occupied or disabled slots and **are not quasi-connected**.
+Quasi-connectivity does affect Java pistons, droppers and dispensers.
+The later 1.21.2 **experimental** dust update-order rules should not be
+assumed for the 1.21.1 engine.
+
+### Fact-check references
+
+- [Minecraft Java 1.21 official release notes](https://feedback.minecraft.net/hc/en-us/articles/27547857163917-Minecraft-Java-Edition-1-21-Tricky-Trials)
+- [Official Minecraft comparator explanation](https://www.minecraft.net/en-us/article/taking-inventory--redstone-comparator)
+- [Minecraft Wiki Java quasi-connectivity tutorial](https://minecraft.wiki/w/Tutorial:Quasi-connectivity)
+- [Technical Minecraft Wiki quasi-connectivity](https://techmcdocs.github.io/pages/GameMechanics/QuasiConnectivity/)
+- [Minecraft Java 1.21.2 experimental redstone changes](https://feedback.minecraft.net/hc/en-us/articles/31261174284557-Minecraft-Java-Edition-1-21-2-Bundles-of-Bravery)
+
+---
+
+
 Reference notes for AI machine design; not a substitute for function tests.
 
 | Item | Engineering rule |

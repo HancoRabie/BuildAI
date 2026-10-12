@@ -20,7 +20,8 @@ import java.util.*;
  */
 public final class StandaloneCommandReview {
     private StandaloneCommandReview(){}
-    private record Assignment(BlockPos pos,BlockState block,String command){}
+    private record Assignment(BlockPos pos,BlockState block,String command,
+                              boolean auto,boolean trackOutput){}
     private record Pending(ServerWorld world,List<Assignment> entries){}
     private static final Map<UUID,Pending> STAGED=new HashMap<>();
 
@@ -52,7 +53,7 @@ public final class StandaloneCommandReview {
         List<Assignment> entries=new ArrayList<>();
         if(pending!=null&&pending.world()==world)entries.addAll(pending.entries());
         entries.removeIf(e->e.pos().equals(pos));
-        entries.add(new Assignment(pos.toImmutable(),state,command.trim()));
+        entries.add(new Assignment(pos.toImmutable(),state,command.trim(),false,false));
         entries.sort(Comparator.comparingInt((Assignment e)->e.pos().getY())
             .thenComparingInt(e->e.pos().getZ())
             .thenComparingInt(e->e.pos().getX()));
@@ -105,7 +106,8 @@ public final class StandaloneCommandReview {
                     valid=false;break;
                 }
                 CommandBlockPlan.validateCommand(e.command());
-                assignments.add(new Assignment(at.toImmutable(),world.getBlockState(at),e.command()));
+                assignments.add(new Assignment(at.toImmutable(),world.getBlockState(at),
+                    e.command(),e.auto(),e.trackOutput()));
             }
             if(valid)matches.add(assignments);
             if(matches.size()>1)break;
@@ -150,7 +152,7 @@ public final class StandaloneCommandReview {
             var entry=p.entries().get(i);
             values.add(new CommandReviewPayload.Item(i+1,entry.pos().subtract(first),
                 Registries.BLOCK.getId(entry.block().getBlock()).toString(),
-                entry.command(),false,false));
+                entry.command(),entry.auto(),entry.trackOutput()));
         }
         return new CommandReviewPayload("Existing Command Blocks — Recovery",first,values);
     }
@@ -174,12 +176,25 @@ public final class StandaloneCommandReview {
         for(int i:selected){
             Assignment e=p.entries().get(i);
             var tile=inspect(p.world(),e.pos(),e.block());
-            tile.setAuto(false); // safe default, buttons/redstone required
+            tile.setAuto(false); // ALL scripts written before auto execution.
             tile.getCommandExecutor().setCommand(e.command());
-            tile.getCommandExecutor().setTrackOutput(false);
+            tile.getCommandExecutor().setTrackOutput(e.trackOutput());
+            if(!e.command().equals(tile.getCommandExecutor().getCommand()))
+                throw new IllegalStateException("Script not stored at "+e.pos().toShortString());
             tile.markDirty();
             p.world().updateListeners(e.pos(),e.block(),e.block(),Block.NOTIFY_LISTENERS);
             completed++;
+        }
+        // Automatic/repeating cells are armed ONLY after every selected script
+        // is installed. Manual crosshair scripts retain redstone-only mode.
+        for(int i:selected){
+            Assignment e=p.entries().get(i);
+            CommandBlockBlockEntity tile=inspect(p.world(),e.pos(),e.block());
+            if(!e.command().equals(tile.getCommandExecutor().getCommand()))
+                throw new IllegalStateException("Command text changed before activation #"+(i+1));
+            tile.setAuto(e.auto());
+            tile.markDirty();
+            p.world().updateListeners(e.pos(),e.block(),e.block(),Block.NOTIFY_LISTENERS);
         }
         STAGED.remove(player.getUuid());
         return completed;

@@ -1,6 +1,7 @@
 package com.hanco.buildai.blueprint;
 
 import net.minecraft.nbt.*;
+import com.google.gson.JsonArray;
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
@@ -45,6 +46,12 @@ public final class SchematicReader {
             }while((octet&128)!=0);
             if(!states.containsKey(v))throw new IllegalArgumentException("Unknown palette index "+v);
             b.set(x,y,z,states.get(v));
+        }
+        if(c.contains("BuildAICommandPlan")){
+            JsonArray commands=com.google.gson.JsonParser.parseString(
+                c.getString("BuildAICommandPlan")).getAsJsonArray();
+            b.setCommands(CommandBlockPlan.decode(commands,b));
+            b.warnings.add("Command-block scripts imported as INERT metadata; operator approval is required.");
         }
         b.warnings.add("Imported entity and block-entity payloads skipped for safety.");
         return b;

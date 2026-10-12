@@ -69,6 +69,19 @@ Reference notes for AI machine design; not a substitute for function tests.
 | Rails | Normal, detector, powered, activator have different functions. |
 | Doors, stairs and slabs | Must preserve hinge, facing, shape, half and fluid flags. |
 
+## Direction-relative redstone module placement
+
+RBL illustrations may show `R2>` only because the reusable sample is drawn
+eastward. That does **not** restrict which way a repeater, comparator,
+observer or piston must point when building. BuildAI now resolves
+north/south/east/west orientation from the **actual target/output position**
+and rotates canonical XYZ cells, state facings, supports and input/output
+ports together. Java repeaters/comparators/observers use a rear/observed
+`facing` opposite the physical output; pistons use `facing` as extension
+direction. The source's direction is not chosen from the player's camera.
+Some unusual block families cannot safely auto-rotate and must fail rather
+than silently apply an incorrect orientation.
+
 ## Validation tiers
 1. Parseable block states and 3-axis voxel coverage
 2. Dependency checks, support and clearance

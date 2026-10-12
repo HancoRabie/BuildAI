@@ -207,15 +207,18 @@ public final class RedstoneBlueprintLibrary {
             "redstone output: "+symbol);
     }
 
-    /** A one-block-adjacent horizontal output connection has one direction. */
+    /** Target on a straight horizontal signal path; diagonal/vertical
+     * targets need an explicit routed next-hop port, not guessed rotation.
+     * This calculates an AXIS, not the presence of any physical conductor. */
     public static String directionToward(int x,int y,int z,
                                          int targetX,int targetY,int targetZ){
         if(y!=targetY)
-            throw new IllegalArgumentException("Repeater/comparator connections must be horizontal");
+            throw new IllegalArgumentException("Repeater/comparator outputs are horizontal");
         int dx=targetX-x,dz=targetZ-z;
-        if(Math.abs(dx)+Math.abs(dz)!=1)
-            throw new IllegalArgumentException("Target must be adjacent N/S/E/W");
-        return dx==1?"east":dx==-1?"west":dz==1?"south":"north";
+        if((dx==0)==(dz==0))
+            throw new IllegalArgumentException(
+                "Target must be distinct and aligned N/S/E/W; use a path port for turns");
+        return dx>0?"east":dx<0?"west":dz>0?"south":"north";
     }
 
     public static String orientedStateToward(String symbol,

@@ -29,7 +29,7 @@ public final class BuildAICommandReviewScreen extends Screen {
     private int x(){return (width-panelWidth())/2;}
     private int footer(){return height-28;}
     private int textStart(){return 91;}
-    private int linesVisible(){return Math.max(1,(footer()-textStart()-19)/11);}
+    private int linesVisible(){return Math.max(1,(footer()-textStart()-49)/11);}
     private List<OrderedText> wrapped(){
         if(entries().isEmpty())return textRenderer.wrapLines(
             Text.literal("No command-block instructions attached to this blueprint."),panelWidth()-20);
@@ -51,6 +51,10 @@ public final class BuildAICommandReviewScreen extends Screen {
     }
     @Override protected void init(){
         int left=x(),w=panelWidth(),gap=5;
+        if(height<190){
+            control("BACK",left,Math.max(4,height-24),w,this::close);
+            return;
+        }
         int half=(w-gap)/2;
         int top=footer()-46;
         if(top<90)top=90; // very small scaled windows show only the first page
@@ -74,6 +78,13 @@ public final class BuildAICommandReviewScreen extends Screen {
     @Override public void render(DrawContext ctx,int mx,int my,float delta){
         int left=x(),w=panelWidth(),top=8;
         ctx.fill(left-7,top,left+w+7,height-4,0xF0142835);
+        if(height<190){
+            ctx.drawCenteredTextWithShadow(textRenderer,
+                textRenderer.trimToWidth("Enlarge window or reduce Minecraft GUI Scale for complete command review.",w-12),
+                width/2,Math.min(height-43,25),GOLD);
+            super.render(ctx,mx,my,delta);
+            return;
+        }
         ctx.fill(left-7,top,left+w+7,top+3,MINT);
         ctx.drawCenteredTextWithShadow(textRenderer,"COMMAND BLOCK MAP  |  IN-GAME REVIEW",
             width/2,top+9,MINT);
@@ -92,7 +103,7 @@ public final class BuildAICommandReviewScreen extends Screen {
         }
         ctx.drawTextWithShadow(textRenderer,"EXACT STORED COMMAND",left+10,top+72,MINT);
         List<OrderedText> text=wrapped();
-        int shown=Math.max(1,(footer()-textStart()-49)/11);
+        int shown=linesVisible();
         int pages=Math.max(1,(text.size()+shown-1)/shown);
         textPage=Math.min(textPage,pages-1);
         for(int i=textPage*shown;i<Math.min(text.size(),(textPage+1)*shown);i++){

@@ -46,6 +46,49 @@ public class BuildRequirementAuditTest {
         var invalid=BuildRequirementAudit.inspect(b,"Bridge with detail",falseClaim);
         assertTrue(invalid.suggestions().stream().anyMatch(s->s.contains("UNVERIFIED")));
     }
+    @Test void plainChestRequestCannotBeSilentlySatisfiedByTrappedChest(){
+        Blueprint b=new Blueprint("Basic storage",8,5,8);
+        b.set(2,2,2,"minecraft:trapped_chest");
+        var wrong=BuildRequirementAudit.inspect(b,
+            "Create one simple chest to store my items",null);
+        assertTrue(wrong.blockers().stream().anyMatch(x->
+            x.contains("Requested chest is absent")),wrong.warnings().toString());
+        b.set(2,2,2,"minecraft:chest");
+        var fixed=BuildRequirementAudit.inspect(b,
+            "Create one simple chest to store my items",null);
+        assertTrue(fixed.blockers().isEmpty(),fixed.warnings().toString());
+    }
+
+    @Test void trappedOrRedstoneChestRequiresActualOpeningSignalChest(){
+        Blueprint b=new Blueprint("Open signal",8,5,8);
+        b.set(2,2,2,"minecraft:chest");
+        for(String request:new String[]{
+            "Place a trapped chest that emits redstone when opened",
+            "Build a redstone chest that powers the lamp when someone opens it"}) {
+            var wrong=BuildRequirementAudit.inspect(b,request,null);
+            assertTrue(wrong.blockers().stream().anyMatch(x->
+                x.contains("trapped chest is absent")),wrong.warnings().toString());
+        }
+        b.set(2,2,2,"minecraft:trapped_chest");
+        var correct=BuildRequirementAudit.inspect(b,
+            "Place a trapped chest in the display",null);
+        assertFalse(correct.blockers().stream().anyMatch(x->
+            x.contains("chest is absent")),correct.warnings().toString());
+    }
+
+    @Test void explicitNoTrappedChestDoesNotCreatePositiveChestRequirement(){
+        Blueprint normal=new Blueprint("Normal room",8,5,8);
+        normal.set(2,2,2,"minecraft:chest");
+        var okay=BuildRequirementAudit.inspect(normal,
+            "Build a normal room. No trapped chests.",null);
+        assertTrue(okay.blockers().isEmpty(),okay.warnings().toString());
+        normal.set(2,2,2,"minecraft:trapped_chest");
+        var wrong=BuildRequirementAudit.inspect(normal,
+            "Build a normal room. No trapped chests.",null);
+        assertTrue(wrong.blockers().stream().anyMatch(x->
+            x.contains("despite player's instruction")),wrong.warnings().toString());
+    }
+
     @Test void cannotImproveByShrinkingAnUnfinishedDesign(){
         Blueprint before=new Blueprint("Build",8,5,8);
         before.set(1,1,1,"minecraft:stone");

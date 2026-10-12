@@ -107,6 +107,12 @@ public class RedstoneBlueprintLibraryTest {
             RedstoneBlueprintLibrary.directionToward(0,1,0,0,2,0));
         assertThrows(IllegalArgumentException.class,()->
             RedstoneBlueprintLibrary.directionToward(0,1,0,1,1,1));
+        assertEquals("north",RedstoneBlueprintLibrary.directionToward(
+            5,1,9,5,1,0),"Long straight run must point toward its far destination");
+        assertEquals("east",RedstoneBlueprintLibrary.directionToward(
+            1,1,3,12,1,3),"Long straight run must point east toward target");
+        assertThrows(IllegalArgumentException.class,()->
+            RedstoneBlueprintLibrary.directionToward(5,1,9,5,1,9));
     }
 
     @Test void fullCircuitAndPortsRotateCorrectlyInAllFourDirections(){

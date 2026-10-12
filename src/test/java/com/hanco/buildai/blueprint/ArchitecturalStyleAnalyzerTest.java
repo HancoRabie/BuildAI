@@ -24,7 +24,7 @@ public class ArchitecturalStyleAnalyzerTest {
         assertTrue(result.report().contains("minecraft:oak_stairs="),result.report());
         assertTrue(result.report().contains("minecraft:glass_pane="));
         assertTrue(result.report().contains("Detail vocabulary"));
-        assertTrue(result.report().contains("EXACT DETAIL EXCERPTS"));
+        assertTrue(result.report().contains("DETAIL TECHNIQUE SAMPLES"));
         assertTrue(result.report().contains("focal block"));
     }
 

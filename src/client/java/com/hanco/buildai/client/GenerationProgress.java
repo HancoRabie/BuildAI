@@ -126,10 +126,11 @@ public final class GenerationProgress {
         return probeResult.length()>140?probeResult.substring(0,140):probeResult;
     }
     public synchronized String lastStreamSummary(){
+        String noun=finished?"Last request: ":"Active request: ";
         if(lastStreamEventNanos==0)
-            return "Active request: "+(responseAccepted?"HTTP 200":"awaiting HTTP response")+
+            return noun+(responseAccepted?"HTTP 200":"awaiting HTTP response")+
                 " | No SSE stream event received yet";
-        return "Active request: "+(responseAccepted?"HTTP 200":"connecting")+
+        return noun+(responseAccepted?"HTTP 200":"connecting")+
             " | Last SSE: "+lastStreamEvent+" "+
             ((System.nanoTime()-lastStreamEventNanos)/1_000_000_000L)+"s ago";
     }

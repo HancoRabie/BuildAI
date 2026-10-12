@@ -36,6 +36,13 @@ public final class Blueprint {
         commands=CommandBlockPlan.mappedInBuildOrder(this,entries);
     }
 
+    /** Non-executable literal labels, installed after sign block placement. */
+    private List<SignTextPlan.Entry> signs=List.of();
+    public List<SignTextPlan.Entry> signs(){return signs;}
+    public void setSigns(List<SignTextPlan.Entry> entries){
+        signs=SignTextPlan.checked(this,entries);
+    }
+
     public Blueprint(String name, int width, int height, int length) {
         long volume = (long)width * height * length;
         if (width < 1 || height < 1 || length < 1 || volume > MAX_VOLUME)

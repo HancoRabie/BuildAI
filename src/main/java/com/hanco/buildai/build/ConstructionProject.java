@@ -17,14 +17,16 @@ import net.minecraft.util.math.*;
  */
 public final class ConstructionProject {
     public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, CINEMATIC_PULL, COMPLETE, CANCELLED, PAUSED_ERROR }
-    public final Blueprint blueprint;
+    public Blueprint blueprint;
+    private final Blueprint sourceBlueprint;
+    private int rotation=0;
     public final UUID owner;
     public final boolean creative;
     public final int surfaceLayer;
     public final ServerWorld world;
     public Phase phase=Phase.SELECT_XZ;
     public BlockPos origin=BlockPos.ORIGIN;
-    private final List<BlockPos> order;
+    private List<BlockPos> order;
     private int excavationIndex=0,removedCount=0,constructionIndex=0,normalizeIndex=0,normalizedPanes=0;
     private final Map<BlockPos,BlockState> originals=new LinkedHashMap<>();
     private final Set<BlockPos> modified=new HashSet<>();
@@ -62,7 +64,7 @@ public final class ConstructionProject {
     }
 
     public ConstructionProject(ServerPlayerEntity player,Blueprint blueprint,int surfaceLayer) {
-        this.blueprint=blueprint;this.owner=player.getUuid();this.world=player.getServerWorld();
+        this.blueprint=blueprint;this.sourceBlueprint=blueprint;this.owner=player.getUuid();this.world=player.getServerWorld();
         this.creative=player.isCreative();
         this.surfaceLayer=surfaceLayer;
         this.order=blueprint.ordered();
@@ -70,15 +72,21 @@ public final class ConstructionProject {
     public void retryPlacement() {
         if (phase!=Phase.SELECT_XZ && phase!=Phase.SELECT_SURFACE && phase!=Phase.REVIEW)
             throw new IllegalStateException("Cannot reposition after excavation has begun");
+        blueprint=sourceBlueprint;order=sourceBlueprint.ordered();rotation=0;
         origin=BlockPos.ORIGIN;collisions=0;phase=Phase.SELECT_XZ;
     }
     /** Preview is free to move client-side; only this method locks a server-approved XYZ origin. */
-    public void selectOrigin(BlockPos proposal) {
+    public void selectOrigin(BlockPos proposal,int quarterTurns) {
         if(phase!=Phase.SELECT_XZ && phase!=Phase.SELECT_SURFACE && phase!=Phase.REVIEW)
             throw new IllegalStateException("Placement cannot change once construction begins");
+        if(quarterTurns<0||quarterTurns>3)
+            throw new IllegalArgumentException("Invalid 90-degree rotation");
+        // Build a separate candidate so a failed lock never mutates the active
+        // blueprint, even if the intended footprint changes from W×L to L×W.
+        Blueprint candidate=BlueprintRotator.rotate(sourceBlueprint,quarterTurns);
         int count=0;
         // Validate all cells first. A failed selection must never overwrite the prior approved preview.
-        for(int y=0;y<blueprint.height;y++)for(int z=0;z<blueprint.length;z++)for(int x=0;x<blueprint.width;x++){
+        for(int y=0;y<candidate.height;y++)for(int z=0;z<candidate.length;z++)for(int x=0;x<candidate.width;x++){
             BlockPos pos=proposal.add(x,y,z);
             if(!world.isInBuildLimit(pos)||!world.isChunkLoaded(pos))
                 throw new IllegalArgumentException("Entire blueprint must be inside loaded world limits");
@@ -87,6 +95,9 @@ public final class ConstructionProject {
             if(previous.hasBlockEntity()||previous.isOf(Blocks.BEDROCK))
                 throw new IllegalArgumentException("Blocked by protected inventory/bedrock at "+pos.toShortString());
         }
+        blueprint=candidate;
+        order=candidate.ordered();
+        rotation=quarterTurns;
         origin=proposal.toImmutable();
         collisions=count;
         phase=Phase.REVIEW;

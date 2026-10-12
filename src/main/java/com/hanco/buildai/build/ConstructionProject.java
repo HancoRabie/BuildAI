@@ -27,6 +27,15 @@ public final class ConstructionProject {
     public Phase phase=Phase.SELECT_XZ;
     public BlockPos origin=BlockPos.ORIGIN;
     private List<BlockPos> order;
+    private ConstructionOptions constructionOptions=ConstructionOptions.DEFAULT;
+    private int omittedFoundationBlocks=0;
+    public int omittedFoundationBlocks(){return omittedFoundationBlocks;}
+    private Set<Integer> foundationOmissions=Set.of();
+    public ConstructionOptions constructionOptions(){return constructionOptions;}
+    private boolean plannedSupport(int x,int y,int z){
+        return !blueprint.isAir(x,y,z) &&
+            !foundationOmissions.contains(blueprint.index(x,y,z));
+    }
     private int excavationIndex=0,removedCount=0,constructionIndex=0,normalizeIndex=0,normalizedPanes=0;
     private int normalizePass=0,normalizedRedstone=0,refreshedRedstone=0;
     private boolean manualNormalize=false;
@@ -172,6 +181,8 @@ public final class ConstructionProject {
         blueprint=sourceBlueprint;order=sourceBlueprint.ordered();rotation=0;
         refreshSignLabels();
         origin=BlockPos.ORIGIN;collisions=0;phase=Phase.SELECT_XZ;
+        constructionOptions=ConstructionOptions.DEFAULT;
+        foundationOmissions=Set.of();omittedFoundationBlocks=0;
         commandsApproved=false;approvedCommandIndices=Set.of();programmingIndex=0;armingIndex=0;
     }
     /** Preview is free to move client-side; only this method locks a server-approved XYZ origin. */
@@ -192,8 +203,10 @@ public final class ConstructionProject {
                 throw new IllegalArgumentException("Entire blueprint must be inside loaded world limits");
             BlockState previous=world.getBlockState(pos);
             if(!previous.isAir())count++;
-            if(previous.hasBlockEntity()||previous.isOf(Blocks.BEDROCK))
-                throw new IllegalArgumentException("Blocked by protected inventory/bedrock at "+pos.toShortString());
+            // This is a PREVIEW: confirmation options are chosen later.
+            // Overlay mode may preserve untouched terrain (including a chest
+            // in a blueprint AIR cell). The selected mode is safety-scanned
+            // again at CONFIRM, before any actual mutation occurs.
         }
         blueprint=candidate;
         refreshSignLabels();
@@ -203,18 +216,73 @@ public final class ConstructionProject {
         collisions=count;
         phase=Phase.REVIEW;
     }
-    public void confirm() {
-        if(phase!=Phase.REVIEW)throw new IllegalStateException("Placement is not locked. Close F8, press G to freeze the visible preview (no ground target required), adjust with arrows/wheel, then ENTER to lock before /buildai confirm.");
+    public void confirm(){
+        confirm(ConstructionOptions.DEFAULT);
+    }
+    /**
+     * Preflight the ACTUAL write-set before starting. Full excavation clears
+     * every cell in the selected volume. Overlay writes only actual
+     * non-air blueprint cells (minus an identifiable optional foundation).
+     * Both modes must refuse inventory/bedrock at any cell they would touch.
+     */
+    public void confirm(ConstructionOptions requested){
+        if(phase!=Phase.REVIEW)throw new IllegalStateException(
+            "Placement is not locked. Close F8, freeze/adjust the preview, "+
+            "press ENTER, then /buildai confirm foundation:no excavate:no.");
+        Objects.requireNonNull(requested,"Confirmation flags");
+        Set<Integer> skip=requested.foundation()?Set.of():
+            ConstructionOptions.identifiedFoundation(blueprint);
+        List<BlockPos> selectedOrder=new ArrayList<>();
+        for(BlockPos local:blueprint.ordered())
+            if(!skip.contains(blueprint.index(local.getX(),local.getY(),local.getZ())))
+                selectedOrder.add(local);
+        if(selectedOrder.isEmpty())
+            throw new IllegalStateException("No blueprint blocks remain after "+
+                "foundation selection. Construction was not started.");
+
+        if(requested.excavate()){
+            // Only full clearing requires checking blueprint AIR voxels too.
+            for(int y=0;y<blueprint.height;y++)for(int z=0;z<blueprint.length;z++)
+                for(int x=0;x<blueprint.width;x++){
+                    BlockPos at=origin.add(x,y,z);
+                    if(!world.isChunkLoaded(at))
+                        throw new IllegalStateException("Site contains unloaded chunks");
+                    BlockState previous=world.getBlockState(at);
+                    if(previous.hasBlockEntity()||previous.isOf(Blocks.BEDROCK))
+                        throw new IllegalStateException("Protected block in excavation "+
+                            "volume at "+at.toShortString()+
+                            ". Use excavate:no if that cell is outside the painted blocks.");
+                }
+        }else{
+            for(BlockPos local:selectedOrder){
+                BlockPos at=origin.add(local);
+                if(!world.isChunkLoaded(at))
+                    throw new IllegalStateException("Site contains unloaded chunks");
+                BlockState previous=world.getBlockState(at);
+                if(previous.hasBlockEntity()||previous.isOf(Blocks.BEDROCK))
+                    throw new IllegalStateException("Protected block overlaps "+
+                        "painted blueprint at "+at.toShortString()+
+                        ". Overlay mode cannot replace protected blocks.");
+            }
+        }
+        constructionOptions=requested;
+        foundationOmissions=skip;
+        omittedFoundationBlocks=skip.size();
+        order=List.copyOf(selectedOrder);
         // Command approval is intentionally AFTER physical construction,
         // never a pre-confirm race for small, fast-build projects.
-        // No multi-million-block snapshot on the server tick! Save affected
-        // ORIGINAL states lazily, exactly before each excavation/placement.
-        // A previously AIR cell is represented by absence from originals.
+        // Original states are recorded lazily when ACTUALLY modified.
         hasSnapshot=true;
-        excavationSamples.clear();excavationSampleIds.clear();sampledRemovalCount=0;removedCount=0;blackHoleTicks=0;
-        phase=Phase.EXCAVATE;
-        if(cinematic && collisions>0)excavationCue(
-            com.hanco.buildai.net.CinematicExcavationPayload.PREPARE,0);
+        excavationSamples.clear();excavationSampleIds.clear();
+        sampledRemovalCount=0;removedCount=0;blackHoleTicks=0;
+        if(requested.excavate()){
+            phase=Phase.EXCAVATE;
+            if(cinematic && collisions>0)excavationCue(
+                com.hanco.buildai.net.CinematicExcavationPayload.PREPARE,0);
+        }else{
+            excavationIndex=0;
+            phase=Phase.BUILD;
+        }
     }
     private void excavationCue(int stage,int duration){
         net.minecraft.server.network.ServerPlayerEntity player=
@@ -499,7 +567,7 @@ public final class ConstructionProject {
             }
             // Cosmetic construction scaffolding under overhanging slabs/stairs; not in manifest.
             if(local.getY()>0 &&
-                blueprint.isAir(local.getX(),local.getY()-1,local.getZ()) &&
+                !plannedSupport(local.getX(),local.getY()-1,local.getZ()) &&
                 (target.getBlock() instanceof SlabBlock || target.getBlock() instanceof StairsBlock)) {
                 BlockPos under=pos.down();
                 if(world.getBlockState(under).isAir()){
@@ -563,7 +631,9 @@ public final class ConstructionProject {
         return switch(phase){
             case EXCAVATE->"Excavating only obstructing blocks; existing air is untouched";
             case CINEMATIC_PULL->"Excavation complete; terrain spirals into black hole";
-            case BUILD->"Building blueprint in progressive layers";
+            case BUILD->constructionOptions.excavate()
+                ?"Building blueprint in progressive layers"
+                :"Overlaying specified blueprint blocks only; preserving empty/unused terrain";
             case WAITING_SUPPLIES->normalizePass==2 && constructionIndex>=order.size()
                 ? "Waiting for fluid supplies: 2 water buckets total (renewable) "+
                   "and 1 lava bucket per source, then fluid normalization resumes"

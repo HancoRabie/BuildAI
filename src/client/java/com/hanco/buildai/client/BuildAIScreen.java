@@ -471,7 +471,8 @@ public final class BuildAIScreen extends Screen {
         if(tab==0){
             // The prompt field already has a placeholder: do NOT overdraw the
             // Feedback & Styles button on row 2 with a second label.
-            String account=ChatGPTSignIn.connected()?"ChatGPT connected: "+ChatGPTSignIn.accountLabel():
+            // Demo-safe indicator: do not print OAuth email/subject here.
+            String account=ChatGPTSignIn.connected()?"ChatGPT: Connected":
                 "ChatGPT: Not connected | Continue with ChatGPT to generate without API key";
             ctx.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(account,panelWidth),x,row(4),0xA4C7DA);
             if(showApiKey)ctx.drawTextWithShadow(textRenderer,"Optional developer API key (separate billing)",x,row(6),0xBFC6D2);

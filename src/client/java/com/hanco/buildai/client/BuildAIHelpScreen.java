@@ -44,6 +44,9 @@ public final class BuildAIHelpScreen extends Screen {
         },
         {
             "F8 > Feedback & Styles opens your local learning library. Select a past saved blueprint, choose a rating from 1 to 5, add detailed likes/dislikes, and click Save Feedback. Only user-saved feedback guides future prompts.",
+            "For FULL building references without signs, open Analyze Whole Builds / Reference Library. Choose a saved build, paste a local .schem/.schematic/.litematic/.nbt path, or put multiple files into buildai/style-references and click Scan Reference Folder.",
+            "Whole-build analysis records the real block palette, roof-area stair/slab counts, height distribution and several compact 3D detail excerpts. After you approve a reference it is saved locally and may influence subsequent AI building prompts.",
+            "This is voxel/statistical analysis, NOT proof the AI visually understood every facade, room or structural technique. Inspect complex geometry and use styles only from builds you have permission to reference.",
             "You can also choose a local .schem or .nbt decoration pack. Place a sign immediately in front of each example. Write [BuildAI] on its first line and Chair, Table, Fountain, etc on its second line.",
             "Click Learn Labeled Decorations. BuildAI scans a small bounded cluster of real blocks around each sign, stores it locally, and includes selected examples as style references in future ChatGPT requests. It does not execute schematic NBT or transmit the whole file.",
             "Saved preferences live in the client game directory at buildai/style-memory.json. They are not included in GitHub and are not machine-learning model training.",

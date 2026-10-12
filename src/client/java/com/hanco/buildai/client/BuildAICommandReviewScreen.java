@@ -130,8 +130,14 @@ public final class BuildAICommandReviewScreen extends Screen {
             x+2*(third+gap),height-61,w-2*(third+gap),20,()->approve(true))
             .active=serverReview&&!waiting&&!approved&&!entries().isEmpty();
         add("BACK / REVIEW LATER",x,height-34,half,20,this::close);
-        add("SCROLL TO SELECTED",x+half+gap,height-34,half,20,()->{
-            offset=Math.min(maxOffset(),Math.max(0,selected-visible()/2));
+        add("SHOW FULL SCRIPT IN CHAT",x+half+gap,height-34,half,20,()->{
+            var item=focus();
+            if(item!=null&&client!=null&&client.player!=null){
+                client.player.sendMessage(Text.literal("[BuildAI] #"+item.number()+
+                    " | "+CommandPurpose.summary(item.command())+
+                    " | "+item.command()),false);
+                status="Full command #"+item.number()+" posted to Minecraft chat for inspection.";
+            }
         }).active=!entries().isEmpty();
     }
     @Override public boolean mouseScrolled(double mx,double my,double dx,double dy){

@@ -44,7 +44,7 @@ public final class ConstructionProject {
     private boolean hasSnapshot=false;
     private List<BlockPos> rollbackOrder=List.of();
     private int rollbackCheckIndex=0,rollbackIndex=0;
-    private boolean rollbackOverride=false;
+    private boolean rollbackOverride=false,rollbackFinished=false;
     public int rollbackProgress(){return rollbackIndex;}
     public int rollbackSize(){return rollbackOrder.size();}
     private boolean commandsApproved=false;
@@ -197,6 +197,7 @@ public final class ConstructionProject {
                 rollbackIndex++;
             }
             if(rollbackIndex>=rollbackOrder.size()){
+                rollbackFinished=true;
                 phase=Phase.CANCELLED;
                 modified.clear();originals.clear();rollbackOrder=List.of();
                 hasSnapshot=false;
@@ -396,7 +397,9 @@ public final class ConstructionProject {
             case ROLLBACK->"Restoring original block states: "+rollbackIndex+"/"+rollbackOrder.size();
             case COMPLETE->"Construction complete";
             case PAUSED_ERROR->"Construction paused due to a safety issue";
-            case CANCELLED->"Project cancelled";
+            case CANCELLED->rollbackFinished
+                ?"Undo finished: original block states restored; supplies not refunded"
+                :"Project cancelled";
             case REVIEW->"Placement locked; awaiting confirmation";
             default->"Positioning blueprint";
         };
@@ -531,7 +534,7 @@ public final class ConstructionProject {
         rollbackOrder=new ArrayList<>(modified);
         rollbackOrder.sort(Comparator.comparingInt(BlockPos::getY)
             .thenComparingInt(BlockPos::getZ).thenComparingInt(BlockPos::getX).reversed());
-        rollbackOverride=override;
+        rollbackOverride=override;rollbackFinished=false;
         rollbackIndex=0;rollbackCheckIndex=0;
         phase=Phase.ROLLBACK_CHECK;
         return rollbackOrder.size();
@@ -549,6 +552,7 @@ public final class ConstructionProject {
                 world.setBlockState(pos,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
         }
         supports.clear();
+        rollbackFinished=false;
         phase=Phase.CANCELLED;
     }
 }

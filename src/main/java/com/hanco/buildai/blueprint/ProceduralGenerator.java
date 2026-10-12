@@ -25,11 +25,30 @@ public final class ProceduralGenerator {
     private static Compilation compileInternal(String json,
             java.util.function.Function<String,AiBlockRepair.Result> repairer) {
         JsonObject root=JsonParser.parseString(json).getAsJsonObject();
-        if(root.has("error"))
-            throw new IllegalArgumentException("AI cannot produce this blueprint at the requested scale: "+
+        // "Cannot guarantee Minecraft testing" is not a valid reason to
+        // discard actual usable geometry. A pure {error: ...} still rejects
+        // true engine-size/operation failures (and is eligible for a single
+        // model correction when it's merely a validation excuse).
+        boolean hasGeometry=root.has("operations")&&root.get("operations").isJsonArray()
+            && !root.getAsJsonArray("operations").isEmpty();
+        if(root.has("error")&&!hasGeometry)
+            throw new IllegalArgumentException("AI returned no usable geometry: "+
                 root.get("error").getAsString());
         int w=number(root,"width",1,512),h=number(root,"height",1,512),d=number(root,"length",1,512);
         Blueprint b=new Blueprint(root.has("name")?root.get("name").getAsString():"AI Design",w,h,d);
+        if(root.has("error")&&hasGeometry)
+            b.warnings.add("MODEL DESIGN CAVEAT: "+
+                trimWarning(root.get("error").getAsString())+
+                ". The actual design remains available for Minecraft testing.");
+        if(root.has("limitations")&&root.get("limitations").isJsonArray()){
+            int shown=0;
+            for(JsonElement item:root.getAsJsonArray("limitations")){
+                if(shown++>=16)break;
+                if(item.isJsonPrimitive())
+                    b.warnings.add("SETUP / IN-GAME TEST: "+
+                        trimWarning(item.getAsString()));
+            }
+        }
         JsonArray ops=root.getAsJsonArray("operations");
         if(ops==null||ops.size()<1||ops.size()>16000)throw new IllegalArgumentException("Expected 1-16000 design operations");
         // Repairs are cached by original state, not repeated for each voxel.
@@ -151,6 +170,11 @@ public final class ProceduralGenerator {
                 "cannot work until a revision supplies the missing command plan.");
         b.validateSlices();
         return new Compilation(b,root.toString());
+    }
+    private static String trimWarning(String text) {
+        if(text==null)return "unspecified";
+        String normalized=text.replaceAll("[\\r\\n\\t]+"," ").trim();
+        return normalized.length()>260?normalized.substring(0,260)+"...":normalized;
     }
     private static int number(JsonObject o,String key,int min,int max) {
         int n=o.get(key).getAsInt();

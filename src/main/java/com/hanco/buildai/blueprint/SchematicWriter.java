@@ -41,6 +41,12 @@ public final class SchematicWriter {
         blocks.putByteArray("Data",encoded.toByteArray());
         blocks.put("BlockEntities",new NbtList());
         schematic.put("Blocks",blocks);
+        // Safe, non-executable BuildAI metadata. Do NOT export live Command
+        // block-entity NBT to be automatically executed by unrelated importers.
+        // Importing this tag still requires operator approval on our server.
+        if(!blueprint.commands().isEmpty())
+            schematic.putString("BuildAICommandPlan",
+                CommandBlockPlan.encode(blueprint.commands()).toString());
         NbtCompound root=new NbtCompound();root.put("Schematic",schematic);
         if(output.getParent()!=null)Files.createDirectories(output.getParent());
         NbtIo.writeCompressed(root,output);

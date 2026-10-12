@@ -51,6 +51,17 @@ public class RedstoneBlueprintLibraryTest {
         assertFalse(house.contains("BUILDAI RBL"));
     }
 
+    @Test void observerIsOppositeOfPhysicalOutputDirection(){
+        assertEquals("minecraft:observer[facing=west,powered=false]",
+            RedstoneBlueprintLibrary.exampleState("O>"));
+        assertEquals("minecraft:repeater[facing=west,delay=2,locked=false,powered=false]",
+            RedstoneBlueprintLibrary.exampleState("R2>"));
+        assertEquals("minecraft:piston[facing=east,extended=false]",
+            RedstoneBlueprintLibrary.exampleState("P>"));
+        assertEquals("minecraft:comparator[facing=west,mode=subtract,powered=false]",
+            RedstoneBlueprintLibrary.exampleState("C1>"));
+    }
+
     @Test void missingIdsCannotSilentlyInventModules(){
         assertThrows(IllegalArgumentException.class,()->
             RedstoneBlueprintLibrary.templateBlueprint("unknown imaginary machine"));

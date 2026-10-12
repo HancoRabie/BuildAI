@@ -7,12 +7,23 @@ public final class ProceduralGenerator {
     private ProceduralGenerator() {}
     public record Compilation(Blueprint blueprint, String correctedSpecification) {}
 
+    /** Pure geometry compiler, usable without a running Fabric registry (e.g. JUnit). */
     public static Blueprint compile(String json) {
-        return compileDesign(json).blueprint();
+        return compileInternal(json,null).blueprint();
     }
 
-    /** The corrected JSON is retained so follow-up edits don't repeat AI mistakes. */
+    /** AI-only path; resolve block errors using the live Minecraft registry. */
     public static Compilation compileDesign(String json) {
+        return compileInternal(json,AiBlockRepair::repair);
+    }
+
+    /** Test seam for pipeline behavior; production always uses the real registry. */
+    static Compilation compileWithRepair(String json,java.util.function.Function<String,AiBlockRepair.Result> repairer) {
+        return compileInternal(json,Objects.requireNonNull(repairer));
+    }
+
+    private static Compilation compileInternal(String json,
+            java.util.function.Function<String,AiBlockRepair.Result> repairer) {
         JsonObject root=JsonParser.parseString(json).getAsJsonObject();
         if(root.has("error"))
             throw new IllegalArgumentException("AI cannot produce this blueprint at the requested scale: "+
@@ -32,14 +43,16 @@ public final class ProceduralGenerator {
             String block=op.get("block").getAsString();
             if(block.length()>180||!block.matches("[a-z0-9_.-]+:[a-z0-9_./-]+(\\[[a-z0-9_,=.-]+\\])?"))
                 throw new IllegalArgumentException("Invalid block state "+block);
-            AiBlockRepair.Result repaired=repairedStates.computeIfAbsent(block,AiBlockRepair::repair);
-            if(repaired.warning()!=null && reportedStates.add(block)) {
-                // One warning per distinct invalid AI state, even across many operations.
-                if(repairCount<24)b.warnings.add(repaired.warning());
-                repairCount++;
+            if(repairer!=null){
+                AiBlockRepair.Result repaired=repairedStates.computeIfAbsent(block,repairer);
+                if(repaired.warning()!=null && reportedStates.add(block)) {
+                    // One warning per distinct invalid AI state, even across many operations.
+                    if(repairCount<24)b.warnings.add(repaired.warning());
+                    repairCount++;
+                }
+                block=repaired.block();
+                op.addProperty("block",block);
             }
-            block=repaired.block();
-            op.addProperty("block",block);
             int x1=number(op,"x1",0,w-1),y1=number(op,"y1",0,h-1),z1=number(op,"z1",0,d-1);
             int x2=number(op,"x2",0,w-1),y2=number(op,"y2",0,h-1),z2=number(op,"z2",0,d-1);
             int ax=Math.min(x1,x2),ay=Math.min(y1,y2),az=Math.min(z1,z2);

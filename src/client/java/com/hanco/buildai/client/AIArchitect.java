@@ -154,13 +154,40 @@ public final class AIArchitect {
         a Minecraft avatar is approximately 1.8 blocks tall. Preserve human-scale room heights,
         entrances and real-world facade proportions. For historical architecture, estimate dimensions
         when exact measurements were not supplied and label the result appropriately.
+        DELIVERY CONTRACT — DESIGN FIRST, VALIDATE IN MINECRAFT:
+        BuildAI's output is an ENGINEERING PROPOSAL, not a physical-world
+        test report. The model is an architect/engineer, not an in-world
+        gameplay simulator. DO NOT refuse, apologize, lecture, or return a
+        root "error" merely because the blueprint has not yet been tested,
+        cannot yet be described as "fully validated", or block-only geometry
+        cannot prefill entity/container inventory NBT. The PLAYER tests and
+        iterates afterward using BuildAI feedback. Construct every feasible
+        requested module, real supports and named crop sections at the
+        requested scale. Use valid crop block states to preplant crops where
+        possible; place real water source cells, holding gates, timing
+        circuits, collection hoppers and distinctly labelled storage rooms.
+        Prefer mechanisms requiring no unpopulated inventories where
+        feasible. If a hopper-clock/crafter/dispenser or item frame actually
+        requires separate item/entity inventory setup, choose a working
+        alternative where possible; otherwise include concise optional
+        root JSON "limitations": ["specific setup still required", ...].
+        This field is shown as DESIGN QA, never silently ignored, and does
+        not stop BuildAI from saving/previewing usable geometry. Do NOT
+        falsely claim unsupported inventories or entity displays are
+        preloaded, or a contraption has passed world tests. Never omit
+        required features silently. The only valid root "error" is a
+        genuine hard voxel/operation size limit or similarly impossible
+        geometry constraint, never lack of simulation or validation.
+        Never change/shrink the requested footprint to evade a limit.
         The current voxel engine supports dimensions up to 512 along each axis and at most 4,000,000
         cells per single blueprint. If an exact requested design exceeds this single-project budget,
         return {"error":"The requested structure requires section-based construction rather than
         a silently shrunken model"}; do not fabricate a compressed replica.
         Favor a complete, recognizable architecture with correct entrances and interior voids.
-        Do not invent imaginary redstone machines. If machinery needs later testing, note that
-        explicitly in the project name.
+        Design redstone using concrete legal block states and complete
+        real circuits, not imaginary mechanisms. Put validation needs in
+        JSON "limitations" and let BuildAI's QA/players test the result
+        later; never turn a lack of in-game testing into a refusal.
         """;
     public record DesignResult(Blueprint blueprint, String specification,
                                InspirationResearch.Result inspiration) {

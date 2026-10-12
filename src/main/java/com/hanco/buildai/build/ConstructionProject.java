@@ -54,6 +54,13 @@ public final class ConstructionProject {
     private boolean commandsApproved=false;
     private Set<Integer> approvedCommandIndices=Set.of();
     private int programmingIndex=0,armingIndex=0;
+    private Map<Integer,SignTextPlan.Entry> signLabels=Map.of();
+    private void refreshSignLabels(){
+        Map<Integer,SignTextPlan.Entry> labels=new HashMap<>();
+        for(SignTextPlan.Entry e:blueprint.signs())
+            labels.put(blueprint.index(e.x(),e.y(),e.z()),e);
+        signLabels=Map.copyOf(labels);
+    }
     public int commandCount(){return blueprint.commands().size();}
     public boolean commandsApproved(){return commandsApproved;}
     public int approvedCommandCount(){return approvedCommandIndices.size();}
@@ -157,11 +164,13 @@ public final class ConstructionProject {
         this.creative=player.isCreative();
         this.surfaceLayer=surfaceLayer;
         this.order=blueprint.ordered();
+        refreshSignLabels();
     }
     public void retryPlacement() {
         if (phase!=Phase.SELECT_XZ && phase!=Phase.SELECT_SURFACE && phase!=Phase.REVIEW)
             throw new IllegalStateException("Cannot reposition after excavation has begun");
         blueprint=sourceBlueprint;order=sourceBlueprint.ordered();rotation=0;
+        refreshSignLabels();
         origin=BlockPos.ORIGIN;collisions=0;phase=Phase.SELECT_XZ;
         commandsApproved=false;approvedCommandIndices=Set.of();programmingIndex=0;armingIndex=0;
     }
@@ -187,6 +196,7 @@ public final class ConstructionProject {
                 throw new IllegalArgumentException("Blocked by protected inventory/bedrock at "+pos.toShortString());
         }
         blueprint=candidate;
+        refreshSignLabels();
         order=candidate.ordered();
         rotation=quarterTurns;
         origin=proposal.toImmutable();
@@ -343,6 +353,16 @@ public final class ConstructionProject {
                         if(!RedstoneNormalizer.neighborsLoaded(world,pos))return;
                         if(RedstoneNormalizer.refreshSignal(world,pos))refreshedRedstone++;
                     }
+                    // Programming labels is a separate inert post-placement
+                    // step, not a geometry blockstate or command execution.
+                    // Skip manual redstone renormalization so player-edited
+                    // sign text is not overwritten by maintenance actions.
+                    SignTextPlan.Entry label=signLabels.get(
+                        blueprint.index(local.getX(),local.getY(),local.getZ()));
+                    if(label!=null&&!manualNormalize&&
+                       !SignInstaller.install(world,pos,label))
+                        throw new IllegalStateException("Planned sign at "+
+                            pos.toShortString()+" is missing or is not a sign");
                 }
                 normalizeIndex++;
             }

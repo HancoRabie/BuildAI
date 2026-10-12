@@ -319,6 +319,41 @@ public final class AIArchitect {
             inspiration,null);
     }
 
+    /**
+     * Terminal Responses SSE metadata is stronger evidence than guessing from
+     * an EOF. Only stringify safe failure code, type, incomplete reason and
+     * bounded model error message (never authorization headers or tokens).
+     */
+    static String describeFailureEvent(JsonObject event,String type){
+        StringBuilder detail=new StringBuilder(type);
+        JsonObject response=event.has("response")&&event.get("response").isJsonObject()
+            ?event.getAsJsonObject("response"):null;
+        JsonObject incomplete=response!=null&&response.has("incomplete_details")&&
+            response.get("incomplete_details").isJsonObject()
+                ?response.getAsJsonObject("incomplete_details"):null;
+        JsonObject error=response!=null&&response.has("error")&&
+            response.get("error").isJsonObject()?response.getAsJsonObject("error"):
+            event.has("error")&&event.get("error").isJsonObject()
+                ?event.getAsJsonObject("error"):null;
+        if(incomplete!=null)appendEventValue(detail,"reason",incomplete,"reason");
+        if(error!=null){
+            appendEventValue(detail,"code",error,"code");
+            appendEventValue(detail,"type",error,"type");
+            appendEventValue(detail,"message",error,"message");
+        }
+        return detail.toString();
+    }
+    private static void appendEventValue(StringBuilder out,String label,
+                                          JsonObject json,String field){
+        if(!json.has(field)||!json.get(field).isJsonPrimitive())return;
+        String value=json.get(field).getAsString()
+            .replaceAll("[\\r\\n\\t]"," ").trim();
+        if(value.isBlank())return;
+        // Keep the diagnostic bounded and on one line.
+        out.append(" | ").append(label).append(": ")
+            .append(value,0,Math.min(240,value.length()));
+    }
+
     private static DesignResult generateWithChatGPTAttempt(String prompt,String previous,
                      GenerationProgress progress,boolean recovery,
                      InspirationResearch.Result cachedInspiration,
@@ -424,8 +459,10 @@ public final class AIArchitect {
                             throw new java.io.IOException("AI response exceeded the single-request output budget. The design was NOT resized; section-based generation is required.");
                     }
                 }else if(type.equals("response.failed")||type.equals("response.incomplete")||type.equals("error")){
-                    throw new java.io.IOException("ChatGPT stopped before completing the design ("+type+
-                        "). Check plan usage or try a smaller building.");
+                    throw new java.io.IOException(
+                        "OpenAI SSE terminal event: "+describeFailureEvent(event,type)+
+                        ". "+draft.recoveryNotice()+
+                        " No blueprint was applied.");
                 }else if(type.equals("response.completed")){
                     completed=true;
                     report(progress,"Response completed","Received the final response; preparing to compile the structure.");

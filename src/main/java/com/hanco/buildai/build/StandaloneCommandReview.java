@@ -63,6 +63,66 @@ public final class StandaloneCommandReview {
             if(entries.get(i).pos().equals(pos))return i+1;
         throw new IllegalStateException("Unable to record command position");
     }
+    /**
+     * Recover a WHOLE saved command plan after a restart, without rebuilding.
+     * Aim at any command block belonging to that schematic. We test every
+     * possible matching local anchor and require one UNIQUE origin for which
+     * ALL command-block type/facing states match in loaded world chunks.
+     * No commands are programmed during matching.
+     */
+    public static synchronized int stageBlueprint(ServerPlayerEntity player,
+                                                  com.hanco.buildai.blueprint.Blueprint blueprint,
+                                                  BlockPos aimedAt) {
+        requireOperator(player);
+        if(blueprint.commands().isEmpty())
+            throw new IllegalArgumentException("Saved schematic contains no command plan to recover");
+        ServerWorld world=player.getServerWorld();
+        if(!world.isChunkLoaded(aimedAt)||
+            !CommandBlockPlan.isCommandBlock(Registries.BLOCK.getId(
+                world.getBlockState(aimedAt).getBlock()).toString()))
+            throw new IllegalArgumentException("Look at any command block that belongs to this saved build");
+        List<List<Assignment>> matches=new ArrayList<>();
+        BlockState clicked=world.getBlockState(aimedAt);
+        for(var candidate:blueprint.commands()){
+            BlockState template=com.hanco.buildai.blueprint.BlockStates.parse(
+                blueprint.get(candidate.x(),candidate.y(),candidate.z()));
+            if(!clicked.equals(template))continue;
+            BlockPos origin=aimedAt.subtract(new BlockPos(candidate.x(),candidate.y(),candidate.z()));
+            List<Assignment> assignments=new ArrayList<>();
+            boolean valid=true;
+            for(var e:blueprint.commands()){
+                BlockPos at=origin.add(e.x(),e.y(),e.z());
+                if(!world.isChunkLoaded(at) ||
+                    !CommandBlockPlan.isCommandBlock(Registries.BLOCK.getId(
+                        world.getBlockState(at).getBlock()).toString()) ||
+                    !world.getBlockState(at).equals(
+                        com.hanco.buildai.blueprint.BlockStates.parse(
+                            blueprint.get(e.x(),e.y(),e.z())))){
+                    valid=false;break;
+                }
+                if(!(world.getBlockEntity(at) instanceof CommandBlockBlockEntity tile) ||
+                    !tile.getCommandExecutor().getCommand().isBlank()){
+                    valid=false;break;
+                }
+                CommandBlockPlan.validateCommand(e.command());
+                assignments.add(new Assignment(at.toImmutable(),world.getBlockState(at),e.command()));
+            }
+            if(valid)matches.add(assignments);
+            if(matches.size()>1)break;
+        }
+        if(matches.isEmpty())
+            throw new IllegalArgumentException(
+                "Could not match ALL saved command blocks at the aimed location. "+
+                "Stand near the build so all chunks are loaded; make sure it is the "+
+                "same unrotated schematic and its command blocks are still empty.");
+        if(matches.size()>1)
+            throw new IllegalArgumentException(
+                "Multiple possible alignments found; aim at a different command block "+
+                "whose type/facing makes this build unambiguous.");
+        STAGED.put(player.getUuid(),new Pending(world,List.copyOf(matches.get(0))));
+        return matches.get(0).size();
+    }
+
     public static synchronized int count(ServerPlayerEntity player){
         Pending p=STAGED.get(player.getUuid());
         return p!=null&&p.world()==player.getServerWorld()?p.entries().size():0;

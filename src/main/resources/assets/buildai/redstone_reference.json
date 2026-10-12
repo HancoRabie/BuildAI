@@ -1,15 +1,15 @@
 {
   "version": "minecraft-java-1.21.1",
-  "usage": "Design guidance only; do not assert functional test success without Minecraft GameTest simulation.",
+  "usage": "Minecraft Java 1.21.1; master engineering handbook is mandatory for redstone/automation requests. Glossary is supplementary; NOT functional testing.",
   "items": [
     {
       "name": "Redstone Dust",
       "block": "minecraft:redstone_wire",
       "purpose": "Carries powered signal; power level 0-15 and attenuation",
       "rules": [
-        "Use connected wire shape and supports",
-        "Not all solid blocks conduct signal identically",
-        "Keep wires clear of unintended joins"
+        "Signal 0..15, attenuates along dust; repeater refreshes 15.",
+        "Connections north/east/south/west none/side/up and power are distinct states.",
+        "Vanilla normalization cannot fill missing wire gaps."
       ]
     },
     {
@@ -17,9 +17,9 @@
       "block": "minecraft:repeater",
       "purpose": "Directional one-way signal refresh and delay",
       "rules": [
-        "Input rear; output front",
-        "delay=1-4 redstone ticks",
-        "side locking can hold current output"
+        "Rear input, front/facing output, delay 1..4 REDSTONE ticks (2..8 game ticks).",
+        "Directional strength refresh; side-locking can freeze output.",
+        "Wrong facing is not repaired by dust normalization."
       ]
     },
     {
@@ -27,9 +27,9 @@
       "block": "minecraft:comparator",
       "purpose": "Compare, subtract and container signal reading",
       "rules": [
-        "Rear main input; side signal used for compare/subtract",
-        "mode=compare|subtract",
-        "Reads analog states of many inventories"
+        "Back primary input, front analog output, side compare/subtract.",
+        "Compare passes rear when >= side, else 0; subtract=max(0,rear-side).",
+        "Inventory NBT, slot fullness and special analog source mechanics matter."
       ]
     },
     {
@@ -37,9 +37,9 @@
       "block": "minecraft:observer",
       "purpose": "Detect adjacent block changes and produce brief pulse",
       "rules": [
-        "Observed side is opposite output",
-        "facing property determines orientation",
-        "Pulse on recognized state change"
+        "Observed side opposite output face; facing/output orientation is critical.",
+        "Detects eligible adjacent block-state changes; very short Java pulse.",
+        "Observer clocks can create expensive feedback; include disabling control."
       ]
     },
     {
@@ -47,9 +47,9 @@
       "block": "minecraft:piston",
       "purpose": "Extend head and push limited attached line of blocks",
       "rules": [
-        "Push limit 12 movable blocks",
-        "Cannot push bedrock or obsidian",
-        "Correct facing and head clearance"
+        "Facing extension, max 12 movable blocks, clearance/immovable check.",
+        "Java quasi-connectivity: power of block above can trigger after neighbor update.",
+        "Short pulses, QC and update order affect behavior."
       ]
     },
     {
@@ -57,8 +57,9 @@
       "block": "minecraft:sticky_piston",
       "purpose": "Extend/retract, pull one movable block",
       "rules": [
-        "Retract pulling constrained by block mobility",
-        "Quasi connectivity and update order can change behavior"
+        "Pushes up to 12, normally pulls one movable block on retraction.",
+        "Short pulse may drop block, Java QC/update order matter.",
+        "Nonmovable blocks halt extension; check full adhesive mass."
       ]
     },
     {
@@ -66,9 +67,9 @@
       "block": "minecraft:hopper",
       "purpose": "Transfers and collects item entities/inventory items",
       "rules": [
-        "facing property identifies outgoing destination",
-        "Powered hopper is locked",
-        "Transfer delay and storage fullness affect rates"
+        "Facing selects outgoing destination; powered hopper LOCKS transfers.",
+        "Throughput/cooldown matter for sorter/clocks; needs real inventory NBT.",
+        "A hopper underneath/pointing into an inventory behaves differently."
       ]
     },
     {
@@ -233,9 +234,10 @@
       "block": "minecraft:crafter",
       "purpose": "Automated recipe crafting when triggered",
       "rules": [
-        "Correct recipe grid and disabled slots",
-        "Consumes supplied ingredients",
-        "Output direction matters"
+        "New power pulse crafts one recipe, constant power does not continually craft.",
+        "Comparator strength 0..9 counts occupied OR disabled slots, NOT ingredient quantities.",
+        "Requires actual recipe items, disabled slots/block entity beyond basic schematic blockstates.",
+        "Output via front/facing; Java quasi-connectivity does NOT apply."
       ]
     },
     {
@@ -243,16 +245,317 @@
       "block": "minecraft:copper_bulb",
       "purpose": "Pulse-toggled light, retains on/off state",
       "rules": [
-        "Oxidation changes timing properties",
-        "waxing controls oxidation",
-        "Toggle behavior differs from redstone lamp"
+        "Rising-edge power toggles persistent lit state; distinct from lamp.",
+        "Oxidation changes emitted LIGHT (15/12/8/4), NOT TIMING. Wax to preserve light.",
+        "Comparator reads lit status 15/on or 0/off; bulb is not ordinary conductor."
+      ]
+    },
+    {
+      "name": "Redstone Block",
+      "block": "minecraft:redstone_block",
+      "purpose": "Continuous strong power",
+      "rules": [
+        "May unintentionally quasi-power pistons",
+        "Not a substitute for a pulse"
+      ]
+    },
+    {
+      "name": "Redstone Wall Torch",
+      "block": "minecraft:redstone_wall_torch",
+      "purpose": "Side-mounted inverter",
+      "rules": [
+        "Support/facing and burnout behavior",
+        "Avoid rapid loops"
+      ]
+    },
+    {
+      "name": "Stone Pressure Plate",
+      "block": "minecraft:stone_pressure_plate",
+      "purpose": "Momentary entity input",
+      "rules": [
+        "Eligible entities differ from wooden and weighted",
+        "Needs support"
+      ]
+    },
+    {
+      "name": "Wooden Pressure Plate",
+      "block": "minecraft:oak_pressure_plate",
+      "purpose": "Momentary entity/item input",
+      "rules": [
+        "Dropped items or mobs can false-trigger",
+        "Needs support"
+      ]
+    },
+    {
+      "name": "Light Weighted Pressure Plate",
+      "block": "minecraft:light_weighted_pressure_plate",
+      "purpose": "Analog entity counting",
+      "rules": [
+        "Threshold differs from heavy variant",
+        "Calibrate output"
+      ]
+    },
+    {
+      "name": "Tripwire",
+      "block": "minecraft:tripwire",
+      "purpose": "Entity crossing detector",
+      "rules": [
+        "Hooks on both ends, continuous attached span",
+        "Gaps break mechanism"
+      ]
+    },
+    {
+      "name": "Calibrated Sculk Sensor",
+      "block": "minecraft:calibrated_sculk_sensor",
+      "purpose": "Vibration-frequency filter",
+      "rules": [
+        "Analog selection at special side",
+        "Wool, cooldown and frequency vary"
+      ]
+    },
+    {
+      "name": "Trapped Chest",
+      "block": "minecraft:trapped_chest",
+      "purpose": "Power when a player opens it",
+      "rules": [
+        "Normal chest lacks opening power",
+        "Comparator separately reads contents"
+      ]
+    },
+    {
+      "name": "Lectern",
+      "block": "minecraft:lectern",
+      "purpose": "Book-page comparator output",
+      "rules": [
+        "Requires actual book data",
+        "Unconfigured block cannot be lock"
+      ]
+    },
+    {
+      "name": "Item Frame",
+      "block": "minecraft:item_frame",
+      "purpose": "Rotation-dependent comparator sensor",
+      "rules": [
+        "ENTITY, not ordinary block voxel",
+        "May not survive schematic export"
+      ]
+    },
+    {
+      "name": "Chiseled Bookshelf",
+      "block": "minecraft:chiseled_bookshelf",
+      "purpose": "Comparator last interacted slot",
+      "rules": [
+        "0 or 1..6 for slot",
+        "Block entity storage matters"
+      ]
+    },
+    {
+      "name": "Beehive",
+      "block": "minecraft:beehive",
+      "purpose": "Comparator honey meter",
+      "rules": [
+        "Honey level 0..5",
+        "Bees/environment required for farm"
+      ]
+    },
+    {
+      "name": "Composter",
+      "block": "minecraft:composter",
+      "purpose": "Comparator compost progress",
+      "rules": [
+        "Level 0..8 and delayed completion",
+        "Not a predictable clock"
+      ]
+    },
+    {
+      "name": "Cauldron",
+      "block": "minecraft:water_cauldron",
+      "purpose": "Fluid-level analog source",
+      "rules": [
+        "Water/powder snow 0..3, lava differs",
+        "Test fluid-specific output"
+      ]
+    },
+    {
+      "name": "Cake",
+      "block": "minecraft:cake",
+      "purpose": "Consumable analog source",
+      "rules": [
+        "Full 14, decrease 2 per bite",
+        "One-way until replaced"
+      ]
+    },
+    {
+      "name": "Jukebox",
+      "block": "minecraft:jukebox",
+      "purpose": "Disc-dependent analog output",
+      "rules": [
+        "Requires music disc",
+        "Not playback-timeline signal"
+      ]
+    },
+    {
+      "name": "Respawn Anchor",
+      "block": "minecraft:respawn_anchor",
+      "purpose": "Charge-dependent comparator readout",
+      "rules": [
+        "Discrete values and dimension hazards",
+        "May explode"
+      ]
+    },
+    {
+      "name": "Slime Block",
+      "block": "minecraft:slime_block",
+      "purpose": "Sticky piston assembly",
+      "rules": [
+        "Push limit includes attached blocks",
+        "Does not stick to honey"
+      ]
+    },
+    {
+      "name": "Honey Block",
+      "block": "minecraft:honey_block",
+      "purpose": "Alternate sticky assembly",
+      "rules": [
+        "Does not stick to slime",
+        "Different movement behavior"
+      ]
+    },
+    {
+      "name": "Bell",
+      "block": "minecraft:bell",
+      "purpose": "Redstone alarm",
+      "rules": [
+        "Mounting/facing affects use",
+        "Use isolated pulse"
+      ]
+    },
+    {
+      "name": "Rail",
+      "block": "minecraft:rail",
+      "purpose": "Passive minecart routing",
+      "rules": [
+        "Shape/slope connectivity",
+        "Carts are entities"
+      ]
+    },
+    {
+      "name": "Hopper Minecart",
+      "block": "minecraft:hopper_minecart",
+      "purpose": "Mobile item collector",
+      "rules": [
+        "ENTITY potentially omitted from schematic",
+        "Rail/throughput/chunk loading"
+      ]
+    },
+    {
+      "name": "Chest Minecart",
+      "block": "minecraft:chest_minecart",
+      "purpose": "Mobile inventory",
+      "rules": [
+        "Entity/data may be lost",
+        "Detector comparator needs cart"
+      ]
+    },
+    {
+      "name": "Furnace",
+      "block": "minecraft:furnace",
+      "purpose": "Inventory comparator",
+      "rules": [
+        "Fuel and input/output items required",
+        "No automatic timer in empty block"
+      ]
+    },
+    {
+      "name": "Brewing Stand",
+      "block": "minecraft:brewing_stand",
+      "purpose": "Inventory comparator",
+      "rules": [
+        "Fuel/bottle/ingredient context",
+        "No automatic brew from signal"
+      ]
+    },
+    {
+      "name": "Fence Gate",
+      "block": "minecraft:oak_fence_gate",
+      "purpose": "Powered barrier",
+      "rules": [
+        "Facing/open/in_wall and fence neighbors",
+        "Controls reachable"
+      ]
+    },
+    {
+      "name": "Piston Head",
+      "block": "minecraft:piston_head",
+      "purpose": "Extended-piston part",
+      "rules": [
+        "Not stable independently placed block",
+        "Created by piston action"
+      ]
+    },
+    {
+      "name": "Repeating Command Block",
+      "block": "minecraft:repeating_command_block",
+      "purpose": "Repeated executable commands",
+      "rules": [
+        "OP approval and script required",
+        "Avoid always-active unbounded loops"
+      ]
+    },
+    {
+      "name": "Chain Command Block",
+      "block": "minecraft:chain_command_block",
+      "purpose": "Directional conditional next command",
+      "rules": [
+        "Facing/conditional/auto critical",
+        "Needs prior event and approved script"
+      ]
+    },
+    {
+      "name": "Command Block",
+      "block": "minecraft:command_block",
+      "purpose": "Impulse command machinery",
+      "rules": [
+        "Text stored in BLOCK ENTITY, not blockstate",
+        "Exact XYZ commissioning after approval"
+      ]
+    },
+    {
+      "name": "Redstone Conductor",
+      "block": "minecraft:stone",
+      "purpose": "Solid power support",
+      "rules": [
+        "Strong/weak power differ",
+        "Glass not universal substitute"
+      ]
+    },
+    {
+      "name": "Copper Door",
+      "block": "minecraft:copper_door",
+      "purpose": "Interactable redstone door",
+      "rules": [
+        "Matched halves, hinge and facing",
+        "Oxidation affects appearance"
+      ]
+    },
+    {
+      "name": "Copper Trapdoor",
+      "block": "minecraft:copper_trapdoor",
+      "purpose": "Interactable redstone hatch",
+      "rules": [
+        "Facing/half/open/powered",
+        "Waxing unrelated to timing"
       ]
     }
   ],
   "verification_levels": [
-    "syntactic",
-    "geometry",
-    "dependency",
-    "mechanical-functional"
-  ]
+    "registry/state",
+    "support/connection",
+    "direction/power/timing",
+    "inventory/entities",
+    "operator scripts",
+    "in-world test"
+  ],
+  "masterHandbook": "/assets/buildai/redstone_master_handbook.txt",
+  "designContract": "redstone_plan.circuits with name,input,signalPath,output,timing,reset,test. Design real geometry and correct facing/mode."
 }

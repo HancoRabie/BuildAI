@@ -192,21 +192,21 @@ public final class GenerationProgress {
         long age=(System.nanoTime()-startedNanos)/1_000_000_000L;
         long eventAge=lastStreamEventNanos==0?-1:
             (System.nanoTime()-lastStreamEventNanos)/1_000_000_000L;
-        return "BuildAI Generation Failure Report\\n"+
-            "Status: "+(finished?(failed?"FAILED":"COMPLETE"):"ACTIVE")+"\\n"+
+        return "BuildAI Generation Failure Report\n"+
+            "Status: "+(finished?(failed?"FAILED":"COMPLETE"):"ACTIVE")+"\n"+
             "Observed endpoint status: "+(responseAccepted?"HTTP 200 / stream opened":
-                "No successful HTTP 200 response recorded")+"\\n"+
-            "Last model SSE event: "+lastStreamEvent+"\\n"+
-            "Seconds since that event: "+(eventAge<0?"no event":eventAge)+"\\n"+
-            "Elapsed seconds: "+age+"\\n"+
-            "Text characters received: "+receivedCharacters+"\\n"+
-            "Auto-stop enabled: "+autoStopEnabled+"\\n"+
-            "Cancellation requested: "+cancelRequested+"\\n"+
-            "Diagnosis: "+failureSummary()+"\\n"+
-            "Error and recovery location: "+failureExplanation+"\\n"+
+                "No successful HTTP 200 response recorded")+"\n"+
+            "Last model SSE event: "+lastStreamEvent+"\n"+
+            "Seconds since that event: "+(eventAge<0?"no event":eventAge)+"\n"+
+            "Elapsed seconds: "+age+"\n"+
+            "Text characters received: "+receivedCharacters+"\n"+
+            "Auto-stop enabled: "+autoStopEnabled+"\n"+
+            "Cancellation requested: "+cancelRequested+"\n"+
+            "Diagnosis: "+failureSummary()+"\n"+
+            "Error and recovery location: "+failureExplanation+"\n"+
             "Note: HTTP 200 only confirms request acceptance; missing "+
             "response.completed cannot identify which upstream component "+
-            "interrupted the stream.\\n";
+            "interrupted the stream.\n";
     }
     private final java.util.concurrent.atomic.AtomicReference<Thread> worker=
         new java.util.concurrent.atomic.AtomicReference<>();

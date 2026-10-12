@@ -34,10 +34,15 @@ public class BuildRequirementAuditTest {
     @Test void manifestEvidenceMustMatchActualVoxel(){
         Blueprint b=new Blueprint("Bridge",8,6,8);
         b.set(3,2,3,"minecraft:stone_bricks");
-        String missing="{\\"requirements\\":[{\\"description\\":\\"Control station\\",\\"status\\":\\"missing\\"}]}";
+        String missing="""
+            {"requirements":[{"description":"Control station","status":"missing"}]}
+            """;
         var unmet=BuildRequirementAudit.inspect(b,"Make a control station",missing);
         assertFalse(unmet.blockers().isEmpty());
-        String falseClaim="{\\"requirements\\":[{\\"description\\":\\"Lever panel\\",\\"status\\":\\"implemented\\",\\"evidence\\":[{\\"x\\":3,\\"y\\":2,\\"z\\":3,\\"block\\":\\"minecraft:lever\\"}]}]}";
+        String falseClaim="""
+            {"requirements":[{"description":"Lever panel","status":"implemented",
+              "evidence":[{"x":3,"y":2,"z":3,"block":"minecraft:lever"}]}]}
+            """;
         var invalid=BuildRequirementAudit.inspect(b,"Bridge with detail",falseClaim);
         assertTrue(invalid.suggestions().stream().anyMatch(s->s.contains("UNVERIFIED")));
     }

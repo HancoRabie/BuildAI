@@ -109,9 +109,13 @@ public final class ProceduralGenerator {
         // from the geometry. Their activation always requires operator approval.
         if(root.has("commands")){
             b.setCommands(CommandBlockPlan.decode(root.getAsJsonArray("commands"),b));
-            if(!b.commands().isEmpty())b.warnings.add(
-                b.commands().size()+" command blocks need operator review/approval; "+
-                "they are NOT armed until post-build commissioning.");
+            if(!b.commands().isEmpty()){
+                b.warnings.add(b.commands().size()+" command instructions are assigned to unique "+
+                    "local XYZ positions and ordered by Y/Z/X block placement. Operator approval required.");
+                int unassigned=CommandBlockPlan.unassignedBlocks(b);
+                if(unassigned>0)b.warnings.add(unassigned+" command-block cell(s) have no assigned "+
+                    "script and will remain unprogrammed. Inspect the map plan.");
+            }
         }
         b.validateSlices();
         return new Compilation(b,root.toString());

@@ -49,11 +49,32 @@ the player explicitly chooses when to try again.
 ## Stall protection and user options
 
 Streaming HTTP request headers may be accepted while the text event body
-remains silent or a read blocks. The dedicated SSE watchdog closes requests
-after 8 minutes with no blueprint text, or 3 minutes of inactivity after
-text starts. The model may have been thinking all along: neither a
-zero-character counter nor a healthy network probe proves a remote failure.
-When it closes a silent request, the prompt remains available to retry.
+remains silent or a read blocks. The dedicated SSE watchdog is **enabled by
+default** and closes requests after 8 minutes with no blueprint text, or
+3 minutes of inactivity after text starts. The user can change this while
+generation is running via a distinct full-width **AUTO-STOP: ON/OFF** button
+in the generation monitor. This alters only the active request's silence
+watchdog; it does **not** restart, resend, cancel, or lose the prompt.
+
+- **AUTO-STOP ON (default):** automatic 8-minute pre-text / 3-minute
+  mid-text silence protection.
+- **AUTO-STOP OFF:** do not automatically end the ongoing OpenAI SSE request
+  for silence. The user can keep waiting as long as the connection and
+  model service permit; Cancel & Refine still works.
+- **Turning ON again:** start a fresh full 8-minute / 3-minute grace period
+  from when the toggle was re-enabled. No instantaneous cancellation just
+  because the earlier elapsed time was greater than 8 minutes.
+- The state is **per active request**, not a global mod preference, so new
+  generations start with protection ON. The toggle is unavailable after the
+  generation has already completed or failed; it cannot resurrect a closed
+  network request.
+- This setting does NOT override HTTP connection/request timeouts before the
+  streaming body opens, network failures, server-side limits or cancellation
+  by the user. It cannot force the remote model to continue reasoning.
+
+The model may have been thinking all along: neither a zero-character counter
+nor a healthy network probe proves a remote failure. When a request closes,
+the original building prompt remains available to retry.
 
 Users can:
 - **Check Request (Safe):** diagnostic only, never cancels or retries.

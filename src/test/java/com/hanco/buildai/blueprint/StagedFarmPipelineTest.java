@@ -38,8 +38,10 @@ public final class StagedFarmPipelineTest {
         return """
             {"name":"%s","width":%d,"height":%d,"length":%d,
              "operations":[{"kind":"fill","block":"minecraft:stone_bricks",
-               "x1":1,"y1":%d,"z1":1,"x2":3,"y2":%d,"z2":3}]}
-            """.formatted(name,p.width(),p.height(),p.length(),y,y);
+               "x1":1,"y1":%d,"z1":1,"x2":3,"y2":%d,"z2":3}],
+             "interfaces":[{"type":"item_output","x":1,"y":%d,"z":1,"facing":"east"},
+               {"type":"trigger_input","x":2,"y":%d,"z":1,"facing":"west"}]}
+            """.formatted(name,p.width(),p.height(),p.length(),y,y,y,y);
     }
     @Test void modulesMergeIntoOneRealSchematicWithGlobalCoordinates(){
         var p=StagedFarmPlan.from(REQUEST);

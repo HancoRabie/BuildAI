@@ -427,7 +427,12 @@ public final class ConstructionProject {
             // Command blocks cannot be crafted or bought in Survival.
             // Administrative map machinery is placed under explicit op-4
             // approval, not charged as an unobtainable player supply item.
-            if(!creative && !CommandBlockPlan.isCommandBlock(stateText)
+            // BuildAI installs literal water/lava SOURCE blockstates itself,
+            // AFTER constructing the retaining solid walls/floors. A fluid
+            // source has no obtainable block Item and must never pause the
+            // job waiting for an imaginary water/lava "block" in a chest.
+            if(!creative && !BuildFluidRules.isFluidSource(stateText)
+                && !CommandBlockPlan.isCommandBlock(stateText)
                 && !blueprint.secondHalf(stateText)) {
                 Item item=target.getBlock().asItem();
                 if(item==Items.AIR) {phase=Phase.WAITING_SUPPLIES;return;}
@@ -533,7 +538,8 @@ public final class ConstructionProject {
         Map<String,Integer> result=new TreeMap<>();
         for(BlockPos local:order){
             String value=effective(local);
-            if(!blueprint.secondHalf(value) && !CommandBlockPlan.isCommandBlock(value))
+            if(!blueprint.secondHalf(value) && !CommandBlockPlan.isCommandBlock(value)
+                && !BuildFluidRules.isFluidSource(value))
                 result.merge(Blueprint.id(value),1,Integer::sum);
         }
         return result;

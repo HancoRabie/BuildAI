@@ -13,7 +13,7 @@ public final class StagedFarmAssembler {
         private final StagedFarmPlan plan;
         private final JsonObject combined;
         private final JsonArray operations=new JsonArray();
-        private final JsonArray limits=new JsonArray(),commands=new JsonArray();
+        private final JsonArray limits=new JsonArray(),commands=new JsonArray(),signs=new JsonArray();
         private final JsonArray circuits=new JsonArray(),sections=new JsonArray();
         private final JsonArray interfaces=new JsonArray();
         private JsonObject firstGate;
@@ -99,6 +99,12 @@ public final class StagedFarmAssembler {
                     " lacks declared global XYZ item_output and trigger_input "+
                     "interfaces; cannot connect master control and collectors "+
                     "by guessing. Refine this stage before final assembly.");
+            if(data.has("signs")&&data.get("signs").isJsonArray())
+                for(JsonElement entry:data.getAsJsonArray("signs")){
+                    if(signs.size()>=SignTextPlan.MAX_SIGNS)
+                        throw new IllegalArgumentException("Staged sign label budget exceeded");
+                    signs.add(entry.deepCopy());
+                }
             if(data.has("commands")&&data.get("commands").isJsonArray())
                 for(JsonElement entry:data.getAsJsonArray("commands"))
                     commands.add(entry.deepCopy());
@@ -151,6 +157,7 @@ public final class StagedFarmAssembler {
                     " farm stages completed. Partial schematic NOT created.");
             combined.add("operations",operations);
             if(!commands.isEmpty())combined.add("commands",commands);
+            if(!signs.isEmpty())combined.add("signs",signs);
             if(!limits.isEmpty())combined.add("limitations",limits);
             if(!circuits.isEmpty()){
                 JsonObject rp=new JsonObject();rp.add("circuits",circuits);

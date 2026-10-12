@@ -16,10 +16,7 @@ public final class Blueprint {
     private List<CommandBlockPlan.Entry> commands=List.of();
     public List<CommandBlockPlan.Entry> commands(){return commands;}
     public void setCommands(List<CommandBlockPlan.Entry> entries){
-        if(entries==null||entries.size()>CommandBlockPlan.MAX_COMMANDS)
-            throw new IllegalArgumentException("Too many command blocks");
-        for(CommandBlockPlan.Entry e:entries)CommandBlockPlan.validate(this,e);
-        commands=List.copyOf(entries);
+        commands=CommandBlockPlan.mappedInBuildOrder(this,entries);
     }
 
     public Blueprint(String name, int width, int height, int length) {

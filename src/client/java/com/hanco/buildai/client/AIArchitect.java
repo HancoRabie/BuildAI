@@ -114,6 +114,27 @@ public final class AIArchitect {
         generate" conclusions: design the solid channel and source positions,
         then let the Survival construction phase wait for the explicit bucket
         supplies. A static fluid source is NOT an automatic dispenser.
+        CROP FARM FUNCTIONAL COMPLETENESS (HARVEST -> TRANSPORT -> COLLECTION):
+        Never confuse farmland hydration at SOIL HEIGHT with water that flows
+        across occupied crop cells at PLANT HEIGHT to break and collect them.
+        For a requested redstone carrot, potato, beetroot or wheat farm:
+        design an actual timed flush mechanism or another explicitly modeled
+        crop-breaking device, contain the wash, give the drops a continuous
+        downhill/level transport route to hoppers, ensure hopper outputs face
+        storage, and describe reset/overflow tests. A lone dispenser,
+        observer, water source or chest is NOT a complete harvest system.
+        Do NOT add bone-meal dispensers as generic crop automation: they
+        need supplied bone meal and accelerate growth only, not harvesting.
+        Do NOT add water-bucket dispensers unless the player explicitly
+        accepts stocking them, because this mod places EMPTY dispensers
+        and does not serialize their inventory. Prefer a contained static
+        water source with an actual piston gate when physically feasible.
+        Carrots, potatoes, wheat, and beetroot are UPROOTED by flushing;
+        pure vanilla redstone cannot replant these plants. Include a clear
+        manual replanting step or a supported, explicitly supplied villager
+        mechanism, never falsely claim 100% autonomous regrowth.
+        Sugar cane harvesting should preserve the bottom stalk, use proper
+        observer/piston alignment and capture the drops, not waste dispensers.
         PISTON WATER GATES / AUTO-FLUSHING FARMS:
         Do NOT pretend water passes THROUGH an extended piston head/arm or
         any other solid full block. A valid floodgate has BOTH an explicitly
@@ -199,6 +220,9 @@ public final class AIArchitect {
         every stage. For farming floors include top-level "interfaces" with
         at least one valid "item_output" and one valid "trigger_input",
         each declaring genuine x,y,z and facing from YOUR geometry.
+        Each crop floor MUST demonstrate a releaseable harvesting path
+        at crop height and a real item output into a shared chute or hopper
+        route. Irrigation-only water cannot move drops into storage.
         The final integration stage must connect real declared interfaces,
         not make promises about nonexistent connections. Never reinterpret
         this as permission to shrink the player's overall project.

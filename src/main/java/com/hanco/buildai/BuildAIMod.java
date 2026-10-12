@@ -205,6 +205,50 @@ public final class BuildAIMod implements ModInitializer {
                     reply(player,"Placement preview hidden. Blueprint and built blocks unchanged.");
                     return 1;
                 }))
+                .then(literal("commands").requires(s->s.hasPermissionLevel(2))
+                    .then(literal("list").executes(c->{
+                        ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                        ConstructionProject p=ConstructionManager.get(player);
+                        if(p==null){reply(player,"No blueprint loaded.");return 0;}
+                        int size=p.commandCount();
+                        reply(player,"Command plan: "+size+" blocks | "+
+                            (p.commandsApproved()?"approved":"NOT APPROVED")+
+                            " | Minecraft 1.21.1. Command blocks are privileged and need operator-level 4 approval.");
+                        for(int i=0;i<Math.min(10,size);i++){
+                            var block=p.blueprint.commands().get(i);
+                            reply(player,"#"+i+" ["+block.x()+","+block.y()+","+block.z()+"] "+
+                                (block.auto()?"automatic":"redstone-driven")+"  "+
+                                block.command().substring(0,Math.min(110,block.command().length())));
+                        }
+                        if(size>10)reply(player,"More commands: /buildai commands show <index> (0.."+(size-1)+")");
+                        return 1;
+                    }))
+                    .then(literal("show")
+                        .then(argument("index",com.mojang.brigadier.arguments.IntegerArgumentType.integer(0))
+                            .executes(c->{
+                                ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                                ConstructionProject p=ConstructionManager.get(player);
+                                if(p==null){reply(player,"No blueprint.");return 0;}
+                                int index=com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c,"index");
+                                if(index>=p.commandCount()){reply(player,"No command at index "+index);return 0;}
+                                var block=p.blueprint.commands().get(index);
+                                reply(player,"#"+index+" ("+block.x()+","+block.y()+","+block.z()+") "+
+                                    (block.auto()?"always-active":"requires signal")+
+                                    ": "+block.command());
+                                return 1;
+                            })))
+                    .then(literal("approve").requires(src->src.hasPermissionLevel(4)).executes(c->{
+                        ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                        ConstructionProject p=ConstructionManager.get(player);
+                        if(p==null){reply(player,"No blueprint.");return 0;}
+                        try{
+                            p.approveCommands(player);
+                            reply(player,"Approved "+p.commandCount()+
+                                " command-block instructions. Confirm build to begin; scripts install "+
+                                "only AFTER construction and normalization. Review full commands before approving.");
+                            return 1;
+                        }catch(Exception ex){reply(player,"Command approval rejected: "+ex.getMessage());return 0;}
+                    })))
                 .then(literal("confirm").requires(s->s.hasPermissionLevel(2)).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);

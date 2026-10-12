@@ -66,6 +66,18 @@ public class FarmFunctionAuditTest {
         var report=FarmFunctionAudit.inspect(b,"automatic carrot farm",null);
         assertTrue(report.blockers().stream().anyMatch(s->s.contains("water-release")));
     }
+    @Test void detectsHoppersFacingAwayFromEveryStorageContainer(){
+        Blueprint b=carrots();
+        b.set(6,3,4,"minecraft:water[level=0]");
+        b.set(6,3,3,"minecraft:sticky_piston[facing=south,extended=false]");
+        b.set(6,1,9,"minecraft:hopper[facing=east,enabled=true]");
+        var report=FarmFunctionAudit.inspect(b,"automatic carrot farm",null);
+        assertTrue(report.blockers().stream().anyMatch(s->s.contains("directed")),
+            report.warnings().toString());
+        b.set(6,1,9,"minecraft:hopper[facing=down,enabled=true]");
+        assertTrue(FarmFunctionAudit.inspect(b,"automatic carrot farm",null)
+            .blockers().isEmpty());
+    }
     @Test void detectsMissingRequestedCropButIgnoresSharedIntegrationStage(){
         Blueprint empty=new Blueprint("Bus",27,41,35);
         empty.set(3,2,3,"minecraft:stone");

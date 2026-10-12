@@ -62,7 +62,7 @@ public final class AIArchitect {
         and gamerule doDaylightCycle/doWeatherCycle true/false, for functional
         daylight and weather control panels. For "execute ... run"
         the nested command must also use this safe set. Do NOT emit function, data,
-        summon, fill, setblock, gamerule, op, deop, stop, reload, schedule, or arbitrary
+        summon, fill, setblock, unrestricted gamerules, op, deop, stop, reload, schedule, or arbitrary
         admin commands. Keep every command at most 768 characters and avoid absolute
         world coordinates; anchor spatial logic to each command block with relative
         positions and selectors. Command-driven projects currently cannot rotate
@@ -147,13 +147,6 @@ public final class AIArchitect {
         if(existingSpecification.length()>1_500_000)
             throw new IllegalArgumentException("Design exceeds one-request revision budget; section-based generation is needed.");
         return requestDesign(key,request,existingSpecification,progress);
-    }
-
-    private static String loadReference(){
-        try(java.io.InputStream in=AIArchitect.class.getResourceAsStream("/assets/buildai/redstone_reference.json")){
-            if(in==null)return "";
-            return new String(in.readAllBytes(),StandardCharsets.UTF_8);
-        }catch(Exception ignored){return "";}
     }
 
     private static String loadArchitectureGuide(){

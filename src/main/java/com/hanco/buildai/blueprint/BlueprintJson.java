@@ -35,6 +35,7 @@ public final class BlueprintJson {
             }
         }
         root.add("palette",palette);
+        if(!b.commands().isEmpty())root.add("commands",CommandBlockPlan.encode(b.commands()));
         if(useRuns){
             if(repeat!=0)addRun(runs,previous,repeat);
             root.add("runs",runs);
@@ -79,6 +80,8 @@ public final class BlueprintJson {
                 b.set(x,y,z,names.get(p));
             }
         }
+        if(root.has("commands"))b.setCommands(
+            CommandBlockPlan.decode(root.getAsJsonArray("commands"),b));
         return b;
     }
 }

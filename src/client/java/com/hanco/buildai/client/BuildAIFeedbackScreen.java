@@ -131,7 +131,9 @@ public final class BuildAIFeedbackScreen extends Screen {
         ctx.drawTextWithShadow(textRenderer,
             textRenderer.trimToWidth("Only reviews and references you save are included in future AI prompts.",w-8),
             x+4,31,0xFFD8E5EF);
-        int statusY=Math.max(40,height-49);
+        // Keep live feedback above the first file choice; never paint it over
+        // the action buttons on smaller Minecraft GUI scale/window heights.
+        int statusY=43;
         ctx.drawTextWithShadow(textRenderer,
             textRenderer.trimToWidth(status,w-8),x+4,statusY,0xFFEFD195);
         super.render(ctx,mx,my,dt);

@@ -103,7 +103,7 @@ public final class ConstructionProject {
         phase=Phase.REVIEW;
     }
     public void confirm() {
-        if(phase!=Phase.REVIEW)throw new IllegalStateException("Lock the blueprint XYZ first");
+        if(phase!=Phase.REVIEW)throw new IllegalStateException("Placement is not locked. Close F8, aim at a ground block TOP and press G, then press ENTER to lock XYZ before /buildai confirm.");
         // No multi-million-block snapshot on the server tick! Save affected
         // ORIGINAL states lazily, exactly before each excavation/placement.
         // A previously AIR cell is represented by absence from originals.

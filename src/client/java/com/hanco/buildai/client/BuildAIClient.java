@@ -177,7 +177,8 @@ public final class BuildAIClient implements ClientModInitializer {
                 message("AI design failed: "+reason);
                 return;
             }
-            acceptGenerated(result);
+            acceptGenerated(result,previous==null?description:
+                (draft!=null?draft.originalPrompt():""));
             progress.success("Generated "+draft.solidCount()+" blocks. Ready for inspection.");
             GenerationHistory.record(progress);
             message((previous==null?"Generated ":"Revised ")+draft.name+" ("+
@@ -193,8 +194,13 @@ public final class BuildAIClient implements ClientModInitializer {
                 message("Blueprint generated. Open F8 to inspect and place it.");
         }));
     }
-    public static void acceptGenerated(AIArchitect.DesignResult result) {
+    public static void acceptGenerated(AIArchitect.DesignResult result){
+        acceptGenerated(result,"");
+    }
+    public static void acceptGenerated(AIArchitect.DesignResult result,String originalPrompt) {
         clearPreview();
+        // Embed provenance BEFORE asynchronous library autosave runs.
+        result.blueprint().setGenerationContext(originalPrompt,result.specification());
         draft=result.blueprint();
         lastResearch=result.inspiration();
         if(lastResearch.verified())showInspirationLinks();
@@ -223,7 +229,7 @@ public final class BuildAIClient implements ClientModInitializer {
         clearPreview();
         draft=imported;
         surfaceLayer=0;
-        designSpecification=null; // importing a schematic does not create an AI design history
+        designSpecification=imported.designSpecification(); // available only on newer BuildAI .schem
         lastResearch=InspirationResearch.Result.off();
     }
     private static String rootCause(Throwable t){while(t.getCause()!=null)t=t.getCause();return String.valueOf(t.getMessage());}

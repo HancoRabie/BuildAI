@@ -21,8 +21,8 @@ public final class PlacementAdjustments {
         Move f=forward(lockedYaw);
         if(control) {
             return switch(key) {
-                case 1 -> f; // CTRL+UP: forward
-                case 2 -> new Move(-f.x(),0,-f.z()); // CTRL+DOWN: backward
+                case 2 -> f; // CTRL+UP: forward
+                case -2 -> new Move(-f.x(),0,-f.z()); // CTRL+DOWN: backward
                 default -> new Move(0,0,0);
             };
         }

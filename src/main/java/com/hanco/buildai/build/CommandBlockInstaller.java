@@ -37,6 +37,18 @@ public final class CommandBlockInstaller {
         world.updateListeners(pos,world.getBlockState(pos),world.getBlockState(pos),Block.NOTIFY_LISTENERS);
     }
 
+    /** Keep an unapproved command block EMPTY and non-automatic. */
+    public static void keepInert(ServerWorld world,BlockPos pos,String expectedBlockState){
+        if(!world.isChunkLoaded(pos) ||
+            !(world.getBlockEntity(pos) instanceof CommandBlockBlockEntity tile) ||
+            !world.getBlockState(pos).equals(BlockStates.parse(expectedBlockState)))
+            throw new IllegalStateException("Unapproved command cell changed at "+pos.toShortString());
+        tile.setAuto(false);
+        tile.getCommandExecutor().setCommand("");
+        tile.markDirty();
+        world.updateListeners(pos,world.getBlockState(pos),world.getBlockState(pos),Block.NOTIFY_LISTENERS);
+    }
+
     /** Arm only after EVERY command block has been programmed. */
     public static void arm(ServerWorld world,BlockPos pos,CommandBlockPlan.Entry entry){
         if(!(world.getBlockEntity(pos) instanceof CommandBlockBlockEntity tile))

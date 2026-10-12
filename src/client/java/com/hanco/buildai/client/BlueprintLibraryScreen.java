@@ -135,12 +135,16 @@ public final class BlueprintLibraryScreen extends Screen {
                 rebuild();
             }).active=!loading;
 
-        control("IMPORT SELECTED",x,act,half,buttonHeight,()->{
+        control("IMPORT",x,act,third,buttonHeight,()->{
             if(selected!=null)load(selected);
         }).active=selected!=null&&!loading;
 
-        control("ATTACH COMMAND SCRIPTS",x+half+gap,act,
-            panel-half-gap,buttonHeight,()->{
+        control("REMAKE / REVISE...",x+third+gap,act,third,buttonHeight,()->{
+            if(selected!=null)openRemix(selected);
+        }).active=selected!=null&&!loading;
+
+        control("ATTACH SCRIPTS",x+2*(third+gap),act,
+            panel-2*(third+gap),buttonHeight,()->{
                 if(selected==null){
                     status="Select the saved schematic for your existing structure.";
                     return;
@@ -173,6 +177,29 @@ public final class BlueprintLibraryScreen extends Screen {
             return true;
         }
         return super.mouseScrolled(mx,my,horizontal,vertical);
+    }
+    private void openRemix(Path file){
+        if(loading){status="Wait until the previous import completes.";return;}
+        loading=true;
+        status="Reading saved blueprint and original prompt...";
+        CompletableFuture.supplyAsync(()->{
+            try{
+                Blueprint b=SchematicReader.read(file);
+                BlockStates.validate(b);
+                return b;
+            }catch(Exception ex){throw new RuntimeException(ex);}
+        }).whenComplete((source,error)->MinecraftClient.getInstance().execute(()->{
+            loading=false;
+            if(error!=null){
+                Throwable cause=error;
+                while(cause.getCause()!=null)cause=cause.getCause();
+                status="Cannot open for revision: "+cause.getMessage();
+                return;
+            }
+            // Only selected source geometry is passed; the current draft and
+            // all earlier saved schematics remain untouched.
+            if(client!=null)client.setScreen(new BuildAIRemixScreen(this,parent,source));
+        }));
     }
     private void load(Path file){
         if(loading){status="Import already running.";return;}
@@ -224,7 +251,7 @@ public final class BlueprintLibraryScreen extends Screen {
                 x+7,22,panel-14,BLUE);
 
         if(!view.compact()){
-            drawLine(ctx,"Select to import, or look at an old command block and attach its scripts.",
+            drawLine(ctx,"Import, remake original prompt, revise build, or attach old command scripts.",
                 x+7,44,panel-14,DIM);
         }else if(pathEditor){
             drawLine(ctx,"Optional full .schem / .nbt file path:",

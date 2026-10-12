@@ -1,6 +1,7 @@
 package com.hanco.buildai.build;
 
 import com.hanco.buildai.blueprint.CommandBlockPlan;
+import com.hanco.buildai.blueprint.BlockStates;
 import net.minecraft.block.Block;
 import net.minecraft.registry.Registries;
 import net.minecraft.block.entity.CommandBlockBlockEntity;
@@ -16,17 +17,22 @@ public final class CommandBlockInstaller {
     private CommandBlockInstaller(){}
 
     /** Populate the block entity without powering it during assembly. */
-    public static void program(ServerWorld world,BlockPos pos,CommandBlockPlan.Entry entry){
+    public static void program(ServerWorld world,BlockPos pos,CommandBlockPlan.Entry entry,
+                               String expectedBlockState){
         CommandBlockPlan.validateCommand(entry.command());
         if(!world.isChunkLoaded(pos))
             throw new IllegalStateException("Command block chunk unloaded at "+pos.toShortString());
         if(!(world.getBlockEntity(pos) instanceof CommandBlockBlockEntity tile))
             throw new IllegalStateException("Command block missing at "+pos.toShortString());
-        if(!CommandBlockPlan.isCommandBlock(Registries.BLOCK.getId(world.getBlockState(pos).getBlock()).toString()))
-            throw new IllegalStateException("Expected command block state at "+pos.toShortString());
+        if(!CommandBlockPlan.isCommandBlock(Registries.BLOCK.getId(world.getBlockState(pos).getBlock()).toString()) ||
+            !world.getBlockState(pos).equals(BlockStates.parse(expectedBlockState)))
+            throw new IllegalStateException("Command block ID/facing/type differs from approved "+
+                "local coordinate mapping at "+pos.toShortString());
         tile.setAuto(false);
         tile.getCommandExecutor().setCommand(entry.command());
         tile.getCommandExecutor().setTrackOutput(entry.trackOutput());
+        if(!entry.command().equals(tile.getCommandExecutor().getCommand()))
+            throw new IllegalStateException("Command text did not persist at "+pos.toShortString());
         tile.markDirty();
         world.updateListeners(pos,world.getBlockState(pos),world.getBlockState(pos),Block.NOTIFY_LISTENERS);
     }

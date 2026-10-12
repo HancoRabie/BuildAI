@@ -91,6 +91,11 @@ public final class BuildAIMod implements ModInitializer {
                 "Use preset day, night, noon, midnight, sun, rain, thunder, freeze-day, or resume-day");
         };
     }
+    private static void approvalResult(ServerPlayerEntity player,boolean accepted,String result){
+        reply(player,result);
+        if(ServerPlayNetworking.canSend(player,CommandApprovalFeedbackPayload.ID))
+            ServerPlayNetworking.send(player,new CommandApprovalFeedbackPayload(accepted,result));
+    }
     private static int approveSelected(ServerPlayerEntity player,String selection){
         ConstructionProject project=ConstructionManager.get(player);
         try{
@@ -98,9 +103,10 @@ public final class BuildAIMod implements ModInitializer {
                 ConstructionProject.Phase.WAITING_COMMAND_APPROVAL&&project.commandCount()>0;
             int available=projectPlan?project.commandCount():StandaloneCommandReview.count(player);
             if(available==0){
-                reply(player,"NO SCRIPTS TO APPROVE — this build contains only EMPTY command blocks. "+
-                    "Look at one and type /buildai commands preset day (or preset sun/night/rain), "+
-                    "then /buildai commands approve all. No rebuild needed.");return 0;
+                approvalResult(player,false,
+                    "NO SCRIPTS TO APPROVE. Stage a command while looking at a block "+
+                    "using /buildai commands preset day, then approve all. No rebuild needed.");
+                return 0;
             }
             java.util.Set<Integer> indices="all".equalsIgnoreCase(selection.trim())
                 ?CommandApprovalSelection.all(available)
@@ -112,19 +118,21 @@ public final class BuildAIMod implements ModInitializer {
             }else count=StandaloneCommandReview.approve(player,indices);
             String numbers=indices.stream().sorted().map(i->Integer.toString(i+1))
                 .collect(java.util.stream.Collectors.joining(","));
-            reply(player,"Approved "+count+"/"+available+
-                " scripts (#"+numbers+"). "+(projectPlan?"Commissioning starts now.":
-                "Commands programmed into existing world blocks.")+
+            approvalResult(player,true,"Approved "+count+"/"+available+
+                " command blocks (#"+numbers+"). "+(projectPlan?"Commissioning starts now.":
+                "Commands were written to existing world blocks.")+
                 " Unselected scripts remain inactive.");
             return 1;
         }catch(Exception ex){
-            reply(player,"Approval rejected: "+ex.getMessage());return 0;
+            approvalResult(player,false,"Approval rejected: "+ex.getMessage());return 0;
         }
     }
     @Override public void onInitialize() {
         com.hanco.buildai.build.BuildBlocks.register();
         PayloadTypeRegistry.playC2S().register(BlueprintChunkPayload.ID,BlueprintChunkPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(PlacePayload.ID,PlacePayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(CommandApprovalRequestPayload.ID,
+            CommandApprovalRequestPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ClearPreviewPayload.ID, ClearPreviewPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(BlueprintReadyPayload.ID,BlueprintReadyPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(CinematicExcavationPayload.ID,CinematicExcavationPayload.CODEC);
@@ -132,6 +140,17 @@ public final class BuildAIMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(com.hanco.buildai.net.ProjectStatusPayload.ID,
             com.hanco.buildai.net.ProjectStatusPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(CommandReviewPayload.ID,CommandReviewPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(CommandApprovalFeedbackPayload.ID,
+            CommandApprovalFeedbackPayload.CODEC);
+        ServerPlayNetworking.registerGlobalReceiver(CommandApprovalRequestPayload.ID,
+            (payload,context)->{
+                ServerPlayerEntity player=context.player();
+                context.server().execute(()->{
+                    // A client packet NEVER bypasses ownership, permission,
+                    // phase or coordinate checks in approveSelected().
+                    approveSelected(player,payload.selection());
+                });
+            });
 
         ServerPlayNetworking.registerGlobalReceiver(BlueprintChunkPayload.ID,(payload,context)->{
             ServerPlayerEntity player=context.player();

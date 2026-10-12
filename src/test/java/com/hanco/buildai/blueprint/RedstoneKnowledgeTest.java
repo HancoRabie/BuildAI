@@ -43,7 +43,7 @@ public class RedstoneKnowledgeTest {
     @Test void bundledManualCorrectsKnownOldReferenceError(){
         String guidance=RedstoneKnowledge.instructions("redstone copper bulb toggle",null);
         assertTrue(guidance.contains("NOT timing"));
-        assertTrue(guidance.contains("DOES NOT use this QC rule"));
+        assertTrue(guidance.contains("crafter does NOT use this QC rule"));
         assertTrue(guidance.contains("Minecraft Java 1.21.1")||
             guidance.contains("MINECRAFT JAVA 1.21.1"));
         assertTrue(guidance.length()>10000);

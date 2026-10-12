@@ -33,12 +33,30 @@ final class StagedFarmArchitect {
         InspirationResearch.Result inspiration=
             InspirationResearch.research(token,model,original,progress);
         StagedFarmAssembler.Assembly merged=new StagedFarmAssembler.Assembly(plan);
+        StagedFarmCheckpoints checkpoint=new StagedFarmCheckpoints(
+            net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir()
+                .resolve("buildai/staged-workspaces"),
+            original,model,RedstoneKnowledge.instructions(original,null));
+        checkpoint.begin();
 
         for(int i=0;i<plan.stages().size();i++){
             if(progress!=null&&progress.cancellationRequested())
                 throw new java.util.concurrent.CancellationException(
                     "Stopped before stage "+(i+1));
             StagedFarmPlan.Stage stage=plan.stages().get(i);
+            String saved=checkpoint.load(i);
+            if(saved!=null){
+                try{
+                    merged.add(stage,saved); // all region/interface rules rechecked
+                    if(progress!=null)progress.stage(
+                        "Restored validated stage "+(i+1)+"/"+plan.stages().size(),
+                        stage.name()+" was saved locally before the earlier "+
+                        "generation stopped. No repeat model call needed.");
+                    continue;
+                }catch(RuntimeException corrupted){
+                    checkpoint.discard(i);
+                }
+            }
             String stagePrompt=plan.stagePrompt(original,stage,i,
                 merged.connectionBrief());
             if(progress!=null)progress.stage(
@@ -49,6 +67,7 @@ final class StagedFarmArchitect {
                 ?AIArchitect.generateStageWithChatGPT(stagePrompt,progress,inspiration)
                 :AIArchitect.generateStageWithApi(apiKey,stagePrompt,progress,inspiration);
             merged.add(stage,piece.specification());
+            checkpoint.save(i,piece.specification());
             if(progress!=null)progress.stage(
                 "Stage "+(i+1)+"/"+plan.stages().size()+" validated",
                 stage.name()+" returned "+piece.blueprint().solidCount()+
@@ -85,6 +104,7 @@ final class StagedFarmArchitect {
             "system. Physical integration is not proof that any redstone "+
             "circuit works. Test EACH floor, master button, item transport "+
             "and timed water/piston resets in a disposable world.");
+        checkpoint.complete();
         if(progress!=null)progress.stage("Staged farm assembled",
             merged.total()+" real engineering modules were combined into "+
             "one "+plan.width()+"x"+plan.height()+"x"+plan.length()+

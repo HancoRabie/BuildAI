@@ -55,6 +55,42 @@ public final class ConstructionProject {
     public int approvedCommandCount(){return approvedCommandIndices.size();}
     public boolean isCommandApproved(int zeroBased){return approvedCommandIndices.contains(zeroBased);}
     /**
+     * Recover finished physical builds for which the AI omitted command
+     * metadata. This is an explicit, operator-authored map of an existing
+     * command-block cell, not a fabricated script or new world placement.
+     * Physical project remains intact; normal review/commissioning resumes.
+     */
+    public int stageExistingCommand(ServerPlayerEntity operator,BlockPos target,String script){
+        if(!operator.getUuid().equals(owner)||!operator.hasPermissionLevel(4))
+            throw new IllegalStateException("Only the owning server operator level 4 can configure commands");
+        if(!(phase==Phase.COMPLETE && commandCount()==0) &&
+            phase!=Phase.WAITING_COMMAND_APPROVAL)
+            throw new IllegalStateException("Configure commands on an existing completed build, "+
+                "or while the command review is waiting; current phase: "+phase);
+        if(commandsApproved)
+            throw new IllegalStateException("This command selection was already approved and commissioned");
+        if(!world.isChunkLoaded(target))
+            throw new IllegalStateException("Command block chunk is not loaded");
+        int x=target.getX()-origin.getX(),y=target.getY()-origin.getY(),z=target.getZ()-origin.getZ();
+        if(x<0||y<0||z<0||x>=blueprint.width||y>=blueprint.height||z>=blueprint.length)
+            throw new IllegalArgumentException("Look at a command block that BuildAI placed in this project");
+        if(!CommandBlockPlan.isCommandBlock(blueprint.get(x,y,z)) ||
+            !CommandBlockPlan.isCommandBlock(Registries.BLOCK.getId(world.getBlockState(target).getBlock()).toString()))
+            throw new IllegalArgumentException("Target is not a BuildAI-generated command block");
+        if(!world.getBlockState(target).equals(BlockStates.parse(blueprint.get(x,y,z))))
+            throw new IllegalArgumentException("Command block type/facing changed since the blueprint was built");
+        CommandBlockPlan.Entry entry=new CommandBlockPlan.Entry(x,y,z,script.trim(),false,false);
+        List<CommandBlockPlan.Entry> next=new ArrayList<>(blueprint.commands());
+        next.removeIf(old->old.x()==x&&old.y()==y&&old.z()==z);
+        next.add(entry);
+        blueprint.setCommands(next); // unique XYZ, deterministic build order
+        approvedCommandIndices=Set.of();commandsApproved=false;
+        programmingIndex=0;armingIndex=0;
+        phase=Phase.WAITING_COMMAND_APPROVAL;
+        return blueprint.commands().indexOf(entry)+1;
+    }
+
+    /**
      * In no case does build speed advance approval. The finished physical
      * build stops in WAITING_COMMAND_APPROVAL until an OP4 explicitly chooses
      * all or specific command indices. Unselected blocks remain inert.

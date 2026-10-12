@@ -64,7 +64,10 @@ public final class BuildAIArchitectureScreen extends Screen {
         int x=layout.x(),w=layout.width(),gap=5,h=layout.buttonHeight();
         int half=(w-gap)/2,third=(w-2*gap)/3;
         int top=layout.bodyTop();
-        if(step==0){
+        if(layout.bodyHeight()<75){
+            // Minecraft GUI Scale can produce very short logical windows.
+            // Hide actions instead of stacking them on the footer.
+        }else if(step==0){
             boolean showSaved=layout.bodyHeight()>=99;
             if(showSaved){
                 String name=savedIndex<0?"Choose from My Builds":saved.get(savedIndex).getFileName().toString();
@@ -99,8 +102,8 @@ public final class BuildAIArchitectureScreen extends Screen {
         }else if(step==1){
             button("NEW SOURCE",x,foot,third,h,b->navigate(0));
             ButtonWidget copy=button("COPY REPORT",x+third+gap,foot,third,h,b->copyReport());
-            ButtonWidget use=button("USE THIS STYLE",x+2*(third+gap),foot,w-2*(third+gap),h,
-                b->navigate(2));
+            ButtonWidget use=button("USE & CREATE",x+2*(third+gap),foot,w-2*(third+gap),h,
+                b->createWithStyle());
             copy.active=!references.isEmpty();
             use.active=!references.isEmpty();
         }else{
@@ -164,6 +167,17 @@ public final class BuildAIArchitectureScreen extends Screen {
                     "No valid files: "+result.firstError();
             }
         }));
+    }
+
+    private void createWithStyle(){
+        if(references.isEmpty())return;
+        try{
+            // Users explicitly choose which style is promoted to the prompt
+            // context; merely browsing an old reference must not silently
+            // claim it's being used.
+            BuildAIStyleMemory.activateArchitectureReference(references.get(referenceIndex).name());
+            client.setScreen(new BuildAIScreen());
+        }catch(Exception ex){status="Could not select reference: "+ex.getMessage();}
     }
 
     private void copyReport(){
@@ -298,7 +312,10 @@ public final class BuildAIArchitectureScreen extends Screen {
         stepMap(ctx);
         ctx.fill(x,layout.bodyTop()-6,x+w,layout.bodyBottom()+2,0xB01E3040);
         ctx.fill(x,layout.bodyTop()-6,x+2,layout.bodyBottom()+2,0xFF356E76);
-        if(step==0)source(ctx,x,layout.bodyTop(),w);
+        if(layout.bodyHeight()<75) {
+            small(ctx,"Enlarge the window or lower Minecraft GUI Scale for the studio controls.",
+                x+9,layout.bodyTop()+12,w-18,AMBER,0.79f);
+        }else if(step==0)source(ctx,x,layout.bodyTop(),w);
         else if(step==1)summary(ctx,x,layout.bodyTop(),w);
         else explain(ctx,x,layout.bodyTop(),w);
         small(ctx,status,x+5,layout.statusY()+3,w-10,

@@ -9,9 +9,6 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
-import java.awt.FileDialog;
-import java.awt.Frame;
-import java.awt.GraphicsEnvironment;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
@@ -87,38 +84,22 @@ public final class BuildAIPixelArtScreen extends Screen {
     private void browse(){
         if(busy)return;
         capture();
-        // AWT's native file dialog is optional. Users can paste a path on
-        // headless/unusual desktop setups. Never block Minecraft's render thread.
-        if(GraphicsEnvironment.isHeadless()){
-            status="Native file dialog unavailable. Paste a PNG/JPG path instead.";
-            return;
-        }
-        busy=true;status="Opening system file chooser...";
-        rebuild();
-        CompletableFuture.supplyAsync(()->{
-            FileDialog picker=new FileDialog((Frame)null,
-                "Choose PNG or JPG for BuildAI",FileDialog.LOAD);
-            try{
-                picker.setFilenameFilter((dir,name)->{
-                    String file=name.toLowerCase(java.util.Locale.ROOT);
-                    return file.endsWith(".png")||file.endsWith(".jpg")||
-                        file.endsWith(".jpeg");
-                });
-                picker.setVisible(true);
-                String file=picker.getFile();
-                return file==null?null:Path.of(picker.getDirectory(),file);
-            }finally{picker.dispose();}
-        }).whenComplete((selected,error)->MinecraftClient.getInstance().execute(()->{
-            busy=false;
-            if(error!=null){status="File dialog unavailable; paste image path instead.";rebuild();return;}
-            if(selected==null){status="Image selection cancelled.";rebuild();return;}
-            value=selected.toAbsolutePath().toString();
-            // Rebuild captures live text-field values; update the field first
-            // so the freshly selected path cannot be overwritten by stale text.
+        // Same LWJGL native picker used by ChainFrames. Minecraft's JVM
+        // can be AWT-headless even on a normal Windows gaming desktop.
+        try{
+            Path selected=NativeFileAccess.chooseImage(
+                net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir());
+            if(selected==null){
+                status="Image selection cancelled.";
+                return;
+            }
+            value=selected.toString();
             if(pathField!=null)pathField.setText(value);
-            rebuild();
+            status="Selected "+selected.getFileName()+"; generating local preview...";
             generate();
-        }));
+        }catch(java.io.IOException error){
+            status="Image chooser: "+error.getMessage();
+        }
     }
 
     private void generate(){

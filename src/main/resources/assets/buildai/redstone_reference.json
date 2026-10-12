@@ -333,12 +333,13 @@
     },
     {
       "name": "Item Frame",
-      "block": "minecraft:item_frame",
       "purpose": "Rotation-dependent comparator sensor",
       "rules": [
         "ENTITY, not ordinary block voxel",
         "May not survive schematic export"
-      ]
+      ],
+      "entity": "minecraft:item_frame",
+      "placement": "ENTITY, not a placeable block state. Requires entity spawn/serialization, which a normal block-only schematic does not provide."
     },
     {
       "name": "Chiseled Bookshelf",
@@ -441,21 +442,23 @@
     },
     {
       "name": "Hopper Minecart",
-      "block": "minecraft:hopper_minecart",
       "purpose": "Mobile item collector",
       "rules": [
         "ENTITY potentially omitted from schematic",
         "Rail/throughput/chunk loading"
-      ]
+      ],
+      "entity": "minecraft:hopper_minecart",
+      "placement": "ENTITY, not a placeable block state. Requires entity spawn/serialization, which a normal block-only schematic does not provide."
     },
     {
       "name": "Chest Minecart",
-      "block": "minecraft:chest_minecart",
       "purpose": "Mobile inventory",
       "rules": [
         "Entity/data may be lost",
         "Detector comparator needs cart"
-      ]
+      ],
+      "entity": "minecraft:chest_minecart",
+      "placement": "ENTITY, not a placeable block state. Requires entity spawn/serialization, which a normal block-only schematic does not provide."
     },
     {
       "name": "Furnace",

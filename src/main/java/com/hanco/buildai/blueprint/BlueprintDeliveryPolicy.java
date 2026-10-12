@@ -47,6 +47,27 @@ public final class BlueprintDeliveryPolicy {
         return refusal&&validationExcuse;
     }
 
+    /** User-visible, editable suggestion derived from model failure CATEGORY,
+     * never a copied assistant transcript or opaque model "memory".
+     */
+    public static String suggestClarification(String failedReason){
+        if(failedReason==null||failedReason.isBlank())return "";
+        String lower=failedReason.toLowerCase(Locale.ROOT);
+        if(lower.contains("inventory")||lower.contains("preload")||
+           lower.contains("block-only")||lower.contains("block entity")||
+           lower.contains("block-entity"))
+            return "Design the complete physical structure and functioning "+
+                "redstone layout now. Use viable alternatives where inventory "+
+                "NBT cannot be preloaded; clearly list any specific in-game "+
+                "configuration required instead of refusing the build.";
+        if(lower.contains("validat")||lower.contains("test")||
+           lower.contains("verif")||lower.contains("guarantee"))
+            return "Generate a complete buildable engineering proposal. "+
+                "Do not refuse because in-world validation is pending; "+
+                "I will test the actual machine in Minecraft and give feedback.";
+        return "";
+    }
+
     public static String correction(){
         return """
             BUILDAI GENERATION RECOVERY — ONE RETRY, ORIGINAL REQUEST UNCHANGED:

@@ -189,6 +189,20 @@ public final class AIArchitect {
         JSON "limitations" and let BuildAI's QA/players test the result
         later; never turn a lack of in-game testing into a refusal.
         """;
+    private static final String STAGE_OUTPUT_RULES="""
+        BUILDAI ACTIVE STAGED SUBSYSTEM OUTPUT: The user's stage scope
+        OVERRIDES the usual expectation to produce the entire architecture
+        in this single model response. Produce only the explicitly assigned
+        stage's actual block operations at the shared GLOBAL dimensions.
+        All required other floors and the shell will be supplied by other
+        independent model requests. Do not recreate/copy full building in
+        every stage. For farming floors include top-level "interfaces" with
+        at least one valid "item_output" and one valid "trigger_input",
+        each declaring genuine x,y,z and facing from YOUR geometry.
+        The final integration stage must connect real declared interfaces,
+        not make promises about nonexistent connections. Never reinterpret
+        this as permission to shrink the player's overall project.
+        """;
     public record DesignResult(Blueprint blueprint, String specification,
                                InspirationResearch.Result inspiration) {
         public DesignResult(Blueprint blueprint,String specification) {
@@ -288,6 +302,8 @@ public final class AIArchitect {
             REDSTONE+"\n"+RedstoneKnowledge.instructions(prompt,previous)+"\n"+loadArchitectureGuide();
         if(previous!=null)rules+="\nRevise the existing blueprint. Return COMPLETE replacement JSON, not a diff. "+
             "Keep existing geometry unless the player explicitly asks for changes.";
+        if(prompt.startsWith("BUILDAI STAGED GENERATION"))
+            rules+="\n"+STAGE_OUTPUT_RULES;
         if(recovery)rules+="\n"+recoveryGuidance;
         system.addProperty("content",rules);
         input.add(system);
@@ -447,6 +463,8 @@ public final class AIArchitect {
                 "Preserve dimensions, details and architecture unless the user requests changes. "+
                 "Return a COMPLETE replacement JSON design using the same schema; do not return a diff. "+
                 "Keep all previous valid geometry operations except when necessary for requested changes.";
+        if(prompt.startsWith("BUILDAI STAGED GENERATION"))
+            systemInstructions+="\n"+STAGE_OUTPUT_RULES;
         if(recovery)systemInstructions+="\n"+recoveryGuidance;
         JsonObject system=new JsonObject();system.addProperty("role","system");system.addProperty("content",systemInstructions);
         JsonObject user=new JsonObject();user.addProperty("role","user");

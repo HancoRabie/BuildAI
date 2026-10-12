@@ -17,9 +17,10 @@
       "block": "minecraft:repeater",
       "purpose": "Directional one-way signal refresh and delay",
       "rules": [
-        "Rear input, front/facing output, delay 1..4 REDSTONE ticks (2..8 game ticks).",
-        "Directional strength refresh; side-locking can freeze output.",
-        "Wrong facing is not repaired by dust normalization."
+        "Java 1.21.1 minecraft:repeater facing property points to its REAR/INPUT side, NOT output; output is OPPOSITE.",
+        "Flow from WEST at x-1 to EAST at x+1 requires repeater[facing=west], with rear/input west and output east.",
+        "Flow NORTH to SOUTH (+Z) requires repeater[facing=north]. Delay=1..4 REDSTONE ticks =2..8 game ticks.",
+        "Side-locking can preserve state and must not be mistakenly reversed in a complex circuit. Independent support block required."
       ]
     },
     {
@@ -27,9 +28,10 @@
       "block": "minecraft:comparator",
       "purpose": "Compare, subtract and container signal reading",
       "rules": [
-        "Back primary input, front analog output, side compare/subtract.",
-        "Compare passes rear when >= side, else 0; subtract=max(0,rear-side).",
-        "Inventory NBT, slot fullness and special analog source mechanics matter."
+        "Java 1.21.1 minecraft:comparator facing points to REAR/INPUT, not output; front output is opposite.",
+        "Flow WEST input to EAST output requires comparator[facing=west,mode=compare,powered=false].",
+        "Compare rear if >= side else 0; subtract max(0,rear-side); may read tile/block-entity inventories.",
+        "Side analog readings, mode, substrate and output signal must remain correct on rotation."
       ]
     },
     {
@@ -169,8 +171,10 @@
       "block": "minecraft:powered_rail",
       "purpose": "Accelerates/decelerates minecarts when powered",
       "rules": [
-        "Shape and slope must connect",
-        "Rail travel relies on vanilla minecart physics"
+        "Use AS NEEDED, not at every track cell; an unpowered powered rail BRAKES.",
+        "Rough level occupied passenger cart benchmark one powered rail per ~38 track blocks; uphill and heavy minecarts require denser boosts.",
+        "One nearby redstone source can power a rail plus up to 8 contiguous rails either direction. Do not put redstone blocks under every powered rail.",
+        "Rail shape and correct power matter; no perpetual propulsion without actual power."
       ]
     },
     {
@@ -187,8 +191,8 @@
       "block": "minecraft:activator_rail",
       "purpose": "Triggers supported minecart functions",
       "rules": [
-        "Must receive power",
-        "Distinct from powered/detector rails"
+        "Activator rails interact with certain cart contents/passengers; they are NOT propulsion rails.",
+        "Use only where cart activation/ejection is requested, with controlled powered status."
       ]
     },
     {
@@ -436,8 +440,9 @@
       "block": "minecraft:rail",
       "purpose": "Passive minecart routing",
       "rules": [
-        "Shape/slope connectivity",
-        "Carts are entities"
+        "Use normal minecraft:rail for most vanilla coaster segments; it is passive and needs no power/redstone blocks below.",
+        "Curve/slope shape must match neighbors, supports and switch positions.",
+        "Occupied level cart typical booster about one powered rail per 38 rails; adjust for speed and terrain."
       ]
     },
     {
@@ -549,6 +554,28 @@
         "Facing/half/open/powered",
         "Waxing unrelated to timing"
       ]
+    },
+    {
+      "name": "Water Source",
+      "block": "minecraft:water",
+      "purpose": "World-placed irrigation, flushing, canals, water flows",
+      "rules": [
+        "Place minecraft:water source directly in the world; water_bucket is an item, not a block state.",
+        "No bucket needs to exist in BuildAI supply chests for static world source placement.",
+        "Finish solid retaining basin/channel/drain structures BEFORE setting fluid; avoid washing away dust and crops.",
+        "For a real dispenser that releases/picks up water, an actual bucket item in inventory is needed, unlike static source placement."
+      ]
+    },
+    {
+      "name": "Lava Source",
+      "block": "minecraft:lava",
+      "purpose": "World-placed decorative/functional lava channel or source",
+      "rules": [
+        "minecraft:lava is a valid placeable source block, lava_bucket is not a block.",
+        "No bucket supply required for a direct BuildAI world placement.",
+        "Place after containment, avoid fire and cobblestone/obsidian formation and player exposure.",
+        "Actual lava-bucket dispenser mechanisms require bucket inventory NBT; do not assume automatically filled."
+      ]
     }
   ],
   "verification_levels": [
@@ -560,5 +587,10 @@
     "in-world test"
   ],
   "masterHandbook": "/assets/buildai/redstone_master_handbook.txt",
-  "designContract": "redstone_plan.circuits with name,input,signalPath,output,timing,reset,test. Design real geometry and correct facing/mode."
+  "designContract": "redstone_plan.circuits with name,input,signalPath,output,timing,reset,test. Design real geometry and correct facing/mode.",
+  "versionSpecificCorrections": [
+    "Repeater and comparator FACING denotes REAR/INPUT, not output, in Java 1.21.1; output lies opposite.",
+    "Powered rails are sparse boosters, not a universal replacement for normal rails; power sources need not appear below each rail.",
+    "World water/lava sources can be placed by BuildAI directly; bucket items are only needed for actual in-inventory dispenser operations."
+  ]
 }

@@ -53,6 +53,16 @@ public final class SchematicReader {
             b.setCommands(CommandBlockPlan.decode(commands,b));
             b.warnings.add("Command-block scripts imported as INERT metadata; operator approval is required.");
         }
+        // Never infer old prompts from titles: these optional tags are only
+        // present on BuildAI-generated files saved by newer versions.
+        byte[] prompt=c.getByteArray("BuildAIOriginalPromptUtf8");
+        byte[] spec=c.getByteArray("BuildAIDesignSpecificationUtf8");
+        if(prompt.length>16000||spec.length>1_500_000)
+            throw new IllegalArgumentException("BuildAI history metadata exceeds permitted length");
+        if(prompt.length>0||spec.length>0)
+            b.setGenerationContext(
+                new String(prompt,java.nio.charset.StandardCharsets.UTF_8),
+                new String(spec,java.nio.charset.StandardCharsets.UTF_8));
         b.warnings.add("Imported entity and block-entity payloads skipped for safety.");
         return b;
     }

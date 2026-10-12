@@ -1,0 +1,361 @@
+{
+  "schema": "buildai-rbl-v0.1",
+  "target": "minecraft-java-1.21.1",
+  "purpose": "Visual shorthand with canonical voxel cells; not a replacement for JSON blueprint output, real block states, or Minecraft execution.",
+  "coordinateSystem": "x east+, y up+, z south+; each row runs west to east; rows progress north to south; layers are fixed Y values.",
+  "verificationPolicy": {
+    "static": "Syntax and coordinate/voxel integrity may be checked automatically.",
+    "world": "ONLY mark in_game_verified after Java 1.21.1 run with environment/inputs, observed outputs, repeats, reset, and recorded evidence.",
+    "defaultStatus": "reference_unverified"
+  },
+  "symbols": [
+    {
+      "symbol": "⬛",
+      "alias": "S",
+      "meaning": "Ordinary sturdy block (material must be resolved)",
+      "exampleBlock": "minecraft:stone"
+    },
+    {
+      "symbol": "🟥",
+      "alias": "RS",
+      "meaning": "Constant redstone power block",
+      "exampleBlock": "minecraft:redstone_block"
+    },
+    {
+      "symbol": "🔥",
+      "alias": "D",
+      "meaning": "Redstone wire / dust (NOT actual fire)",
+      "exampleBlock": "minecraft:redstone_wire"
+    },
+    {
+      "symbol": "💡",
+      "alias": "LM",
+      "meaning": "Redstone lamp",
+      "exampleBlock": "minecraft:redstone_lamp"
+    },
+    {
+      "symbol": ".",
+      "alias": "AIR",
+      "meaning": "Empty voxel",
+      "exampleBlock": "minecraft:air"
+    },
+    {
+      "symbol": "L",
+      "alias": "L",
+      "meaning": "Lever, mount and initial power must be specified",
+      "exampleBlock": "minecraft:lever"
+    },
+    {
+      "symbol": "B",
+      "alias": "B",
+      "meaning": "Button, material, face and power must be specified",
+      "exampleBlock": "minecraft:stone_button"
+    },
+    {
+      "symbol": "R1>",
+      "alias": "R1E",
+      "meaning": "Repeater 1 redstone tick (2 game ticks), output east, state facing=west",
+      "exampleBlock": "minecraft:repeater[facing=west,delay=1,locked=false,powered=false]"
+    },
+    {
+      "symbol": "R2>",
+      "alias": "R2E",
+      "meaning": "Repeater 2 redstone ticks (4 game ticks), output east, state facing=west",
+      "exampleBlock": "minecraft:repeater[facing=west,delay=2,locked=false,powered=false]"
+    },
+    {
+      "symbol": "R3>",
+      "alias": "R3E",
+      "meaning": "Repeater 3 redstone ticks, output east",
+      "exampleBlock": "minecraft:repeater[facing=west,delay=3,locked=false,powered=false]"
+    },
+    {
+      "symbol": "R4>",
+      "alias": "R4E",
+      "meaning": "Repeater 4 redstone ticks, output east",
+      "exampleBlock": "minecraft:repeater[facing=west,delay=4,locked=false,powered=false]"
+    },
+    {
+      "symbol": "R4<",
+      "alias": "R4W",
+      "meaning": "Repeater 4 redstone ticks, output west, state facing=east",
+      "exampleBlock": "minecraft:repeater[facing=east,delay=4,locked=false,powered=false]"
+    },
+    {
+      "symbol": "C0>",
+      "alias": "C0E",
+      "meaning": "Comparator compare mode output east, block facing west",
+      "exampleBlock": "minecraft:comparator[facing=west,mode=compare,powered=false]"
+    },
+    {
+      "symbol": "C1>",
+      "alias": "C1E",
+      "meaning": "Comparator subtract mode output east, block facing west",
+      "exampleBlock": "minecraft:comparator[facing=west,mode=subtract,powered=false]"
+    },
+    {
+      "symbol": "O>",
+      "alias": "OE",
+      "meaning": "Observer OUTPUT toward east; sensor toward west",
+      "exampleBlock": "minecraft:observer[facing=east,powered=false]"
+    },
+    {
+      "symbol": "P>",
+      "alias": "PE",
+      "meaning": "Piston extends east",
+      "exampleBlock": "minecraft:piston[facing=east,extended=false]"
+    },
+    {
+      "symbol": "SP>",
+      "alias": "SPE",
+      "meaning": "Sticky piston extends east",
+      "exampleBlock": "minecraft:sticky_piston[facing=east,extended=false]"
+    },
+    {
+      "symbol": "H↓",
+      "alias": "HD",
+      "meaning": "Hopper output down",
+      "exampleBlock": "minecraft:hopper[facing=down,enabled=true]"
+    },
+    {
+      "symbol": "~",
+      "alias": "WAT",
+      "meaning": "Water source, not a water bucket inventory item",
+      "exampleBlock": "minecraft:water[level=0]"
+    }
+  ],
+  "modules": [
+    {
+      "id": "rbl.button_repeater_lamp.1",
+      "title": "Button -> 2-tick repeater -> redstone lamp",
+      "keywords": [
+        "button lamp",
+        "repeater lamp",
+        "redstone lamp",
+        "light button",
+        "delayed light",
+        "signal relay",
+        "redstone mechanism"
+      ],
+      "concept": "A single timed button pulse propagated in one direction through a repeater to a lamp.",
+      "status": "reference_unverified",
+      "verification": {
+        "edition": "java-1.21.1",
+        "static": "pending_compile_test",
+        "world": "not_tested",
+        "evidence": []
+      },
+      "size": {
+        "width": 3,
+        "height": 2,
+        "length": 1
+      },
+      "diagrams": [
+        {
+          "y": 1,
+          "rows": [
+            "B R2> 💡"
+          ]
+        },
+        {
+          "y": 0,
+          "rows": [
+            "⬛ ⬛ ⬛"
+          ]
+        }
+      ],
+      "cells": [
+        {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "symbol": "⬛",
+          "block": "minecraft:stone"
+        },
+        {
+          "x": 1,
+          "y": 0,
+          "z": 0,
+          "symbol": "⬛",
+          "block": "minecraft:stone"
+        },
+        {
+          "x": 2,
+          "y": 0,
+          "z": 0,
+          "symbol": "⬛",
+          "block": "minecraft:stone"
+        },
+        {
+          "x": 0,
+          "y": 1,
+          "z": 0,
+          "symbol": "B",
+          "block": "minecraft:stone_button[face=floor,facing=north,powered=false]"
+        },
+        {
+          "x": 1,
+          "y": 1,
+          "z": 0,
+          "symbol": "R2>",
+          "block": "minecraft:repeater[facing=west,delay=2,locked=false,powered=false]"
+        },
+        {
+          "x": 2,
+          "y": 1,
+          "z": 0,
+          "symbol": "💡",
+          "block": "minecraft:redstone_lamp[lit=false]"
+        }
+      ],
+      "ports": [
+        {
+          "name": "input",
+          "at": [
+            0,
+            1,
+            0
+          ],
+          "action": "press button"
+        },
+        {
+          "name": "output",
+          "at": [
+            2,
+            1,
+            0
+          ],
+          "observe": "lamp light state"
+        }
+      ],
+      "prerequisites": [
+        "Solid supporting blocks at Y=0",
+        "Actual button press; never set powered=true in frozen geometry"
+      ],
+      "testCases": [
+        "Press button: lamp turns on after Java native redstone update.",
+        "Release and allow native ticks: lamp eventually turns off.",
+        "Repeat 3 presses: one lit response per press; no unintended permanent state.",
+        "Reload a copy of the world: no false persistent power."
+      ],
+      "limitations": [
+        "This reference geometry is not yet documented as run in a Java 1.21.1 world.",
+        "Does not establish general clock behavior."
+      ]
+    },
+    {
+      "id": "rbl.lever_repeater_lamp.1",
+      "title": "Lever -> 1-tick repeater -> redstone lamp",
+      "keywords": [
+        "lever lamp",
+        "repeater lamp",
+        "switch lamp",
+        "latching light",
+        "toggle light",
+        "redstone signal"
+      ],
+      "concept": "A persistent manual ON/OFF input, diode-style delay and a lamp output.",
+      "status": "reference_unverified",
+      "verification": {
+        "edition": "java-1.21.1",
+        "static": "pending_compile_test",
+        "world": "not_tested",
+        "evidence": []
+      },
+      "size": {
+        "width": 3,
+        "height": 2,
+        "length": 1
+      },
+      "diagrams": [
+        {
+          "y": 1,
+          "rows": [
+            "L R1> 💡"
+          ]
+        },
+        {
+          "y": 0,
+          "rows": [
+            "⬛ ⬛ ⬛"
+          ]
+        }
+      ],
+      "cells": [
+        {
+          "x": 0,
+          "y": 0,
+          "z": 0,
+          "symbol": "⬛",
+          "block": "minecraft:stone"
+        },
+        {
+          "x": 1,
+          "y": 0,
+          "z": 0,
+          "symbol": "⬛",
+          "block": "minecraft:stone"
+        },
+        {
+          "x": 2,
+          "y": 0,
+          "z": 0,
+          "symbol": "⬛",
+          "block": "minecraft:stone"
+        },
+        {
+          "x": 0,
+          "y": 1,
+          "z": 0,
+          "symbol": "L",
+          "block": "minecraft:lever[face=floor,facing=north,powered=false]"
+        },
+        {
+          "x": 1,
+          "y": 1,
+          "z": 0,
+          "symbol": "R1>",
+          "block": "minecraft:repeater[facing=west,delay=1,locked=false,powered=false]"
+        },
+        {
+          "x": 2,
+          "y": 1,
+          "z": 0,
+          "symbol": "💡",
+          "block": "minecraft:redstone_lamp[lit=false]"
+        }
+      ],
+      "ports": [
+        {
+          "name": "input",
+          "at": [
+            0,
+            1,
+            0
+          ],
+          "action": "toggle lever"
+        },
+        {
+          "name": "output",
+          "at": [
+            2,
+            1,
+            0
+          ],
+          "observe": "lamp light state"
+        }
+      ],
+      "prerequisites": [
+        "Y=0 floor supports input and repeater"
+      ],
+      "testCases": [
+        "Lever ON: lamp illuminates through repeater.",
+        "Lever OFF: lamp turns off after normal updates.",
+        "Toggle repeatedly, test reset after world reload."
+      ],
+      "limitations": [
+        "Not tested in Java 1.21.1 in-world; no verified claim allowed."
+      ]
+    }
+  ]
+}

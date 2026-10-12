@@ -23,7 +23,8 @@ public final class BuildAIQualityScreen extends Screen {
         int w=Math.min(510,Math.max(140,width-20)),x=(width-w)/2,gap=5;
         int footer=Math.max(25,height-36);
         boolean hasWeb=BuildAIClient.lastResearch().verified();
-        boolean hasCommands=blueprint!=null&&!blueprint.commands().isEmpty();
+        boolean hasCommands=(blueprint!=null&&!blueprint.commands().isEmpty())
+            ||BuildAIClient.waitingCommandReview()!=null;
         if(hasWeb){
             addDrawableChild(ButtonWidget.builder(
                 Text.literal("View Cited Web Inspiration Sources"),
@@ -33,7 +34,11 @@ public final class BuildAIQualityScreen extends Screen {
         if(hasCommands){
             addDrawableChild(ButtonWidget.builder(
                 Text.literal("Review Command Block Map — In Game"),
-                button->client.setScreen(new BuildAICommandReviewScreen(this,blueprint)))
+                button->{
+                    var live=BuildAIClient.waitingCommandReview();
+                    client.setScreen(live!=null?new BuildAICommandReviewScreen(this,live)
+                        :new BuildAICommandReviewScreen(this,blueprint));
+                })
                 .dimensions(x+5,hasWeb?76:55,w-10,18).build());
         }
         int third=(w-gap*2)/3;

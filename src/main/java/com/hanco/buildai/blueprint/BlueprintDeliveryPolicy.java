@@ -1,0 +1,75 @@
+package com.hanco.buildai.blueprint;
+
+import com.google.gson.*;
+import java.util.Locale;
+
+/**
+ * A model's "I cannot test/preload this" is not a geometrical impossibility.
+ * Recover once from this specific response format, while preserving real
+ * size limits and remaining honest about unavailable block entity state.
+ */
+public final class BlueprintDeliveryPolicy {
+    private BlueprintDeliveryPolicy(){}
+
+    public static boolean retryableLimitation(String response){
+        if(response==null||response.isBlank())return false;
+        String message=response.trim();
+        try{
+            JsonElement parsed=JsonParser.parseString(message);
+            if(!parsed.isJsonObject())return false;
+            JsonObject root=parsed.getAsJsonObject();
+            // The model already delivered usable operations: compile them
+            // and present its limitations as warnings instead.
+            if(root.has("operations")&&root.get("operations").isJsonArray()&&
+                !root.getAsJsonArray("operations").isEmpty())return false;
+            if(!root.has("error")||!root.get("error").isJsonPrimitive())return false;
+            message=root.get("error").getAsString();
+        }catch(JsonParseException ignored){
+            // Invalid free-form refusal is a model error, not a valid design.
+        }
+        String lower=message.toLowerCase(Locale.ROOT);
+        // NEVER override a real engine limit by silently shrinking/omitting.
+        if(lower.contains("4,000,000")||lower.contains("4000000")||
+           lower.contains("16,000")||lower.contains("16000")||
+           lower.contains("512 block")||lower.contains("section-based")||
+           lower.contains("exceeds the")||lower.contains("outside bounds")||
+           lower.contains("too many cells"))return false;
+        boolean refusal=lower.contains("cannot")||lower.contains("unable")||
+            lower.contains("can't")||lower.contains("not possible")||
+            lower.contains("not available")||lower.contains("cannot truthfully");
+        boolean validationExcuse=lower.contains("validat")||
+            lower.contains("test")||lower.contains("simulat")||
+            lower.contains("guarantee")||lower.contains("verify")||
+            lower.contains("fully functional")||
+            lower.contains("preload")||lower.contains("pre-load")||
+            lower.contains("inventory")||lower.contains("block-only")||
+            lower.contains("block entity")||lower.contains("block-entity");
+        return refusal&&validationExcuse;
+    }
+
+    public static String correction(){
+        return """
+            BUlLDAI GENERATION RECOVERY — ONE RETRY, ORIGINAL REQUEST UNCHANGED:
+            Your previous response explained that the mechanism cannot be
+            verified, preloaded, or tested through a block-only schematic.
+            That is NOT a reason to return {"error":...}. BuildAI generates
+            engineering candidates in Minecraft; the player tests them.
+            DO NOT claim any circuit has already been tested. Return a
+            COMPLETE JSON blueprint with actual valid operations and full
+            requested geometry and scale. Design the highest-quality
+            realizable mechanism using the redstone technical handbook.
+            Include the requested irrigation, gates, manual controls,
+            collection conduits/chests and real pre-planted mature crops
+            where supported by block states. If an inventory-dependent
+            device needs real item/NBT setup (e.g., hopper clock or
+            dispenser), prefer a capable alternative with no missing
+            inventory dependency if that meets the requirements. Otherwise
+            include precise short strings under optional JSON "limitations"
+            describing each missing item/setup and what to test. Never
+            quietly omit a requested crop/system or describe it as proven.
+            Never send explanations outside JSON. The only valid reason for
+            an "error" is a hard engine size/operation bound that cannot be
+            met without violating the user's required dimensions.
+            """;
+    }
+}

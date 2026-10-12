@@ -11,6 +11,20 @@ import java.time.Duration;
 public final class AIArchitect {
     private AIArchitect() {}
     private static final String REDSTONE = """
+        MINECRAFT CHEST DISTINCTION (Java 1.21.1):
+        minecraft:chest = ordinary storage chest. Opening it does NOT emit
+        redstone power. A comparator reading its inventory can generate an
+        analog fullness signal (0..15) whether or not anyone opens it.
+        minecraft:trapped_chest = different vanilla block. Opening it
+        emits redstone power to neighboring circuits while players access
+        it, independently of comparator contents. Do NOT substitute a
+        trapped chest for an ordinary/simple/storage chest, or vice versa.
+        If user says "redstone chest" or explicitly wants the chest to
+        trigger a signal when opened, use minecraft:trapped_chest. If user
+        says normal, regular, plain or simple chest, use minecraft:chest.
+        For generic storage chests default to minecraft:chest, unless the
+        behavior requires trapped chest. Neither chest automatically
+        contains items; honor hopper output facing and real inventory setup.
         Minecraft 1.21.1 redstone facts: dust carries power 0-15 and attenuates; repeaters are directional
         with selectable 1-4 redstone tick delays and side locking; comparators read container fullness and
         compare/subtract; observers emit pulses from their output face after updates on their sensor face;

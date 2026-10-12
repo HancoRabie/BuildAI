@@ -10,18 +10,20 @@ assessment. It derives a bounded text report from Minecraft voxel states and
 feeds the report into subsequent ChatGPT or API-key blueprint prompts.
 
 ## Use in Minecraft (Fabric 1.21.1)
-1. Open **F8 > Feedback & Styles > Analyze Whole Builds / Reference Library**.
+1. Open **F8 > Feedback & Styles > STYLE REFERENCES > ANALYZE A WHOLE BUILD**.
 2. Select a saved blueprint or paste the full path of a local
    `.schem`, `.schematic`, `.litematic` or `.nbt` file.
-3. Click **Analyze & Save Selected Schematic**. The analysis is read-only and
+3. Click **ANALYZE FILE**. The analysis is read-only and
    does not change the current blueprint or world.
 4. To batch import, put up to 12 schematic files in the active game's
-   `buildai/style-references/` directory and click **Scan Reference Folder**.
+   `buildai/style-references/` directory and click **SCAN FOLDER**.
    The folder is created the first time you request a folder scan.
-5. Read the scrollable analysis report inside the reference screen.
-6. Future AI building requests incorporate up to two latest enabled reports
-   together with other approved feedback. The original schematic files are not
-   uploaded to OpenAI.
+5. The compact **reference summary fits the screen without scrolling**.
+   **COPY REPORT** copies the full technical report for detailed inspection.
+6. Select a saved reference and press **USE & CREATE**. BuildAI promotes that
+   reference for the next AI building prompt, then opens the BuildAI creator.
+   Up to two most-recent enabled references are included in prompt context.
+   The original schematic files are not uploaded to OpenAI.
 
 Note: IntelliJ's `runClient` game directory is typically
 `<project>/run/`; the regular Minecraft launcher uses the particular instance
@@ -63,3 +65,18 @@ is not executed or forwarded. The analysis is stored under
 They remain supported through **Learn Labeled Decorations from Schematic**
 inside Feedback & Styles. The new whole-build analyzer is independent and
 requires no signs. Both kinds of reference can influence future generations.
+
+## Per-build feedback in the same studio
+
+F8 > Feedback & Styles > MY BUILD FEEDBACK contains a separate project picker,
+star rating, comment field and **SAVE FEEDBACK** action. Switching to another
+file loads its existing rating and comment, or a blank note for a new build;
+unsaved edits are cached separately while this screen is open. To review an
+external schematic, select OTHER FILE, paste the path and click USE THIS FILE.
+Changing the path alone cannot redirect a save.
+
+New feedback records use normalized full local schematic paths, so two files
+with identical filenames in different folders cannot share comments. Older
+filename-only feedback is displayed for original BuildAI saved builds with a
+legacy warning; saving that review again attaches the exact project path.
+Only the newest review per full path is kept on subsequent saves.

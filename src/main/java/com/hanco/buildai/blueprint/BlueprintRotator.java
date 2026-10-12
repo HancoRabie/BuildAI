@@ -28,6 +28,9 @@ public final class BlueprintRotator {
     public static Blueprint rotate(Blueprint source,int turns){
         int t=normalized(turns);
         if(t==0)return source;
+        if(!source.commands().isEmpty())
+            throw new IllegalArgumentException("Command-driven builds currently require 0 degree rotation: "+
+                "relative command coordinates are not yet transformed.");
         Blueprint result=new Blueprint(source.name,width(source,t),source.height,length(source,t));
         result.warnings.addAll(source.warnings);
         Map<String,String> rotatedStates=new HashMap<>();

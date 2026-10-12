@@ -15,7 +15,7 @@ public record ProjectStatusPayload(String title,String phase,int placed,int tota
         title=bounded(title,120);
         phase=bounded(phase,32);
         materials=bounded(materials,1500);
-        if(chest==null)chest=new BlockPos(0,-9999,0);
+        if(chest==null)chest=new BlockPos(0,-2048,0);
         placed=Math.max(0,placed);total=Math.max(0,total);
         supplied=Math.max(0,supplied);required=Math.max(0,required);
         inspected=Math.max(0,inspected);excavationCells=Math.max(0,excavationCells);

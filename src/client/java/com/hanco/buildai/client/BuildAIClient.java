@@ -30,10 +30,19 @@ public final class BuildAIClient implements ClientModInitializer {
     public static volatile BlockPos previewOrigin=null;
     public static volatile boolean chatMode=false;
     private static volatile GenerationProgress activeGeneration;
+    private static volatile GenerationProgress minimizedProgress;
+    public static void minimizeGeneration(GenerationProgress progress){
+        minimizedProgress=progress;
+        message("Generation continues while you play. A compact live progress HUD is now active; F8 reopens BuildAI.");
+    }
+    public static boolean isMinimized(GenerationProgress progress){
+        return minimizedProgress==progress;
+    }
+    public static GenerationProgress minimizedProgress(){return minimizedProgress;}
 
     public static synchronized boolean beginGeneration(GenerationProgress progress){
         if(activeGeneration!=null && !activeGeneration.snapshot().finished())return false;
-        activeGeneration=progress;return true;
+        activeGeneration=progress;minimizedProgress=null;return true;
     }
     public static GenerationProgress currentGeneration(){return activeGeneration;}
     public static synchronized void endGeneration(GenerationProgress progress){
@@ -138,9 +147,12 @@ public final class BuildAIClient implements ClientModInitializer {
                 " blocks, "+draft.warnings.size()+
                 " architectural QA warning(s)). Open F8 > Placement / Export > Design QA / Warnings.");
             MinecraftClient mc=MinecraftClient.getInstance();
-            if(mc.currentScreen==null || mc.currentScreen instanceof BuildAIGenerationScreen ||
-                mc.currentScreen instanceof BuildAIScreen)
+            if(mc.currentScreen instanceof BuildAIGenerationScreen || mc.currentScreen instanceof BuildAIScreen)
                 mc.setScreen(BuildAIScreen.generatedResult());
+            else if(isMinimized(progress))
+                message("Blueprint generated and autosave started. Open F8 to inspect and place it.");
+            else if(mc.currentScreen==null)
+                message("Blueprint generated. Open F8 to inspect and place it.");
         }));
     }
     public static void acceptGenerated(AIArchitect.DesignResult result) {
@@ -190,6 +202,7 @@ public final class BuildAIClient implements ClientModInitializer {
             com.hanco.buildai.net.ClearPreviewPayload.ID,
             (payload,context)->context.client().execute(BuildAIClient::clearPreview));
         ProjectHud.register();
+        GenerationHud.register();
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
             com.hanco.buildai.net.ProjectStatusPayload.ID,
             (payload,context)->context.client().execute(()->{

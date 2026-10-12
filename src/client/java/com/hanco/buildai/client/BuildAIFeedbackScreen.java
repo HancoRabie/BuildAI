@@ -153,10 +153,14 @@ public final class BuildAIFeedbackScreen extends Screen {
                 button("LEARN SIGN-LABELED DETAILS",x+8,y+49,w-16,h,b->learnDecorations())
                     .active=active!=null&&!busy;
             }else if(mode==2){
-                pathField=new TextFieldWidget(textRenderer,x+8,y+21,w-16,h,Text.literal("External schematic path"));
-                pathField.setMaxLength(1024);pathField.setText(pathText);
-                pathField.setPlaceholder(Text.literal("Paste the complete path to your schematic file"));
+                int browse=Math.min(110,Math.max(70,w/3));
+                pathField=new TextFieldWidget(textRenderer,x+8,y+21,
+                    w-20-browse,h,Text.literal("External schematic path"));
+                pathField.setMaxLength(2048);pathField.setText(pathText);
+                pathField.setPlaceholder(Text.literal("Schematic path"));
                 addDrawableChild(pathField);
+                button("BROWSE FILE",x+w-8-browse,y+21,browse,h,
+                    b->browseExternal()).active=!busy;
                 button("USE THIS FILE",x+8,y+50,half-10,h,b->useExternal()).active=!busy;
                 button("CANCEL",x+half+gap,y+50,half-8,h,b->changeMode(0)).active=!busy;
             }
@@ -186,6 +190,19 @@ public final class BuildAIFeedbackScreen extends Screen {
                     :result.warning();
                 // init/loadBuilds selects next surviving project.
             }));
+    }
+
+    private void browseExternal(){
+        if(busy)return;
+        try{
+            List<Path> files=NativeFileAccess.chooseSchematics(
+                BlueprintLibrary.directory(),false);
+            if(files.isEmpty()){status="File selection cancelled.";return;}
+            pathText=files.get(0).toString();
+            if(pathField!=null)pathField.setText(pathText);
+            status="Selected "+files.get(0).getFileName()+
+                ". Click Use This File to review it.";
+        }catch(Exception ex){status="Native schematic picker: "+root(ex);}
     }
 
     private void useExternal(){

@@ -61,6 +61,21 @@ public final class SignTextPlan {
         return List.copyOf(safe);
     }
 
+    /** Rotate sign metadata without loading the Minecraft block registry.
+     * Actual blockstates are rotated separately with the native engine. */
+    public static List<Entry> rotated(Blueprint source,int turns){
+        int t=BlueprintRotator.normalized(turns);
+        if(t==0)return source.signs();
+        List<Entry> out=new ArrayList<>();
+        for(Entry entry:source.signs()){
+            var newPos=BlueprintRotator.position(entry.x(),entry.y(),entry.z(),
+                source.width,source.length,t);
+            out.add(new Entry(newPos.getX(),newPos.getY(),newPos.getZ(),
+                entry.front(),entry.back()));
+        }
+        return List.copyOf(out);
+    }
+
     public static List<Entry> decode(JsonArray json,Blueprint blueprint){
         if(json==null)return List.of();
         if(json.size()>MAX_SIGNS)throw new IllegalArgumentException("Too many signs");

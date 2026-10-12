@@ -51,15 +51,26 @@ Saved files live in the active Minecraft game directory under `buildai/blueprint
 
 **F8 > Create / AI > Online Inspiration** defaults to ON. For every new
 design or revision, BuildAI first *attempts* one genuine hosted Responses
-API `web_search` operation for existing Minecraft build references. Only
-responses with a completed actual `web_search_call`, a short design brief,
-and usable HTTPS source citations are treated as successful research.
-The original text-to-voxel generator then receives this cited inspiration
-as untrusted data; the strict JSON blueprint format remains unchanged.
+API `web_search` operation for existing Minecraft build references.
+Research asks for three or more different builders/examples across at least
+two websites. Only responses with a real completed `web_search_call`, three
+distinct HTTPS source URLs across two domains, and at least four reusable
+architectural techniques count as sufficiently diverse research.
+The research model must output generic MASSING, DEPTH, MATERIALS, DETAILS,
+LANDSCAPE, and ACCESS principles instead of selecting a build to imitate.
+
+**Player authorship is the rule.** The player's prompt controls the structure's
+identity, scale, design features, footprint and purpose. The generator receives
+ONLY the abstract craft techniques; **reference titles and URLs are withheld
+from the blueprint-generation prompt** (but kept as clickable citations for
+the player). It is explicitly instructed not to replicate another builder's
+signature roof, layout, exterior silhouette or detailed block composition.
+This is a design-direction safeguard, not automated proof of originality.
+The strict JSON blueprint format remains unchanged.
 
 If web search is unavailable on the connected ChatGPT model/workspace or
-developer API key, times out, or has no verifiable citations, the build
-continues without it. Progress explicitly reports unavailable research;
+developer API key, times out, or lacks enough independent references or
+clear transferable principles, the build continues without it. Progress explicitly reports unavailable research;
 BuildAI does not claim that unsourced model recollections are web research.
 Successful searches show clickable source links in Minecraft chat, also
 available from **Placement / Export > Design QA / Warnings**.

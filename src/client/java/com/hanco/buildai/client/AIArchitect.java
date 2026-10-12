@@ -265,9 +265,9 @@ public final class AIArchitect {
         StringBuilder generated=new StringBuilder();
         boolean completed=false;
         boolean startedReceiving=false;
-        try(var input=response.body();
-            var watchdog=new ModelStreamWatchdog(input,progress);
-            var reader=new java.io.BufferedReader(new java.io.InputStreamReader(input,
+        try(var responseStream=response.body();
+            var watchdog=new ModelStreamWatchdog(responseStream,progress);
+            var reader=new java.io.BufferedReader(new java.io.InputStreamReader(responseStream,
                 StandardCharsets.UTF_8))){
             String line;
             try{

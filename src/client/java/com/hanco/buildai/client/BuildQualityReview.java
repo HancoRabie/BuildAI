@@ -23,6 +23,20 @@ final class BuildQualityReview {
             best.blueprint(),originalRequest,best.specification());
         if(baseline.blockers().isEmpty()){
             best.blueprint().warnings.addAll(baseline.warnings());
+            best.blueprint().warnings.add(
+                "QUALITY REVIEW: No measurable static blockers detected. "+
+                "This is NOT proof every requested feature functions.");
+            return best;
+        }
+        // Rewriting a fully integrated multi-stage project as one giant model
+        // answer risks removing stage ports/checkpoints and defeating staged
+        // generation. Do not pretend the generic review can repair that.
+        if(best.specification().contains("\\"staged_modules\\"")){
+            best.blueprint().warnings.addAll(baseline.warnings());
+            best.blueprint().warnings.add("QUALITY REVIEW: Multi-stage project "+
+                "has unresolved requirements. Automatic whole-project rewrite "+
+                "is disabled to protect stage interfaces; revise the affected "+
+                "module in a future stage-local repair flow.");
             return best;
         }
         int attempts=0;

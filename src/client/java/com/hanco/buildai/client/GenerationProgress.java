@@ -160,6 +160,54 @@ public final class GenerationProgress {
         // The button displays this preference; never overwrite the actual
         // generation stage or reset model-activity telemetry for a toggle.
     }
+    private String failureExplanation="";
+    /** Make the evidence accessible after the modal is closed, and explicitly
+     * separate observed protocol failure from unprovable upstream causes. */
+    public synchronized String failureSummary(){
+        if(failureExplanation.isBlank())return "";
+        String lower=failureExplanation.toLowerCase(java.util.Locale.ROOT);
+        if(lower.contains("without response.completed")||
+           lower.contains("partial design is not valid"))
+            return "Stream ended before OpenAI confirmed completion; partial JSON "+
+                "was not accepted. Exact upstream cause is unknown.";
+        if(lower.contains("response.incomplete"))
+            return "OpenAI reported an incomplete response; inspect the reason "+
+                "code in Copy Failure Report.";
+        if(lower.contains("response.failed"))
+            return "OpenAI reported a failed response; inspect its error details.";
+        if(lower.contains("chatgpt generation http"))
+            return "The generation endpoint returned a non-success HTTP status.";
+        if(lower.contains("3 minutes")||lower.contains("8 minutes")||
+           lower.contains("stalled"))
+            return "BuildAI's silence watchdog ended the stalled request.";
+        if(lower.contains("compilation")||lower.contains("invalid")||
+           lower.contains("parse")||lower.contains("json"))
+            return "Model output failed blueprint decoding or validation.";
+        if(lower.contains("stream")||lower.contains("connection")||
+           lower.contains("i/o")||lower.contains("socket"))
+            return "A stream/network read error ended generation. Cause is not confirmed.";
+        return "Generation stopped with an error; Copy Failure Report for details.";
+    }
+    public synchronized String failureReport(){
+        long age=(System.nanoTime()-startedNanos)/1_000_000_000L;
+        long eventAge=lastStreamEventNanos==0?-1:
+            (System.nanoTime()-lastStreamEventNanos)/1_000_000_000L;
+        return "BuildAI Generation Failure Report\\n"+
+            "Status: "+(finished?(failed?"FAILED":"COMPLETE"):"ACTIVE")+"\\n"+
+            "Observed endpoint status: "+(responseAccepted?"HTTP 200 / stream opened":
+                "No successful HTTP 200 response recorded")+"\\n"+
+            "Last model SSE event: "+lastStreamEvent+"\\n"+
+            "Seconds since that event: "+(eventAge<0?"no event":eventAge)+"\\n"+
+            "Elapsed seconds: "+age+"\\n"+
+            "Text characters received: "+receivedCharacters+"\\n"+
+            "Auto-stop enabled: "+autoStopEnabled+"\\n"+
+            "Cancellation requested: "+cancelRequested+"\\n"+
+            "Diagnosis: "+failureSummary()+"\\n"+
+            "Error and recovery location: "+failureExplanation+"\\n"+
+            "Note: HTTP 200 only confirms request acceptance; missing "+
+            "response.completed cannot identify which upstream component "+
+            "interrupted the stream.\\n";
+    }
     private final java.util.concurrent.atomic.AtomicReference<Thread> worker=
         new java.util.concurrent.atomic.AtomicReference<>();
     private volatile String lastModelLimitation="";
@@ -221,8 +269,9 @@ public final class GenerationProgress {
         lastActivityNanos=System.nanoTime();
     }
     public synchronized void failure(String explanation) {
+        failureExplanation=explanation==null?"Unknown generation failure":explanation;
         stage="Generation failed";
-        detail=explanation;
+        detail=failureSummary();
         milestones.add(stage);
         if(milestones.size()>5)milestones.remove(0);
         finished=true;

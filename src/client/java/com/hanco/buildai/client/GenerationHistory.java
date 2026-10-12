@@ -59,25 +59,43 @@ public final class GenerationHistory {
                 StandardOpenOption.CREATE,StandardOpenOption.TRUNCATE_EXISTING);
         }catch(IOException ignored){}
     }
+    /**
+     * Keep the ETA visible on every request. Actual completed BuildAI
+     * generations calibrate it; the current stream's live character rate
+     * alone CANNOT reveal how many characters the model still plans to send.
+     */
     public static synchronized String estimate(GenerationProgress.Snapshot current,String category){
-        if(current.finished())return current.failed()?"No ETA — generation failed":"Generation complete";
+        if(current.finished())return current.failed()?
+            "Estimated time remaining: stopped":"Estimated time remaining: complete";
         load();
-        List<Long> durations=samples.stream().filter(s->s.category().equals(category))
-            .map(Sample::seconds).sorted().toList();
+        List<Sample> similar=samples.stream()
+            .filter(s->s.category().equals(category)).toList();
+        boolean categoryMatched=!similar.isEmpty();
+        // Early users may have one sample in another category. A broad
+        // cross-category fallback is better than hiding the field, but
+        // must identify the weaker evidence rather than feign precision.
+        List<Sample> reference=categoryMatched?similar:samples;
+        if(reference.isEmpty())
+            return "Estimated time remaining: learning (no finished builds recorded)";
+        List<Long> durations=reference.stream().map(Sample::seconds).sorted().toList();
         int n=durations.size();
-        if(n<2)
-            return "ETA: learning from completed "+category+" builds ("+n+" sample"+(n==1?"":"s")+")";
-        // A historical range is more honest than a fake countdown from unknown output length.
         long median=durations.get(n/2);
-        long low=(long)Math.floor(median*(n<5?0.55:0.7));
-        long high=(long)Math.ceil(median*(n<5?1.85:1.5));
+        // One sample is particularly uncertain; don't call it exact.
+        double lowMultiplier=n==1?0.5:n<5?0.55:0.7;
+        double highMultiplier=n==1?2.0:n<5?1.85:1.5;
+        long low=Math.max(1,(long)Math.floor(median*lowMultiplier));
+        long high=Math.max(low+1,(long)Math.ceil(median*highMultiplier));
         long elapsed=current.elapsedSeconds();
+        String basis=n+" completed "+(categoryMatched?"similar ":"other ")+
+            (n==1?"build":"builds");
         if(elapsed>=high)
-            return "ETA: beyond historical range; remaining time unknown ("+n+" samples)";
-        long leftLow=Math.max(0,low-elapsed),leftHigh=Math.max(1,high-elapsed);
-        return "Historical time remaining: "+clock(leftLow)+"–"+clock(leftHigh)+
-            " ("+n+" similar builds; rough range)";
+            return "Estimated time remaining: uncertain (past "+basis+" range)";
+        long remainingLow=Math.max(0,low-elapsed);
+        long remainingHigh=Math.max(1,high-elapsed);
+        return "Estimated time remaining: "+clock(remainingLow)+" - "+
+            clock(remainingHigh)+" (rough; "+basis+")";
     }
+
     private static String clock(long seconds){
         return (seconds/60)+"m "+String.format(Locale.ROOT,"%02d",seconds%60)+"s";
     }

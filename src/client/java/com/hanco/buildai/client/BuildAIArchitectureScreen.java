@@ -1,11 +1,11 @@
 package com.hanco.buildai.client;
 
+import com.hanco.buildai.blueprint.StudioLayout;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 
 import java.nio.file.Path;
@@ -13,20 +13,26 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Headless-safe, in-game whole-schematic reference library.
- * Imported files never enter the active build/placement state.
+ * A short, non-scrolling 3-step guide to opt-in whole-schematic style analysis.
+ * All GUI widgets are inside StudioLayout's scaled-window bounds.
+ * A concise preview replaces the unbounded text report; the full report can
+ * be copied to clipboard on demand, without needing scrolling controls.
  */
 public final class BuildAIArchitectureScreen extends Screen {
+    private static final int BG=0xF0142230, SURFACE=0xEF223444, BORDER=0xFF426678;
+    private static final int MINT=0xFF6DE4C8, SKY=0xFF90BFE8, AMBER=0xFFF0CA84;
+    private static final int BODY=0xFFDEEAF1, DIM=0xFF9FB5C4;
     private final Screen parent;
+    private StudioLayout.View layout;
     private List<Path> saved=List.of();
     private List<BuildAIStyleMemory.ArchitectureReference> references=List.of();
-    private int fileOffset=0,referenceIndex=0,firstLine=0;
-    private String entered="",status="Choose a blueprint or paste a file path to analyze its architectural style.";
+    private int step=0,savedIndex=-1,referenceIndex=0;
+    private String entered="",status="Select a saved build or paste the path to a schematic.";
     private TextFieldWidget pathField;
     private boolean busy=false;
 
-    public BuildAIArchitectureScreen(Screen parent){
-        super(Text.literal("BuildAI | Architectural Reference Library"));
+    public BuildAIArchitectureScreen(Screen parent) {
+        super(Text.literal("BuildAI | Architectural References"));
         this.parent=parent;
     }
 
@@ -34,140 +40,269 @@ public final class BuildAIArchitectureScreen extends Screen {
         try{
             saved=BlueprintLibrary.files();
             references=BuildAIStyleMemory.architectureReferences();
-            referenceIndex=Math.min(Math.max(0,referenceIndex),Math.max(0,references.size()-1));
-        }catch(Exception error){
-            status="Could not load reference library: "+error.getMessage();
+            referenceIndex=Math.max(0,Math.min(referenceIndex,references.size()-1));
+        }catch(Exception ex){
+            status="Could not load your style library: "+ex.getMessage();
         }
     }
 
-    @Override protected void init() {
-        reload();
-        int w=Math.min(620,Math.max(170,width-18)),x=(width-w)/2,gap=4;
-        int half=(w-gap)/2,third=(w-2*gap)/3;
-        for(int i=0;i<2;i++){
-            if(i+fileOffset>=saved.size())break;
-            Path file=saved.get(i+fileOffset);
-            addDrawableChild(ButtonWidget.builder(
-                Text.literal(textRenderer.trimToWidth(file.getFileName().toString(),w-16)),
-                b->{
-                    entered=file.toAbsolutePath().toString();
-                    pathField.setText(entered);
-                    status="Selected "+file.getFileName()+" for full architectural analysis.";
-                }).dimensions(x,51+i*23,w,19).build());
-        }
-
-        addDrawableChild(ButtonWidget.builder(Text.literal("Previous Saved Builds"),b->{
-            capture();fileOffset=Math.max(0,fileOffset-2);rebuild();
-        }).dimensions(x,99,half,19).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Next Saved Builds"),b->{
-            capture();fileOffset=Math.min(Math.max(0,saved.size()-2),fileOffset+2);rebuild();
-        }).dimensions(x+half+gap,99,half,19).build());
-
-        pathField=new TextFieldWidget(textRenderer,x,123,w,19,Text.literal("Reference schematic path"));
-        pathField.setMaxLength(1024);
-        pathField.setText(entered);
-        pathField.setPlaceholder(Text.literal("Full path to a .schem / .schematic / .litematic / .nbt"));
-        addDrawableChild(pathField);
-
-        addDrawableChild(ButtonWidget.builder(Text.literal("Analyze & Save Selected Schematic"),b->analyzePath())
-            .dimensions(x,147,half,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Scan Reference Folder (up to 12)"),b->analyzeFolder())
-            .dimensions(x+half+gap,147,half,20).build());
-
-        addDrawableChild(ButtonWidget.builder(Text.literal("Previous Reference"),b->switchReference(1))
-            .dimensions(x,172,half,19).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Next Reference"),b->switchReference(-1))
-            .dimensions(x+half+gap,172,half,19).build());
-
-        int footerY=Math.max(194,height-25);
-        addDrawableChild(ButtonWidget.builder(Text.literal("Scroll Up"),b->scroll(-1))
-            .dimensions(x,footerY,third,19).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Scroll Down"),b->scroll(1))
-            .dimensions(x+third+gap,footerY,third,19).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Back"),b->close())
-            .dimensions(x+2*(third+gap),footerY,w-2*(third+gap),19).build());
+    private ButtonWidget button(String label,int x,int y,int w,int h,
+                                ButtonWidget.PressAction action){
+        ButtonWidget b=ButtonWidget.builder(
+            Text.literal(textRenderer.trimToWidth(label,Math.max(30,w-12))),action)
+            .dimensions(x,y,Math.max(25,w),Math.max(12,h)).build();
+        addDrawableChild(b);
+        return b;
     }
-
     private void capture(){if(pathField!=null)entered=pathField.getText();}
-    private void rebuild(){clearChildren();init();}
+    private void navigate(int to){capture();step=to;clearChildren();init();}
+
+    @Override protected void init(){
+        capture();
+        layout=StudioLayout.forWindow(width,height);
+        reload();
+        int x=layout.x(),w=layout.width(),gap=5,h=layout.buttonHeight();
+        int half=(w-gap)/2,third=(w-2*gap)/3;
+        int top=layout.bodyTop();
+        if(step==0){
+            boolean showSaved=layout.bodyHeight()>=99;
+            if(showSaved){
+                String name=savedIndex<0?"Choose from My Builds":saved.get(savedIndex).getFileName().toString();
+                button(name+"  (click to change)",x+8,top+16,w-16,h,b->chooseSaved());
+            }
+            int inputY=top+(showSaved?52:19);
+            pathField=new TextFieldWidget(textRenderer,x+8,inputY,w-16,h,Text.literal("Schematic file path"));
+            pathField.setMaxLength(1024);
+            pathField.setText(entered);
+            pathField.setPlaceholder(Text.literal("Paste a schematic file path here"));
+            addDrawableChild(pathField);
+            int actionY=top+(showSaved?79:43);
+            ButtonWidget analyze=button("ANALYZE FILE",x+8,actionY,half-10,h,b->analyzePath());
+            ButtonWidget folder=button("SCAN FOLDER",x+half+gap,actionY,half-8,h,b->analyzeFolder());
+            analyze.active=!busy;
+            folder.active=!busy;
+        }else if(step==1){
+            if(references.isEmpty()){
+                button("Choose a schematic first",x+8,top+25,w-16,h,b->navigate(0));
+            }else{
+                String name=references.get(referenceIndex).name();
+                button(references.size()==1?"Style: "+name:"Style "+(referenceIndex+1)+"/"+
+                    references.size()+": "+name+"   (click for next)",x+8,
+                    top+(layout.compact()?3:16),w-16,h,b->cycleReference());
+            }
+        }
+
+        int foot=layout.footerY();
+        if(step==0){
+            button("BACK TO STYLES",x,foot,half,h,b->close());
+            button("HOW IT WORKS",x+half+gap,foot,half,h,b->navigate(2));
+        }else if(step==1){
+            button("NEW SOURCE",x,foot,third,h,b->navigate(0));
+            ButtonWidget copy=button("COPY REPORT",x+third+gap,foot,third,h,b->copyReport());
+            ButtonWidget use=button("USE THIS STYLE",x+2*(third+gap),foot,w-2*(third+gap),h,
+                b->navigate(2));
+            copy.active=!references.isEmpty();
+            use.active=!references.isEmpty();
+        }else{
+            button("CHOOSE FILE",x,foot,half,h,b->navigate(0));
+            button("OPEN BUILDAI",x+half+gap,foot,half,h,
+                b->client.setScreen(new BuildAIScreen()));
+        }
+    }
+
+    private void chooseSaved(){
+        if(saved.isEmpty()){status="No saved designs found. Paste a full file path instead.";return;}
+        savedIndex=(savedIndex+1)%saved.size();
+        entered=saved.get(savedIndex).toAbsolutePath().toString();
+        pathField.setText(entered);
+        status="Ready: "+saved.get(savedIndex).getFileName()+". Select Analyze File.";
+    }
+
+    private void cycleReference(){
+        if(references.isEmpty())return;
+        referenceIndex=(referenceIndex+1)%references.size();
+        clearChildren();init();
+    }
+
     private void analyzePath(){
         if(busy)return;
         capture();
         try{
             Path path=BlueprintLibrary.resolveUserPath(entered);
-            busy=true;status="Analyzing real blocks in "+path.getFileName()+" (read-only)...";
+            busy=true;status="Analyzing "+path.getFileName()+"; this does not change your world.";
             CompletableFuture.supplyAsync(()->{
                 try{return BuildAIStyleMemory.addArchitectureReference(path);}
                 catch(Exception ex){throw new RuntimeException(ex);}
-            }).whenComplete((report,error)->MinecraftClient.getInstance().execute(()->{
+            }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
                 busy=false;
                 if(error!=null){status="Analysis failed: "+root(error);return;}
-                referenceIndex=0;firstLine=0;reload();
-                status="Saved "+report.blocks()+" block positions / "+report.materials()+
-                    " material types. Future AI prompts will use your approved reference.";
+                referenceIndex=0;
+                status="Saved: "+result.blocks()+" blocks and "+result.materials()+
+                    " material types. Reference ready.";
+                navigate(1);
             }));
-        }catch(Exception ex){status="Invalid reference: "+ex.getMessage();}
+        }catch(Exception ex){status="Select a valid file: "+ex.getMessage();}
     }
+
     private void analyzeFolder(){
         if(busy)return;
-        busy=true;status="Scanning up to 12 schematic files in buildai/style-references ...";
+        busy=true;status="Scanning up to 12 files in buildai/style-references...";
         CompletableFuture.supplyAsync(()->{
             try{return BuildAIStyleMemory.addArchitectureFolder();}
             catch(Exception ex){throw new RuntimeException(ex);}
-        }).whenComplete((scanned,error)->MinecraftClient.getInstance().execute(()->{
+        }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
             busy=false;
             if(error!=null){status="Folder scan failed: "+root(error);return;}
-            referenceIndex=0;firstLine=0;reload();
-            status=scanned.inspected()==0 ?
-                "No reference files found. Put schematics in buildai/style-references and scan again." :
-                "Saved "+scanned.saved()+" / "+scanned.inspected()+" references; errors: "+
-                    scanned.failed()+(scanned.failed()>0?"; "+scanned.firstError():"");
+            referenceIndex=0;
+            if(result.saved()>0){
+                status="Saved "+result.saved()+" references"+
+                    (result.failed()>0?" ("+result.failed()+" files failed)":"")+".";
+                navigate(1);
+            }else{
+                status=result.inspected()==0 ?
+                    "Folder is empty. Add .schem files to buildai/style-references/ and rescan." :
+                    "No valid files: "+result.firstError();
+            }
         }));
     }
-    private static String root(Throwable error) {
+
+    private void copyReport(){
+        if(references.isEmpty())return;
+        MinecraftClient.getInstance().keyboard.setClipboard(references.get(referenceIndex).report());
+        status="Complete analysis copied to clipboard.";
+    }
+
+    private static String root(Throwable error){
         while(error.getCause()!=null)error=error.getCause();
         return error.getMessage()==null?error.toString():error.getMessage();
     }
-    private void switchReference(int delta){
-        if(references.isEmpty())return;
-        referenceIndex=Math.floorMod(referenceIndex+delta,references.size());
-        firstLine=0;
-    }
-    private List<OrderedText> lines(){
-        if(references.isEmpty())return textRenderer.wrapLines(
-            Text.literal("No whole-build references saved yet. Analyze a schematic above. "+
-                "References stay on your machine and don't modify your current blueprint."),
-            contentWidth());
-        BuildAIStyleMemory.ArchitectureReference ref=references.get(referenceIndex);
-        return textRenderer.wrapLines(Text.literal(ref.report()),contentWidth());
-    }
-    private int contentWidth(){return Math.max(130,Math.min(620,width-18)-18);}
-    private int visibleLines(){return Math.max(1,(height-252)/11);}
-    private void scroll(int direction){
-        firstLine=Math.max(0,Math.min(Math.max(0,lines().size()-visibleLines()),firstLine+direction*6));
+
+    private void small(DrawContext ctx,String value,int x,int y,int maxWidth,int color,float scale){
+        if(maxWidth<=4)return;
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(x,y,0);
+        ctx.getMatrices().scale(scale,scale,1f);
+        String trimmed=textRenderer.trimToWidth(value,Math.max(8,(int)(maxWidth/scale)));
+        ctx.drawTextWithShadow(textRenderer,trimmed,0,0,color);
+        ctx.getMatrices().pop();
     }
 
-    @Override public void renderBackground(DrawContext ctx,int mx,int my,float delta){}
-    @Override public void render(DrawContext ctx,int mx,int my,float delta) {
-        int w=Math.min(620,Math.max(170,width-18)),x=(width-w)/2;
-        ctx.fill(x-7,4,x+w+7,height-4,0xF0162631);
-        ctx.fill(x-7,4,x+w+7,8,0xFF6ADFC3);
-        ctx.drawCenteredTextWithShadow(textRenderer,"BuildAI | Architectural Reference Library",
-            width/2,12,0xFF7BF3D2);
-        ctx.drawTextWithShadow(textRenderer,
-            textRenderer.trimToWidth("Private references: game directory/buildai/style-references",w-8),
-            x+4,28,0xFFD8E6F2);
-        ctx.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(status,w-8),
-            x+4,40,0xFFE9CE9B);
-        String title=references.isEmpty()?"No analysis selected" :
-            "Reference "+(referenceIndex+1)+"/"+references.size()+": "+
-                references.get(referenceIndex).name();
-        ctx.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(title,w-8),x+4,197,0xFF7BF3D2);
-        List<OrderedText> wrapped=lines();
-        int visible=visibleLines();
-        firstLine=Math.min(firstLine,Math.max(0,wrapped.size()-visible));
-        for(int i=firstLine;i<Math.min(wrapped.size(),firstLine+visible);i++)
-            ctx.drawTextWithShadow(textRenderer,wrapped.get(i),x+9,214+(i-firstLine)*11,0xFFD5E5EC);
+    private void stepMap(DrawContext ctx){
+        int x=layout.x(),w=layout.width(),gap=4;
+        int each=(w-2*gap)/3, y=layout.stepY();
+        String[] labels={"01  SELECT","02  ANALYZE","03  CREATE"};
+        for(int i=0;i<3;i++){
+            int xx=x+i*(each+gap),ww=i==2?w-2*(each+gap):each;
+            ctx.fill(xx,y,xx+ww,y+18,i==step?0xFF287362:0xFF273E4C);
+            ctx.fill(xx,y+17,xx+ww,y+18,i==step?MINT:BORDER);
+            small(ctx,labels[i],xx+6,y+5,ww-10,i==step?0xFFFFFFFF:DIM,0.83f);
+        }
+    }
+
+    private static String reportLine(String report,String prefix){
+        for(String line:report.split("\\R")){
+            if(line.startsWith(prefix))return line.substring(prefix.length());
+        }
+        return "";
+    }
+    private static String palette(String report){
+        String line=reportLine(report,"Main material palette (actual counts): ");
+        if(line.isEmpty())return "No material summary available";
+        StringBuilder result=new StringBuilder();
+        String[] pieces=line.split(";");
+        for(int i=0;i<Math.min(4,pieces.length);i++){
+            String item=pieces[i].trim().replace("minecraft:","");
+            if(item.endsWith("."))item=item.substring(0,item.length()-1);
+            if(i>0)result.append("  /  ");
+            result.append(item);
+        }
+        return result.toString();
+    }
+
+    private void source(DrawContext ctx,int x,int top,int w){
+        boolean showSaved=layout.bodyHeight()>=99;
+        small(ctx,"SOURCE  /  choose one of your builds or import another person's schematic",
+            x+9,top+3,w-18,SKY,0.8f);
+        if(showSaved)small(ctx,"MY BUILDS  /  click the selector to cycle saved files",
+            x+9,top+39,w-18,DIM,0.75f);
+        int actions=top+(showSaved?79:43);
+        if(layout.bodyBottom()>=actions+39){
+            small(ctx,"BATCH OPTION  /  place .schem files in game/buildai/style-references/",
+                x+9,actions+24,w-18,DIM,0.76f);
+            small(ctx,"Scan Folder analyzes up to 12 files; source files remain unchanged.",
+                x+9,actions+34,w-18,DIM,0.76f);
+        }else if(layout.bodyBottom()>=actions+27){
+            small(ctx,"For batches, use game/buildai/style-references/",x+9,actions+23,w-18,DIM,0.77f);
+        }
+    }
+
+    private void summary(DrawContext ctx,int x,int top,int w){
+        if(references.isEmpty()){
+            small(ctx,"No references saved yet. Choose a file to get started.",
+                x+10,top+6,w-20,BODY,0.85f);
+            return;
+        }
+        BuildAIStyleMemory.ArchitectureReference ref=references.get(referenceIndex);
+        int y=top+(layout.compact()?25:43),h=layout.compact()?23:31;
+        int gap=5,third=(w-20-2*gap)/3;
+        String[] heads={"BLOCKS ANALYZED","BLOCK TYPES","IN LIBRARY"};
+        String[] values={String.format("%,d",ref.blocks()),Integer.toString(ref.materials()),
+            Integer.toString(references.size())};
+        for(int i=0;i<3;i++){
+            int bx=x+10+i*(third+gap);
+            ctx.fill(bx,y,bx+third,y+h,SURFACE);
+            ctx.fill(bx,y,bx+2,y+h,i==0?MINT:i==1?SKY:AMBER);
+            small(ctx,heads[i],bx+6,y+4,third-9,DIM,0.68f);
+            small(ctx,values[i],bx+6,y+(layout.compact()?13:16),third-9,BODY,0.89f);
+        }
+        int infoY=y+h+(layout.compact()?4:8);
+        small(ctx,"MATERIAL PALETTE",x+10,infoY,w-20,MINT,0.78f);
+        small(ctx,palette(ref.report()),x+10,infoY+11,w-20,BODY,0.77f);
+        if(infoY+32<layout.bodyBottom()){
+            String details=reportLine(ref.report(),"Detail vocabulary (actual counts): ");
+            small(ctx,"DETAILING  /  "+details,x+10,infoY+23,w-20,SKY,0.75f);
+        }
+    }
+
+    private void explain(DrawContext ctx,int x,int top,int w){
+        int gap=5,cardW=(w-20-2*gap)/3,cardY=top+17;
+        int cardH=Math.max(27,Math.min(layout.compact()?33:45,layout.bodyHeight()-37));
+        small(ctx,"HOW YOUR REFERENCES HELP THE NEXT BUILD",x+10,top+3,w-20,MINT,0.83f);
+        String[] labels={"1 / IMPORT","2 / LEARN","3 / CREATE"};
+        String[] descriptions={"Choose .schem","Analyze shapes","Prompt in F8"};
+        for(int i=0;i<3;i++){
+            int xx=x+10+i*(cardW+gap);
+            ctx.fill(xx,cardY,xx+cardW,cardY+cardH,SURFACE);
+            ctx.fill(xx,cardY,xx+cardW,cardY+2,i==0?SKY:i==1?AMBER:MINT);
+            small(ctx,labels[i],xx+5,cardY+7,cardW-10,i==2?MINT:BODY,0.75f);
+            small(ctx,descriptions[i],xx+5,cardY+19,cardW-10,DIM,0.69f);
+        }
+        if(cardY+cardH+12<layout.bodyBottom()){
+            small(ctx,"Saved reports guide the AI automatically; the latest two approved references are used.",
+                x+10,cardY+cardH+6,w-20,BODY,0.76f);
+            small(ctx,"No model training or full visual inspection. Preview the result before building.",
+                x+10,cardY+cardH+17,w-20,DIM,0.74f);
+        }
+    }
+
+    @Override public void renderBackground(DrawContext ctx,int mouseX,int mouseY,float delta){}
+    @Override public void render(DrawContext ctx,int mx,int my,float delta){
+        if(layout==null)return;
+        int x=layout.x(),w=layout.width();
+        ctx.fill(x-7,4,x+w+7,height-4,BG);
+        ctx.fill(x-7,4,x+w+7,7,MINT);
+        small(ctx,"BUILDAI   /   ARCHITECTURAL REFERENCES",x+9,13,w-18,MINT,
+            layout.compact()?0.84f:1.05f);
+        small(ctx,"Learn from the blocks and details in great builds. No signs required.",
+            x+9,layout.compact()?22:29,w-18,DIM,0.78f);
+        stepMap(ctx);
+        ctx.fill(x,layout.bodyTop()-6,x+w,layout.bodyBottom()+2,0xB01E3040);
+        ctx.fill(x,layout.bodyTop()-6,x+2,layout.bodyBottom()+2,0xFF356E76);
+        if(step==0)source(ctx,x,layout.bodyTop(),w);
+        else if(step==1)summary(ctx,x,layout.bodyTop(),w);
+        else explain(ctx,x,layout.bodyTop(),w);
+        small(ctx,status,x+5,layout.statusY()+3,w-10,
+            status.contains("failed")||status.contains("Invalid")?AMBER:SKY,0.77f);
         super.render(ctx,mx,my,delta);
     }
     @Override public boolean shouldPause(){return false;}

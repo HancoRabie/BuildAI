@@ -33,6 +33,18 @@ public class CommandBlockPlanTest {
         assertEquals(b.commands(),roundTrip.commands());
     }
 
+    @Test void vanillaWeatherAndTimeControlsAreValidButArbitraryGamerulesStayBlocked(){
+        for(String command:List.of("time set day","time set night","time set noon",
+            "weather clear","weather rain","weather thunder",
+            "gamerule doDaylightCycle false","gamerule doWeatherCycle true"))
+            assertDoesNotThrow(()->CommandBlockPlan.validateCommand(command),command);
+        for(String command:List.of("time add 9000000","weather tornado",
+            "gamerule keepInventory true","gamerule doMobSpawning false",
+            "execute as @a run gamerule keepInventory true"))
+            assertThrows(IllegalArgumentException.class,
+                ()->CommandBlockPlan.validateCommand(command),command);
+    }
+
     @Test void rejectCommandMismatchedToSolidBlock(){
         Blueprint b=sample();
         assertThrows(IllegalArgumentException.class,()->

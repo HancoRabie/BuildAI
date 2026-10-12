@@ -10,10 +10,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Regression smoke tests for GUI actions that don't require a running game world. */
 public class BlueprintPipelineTest {
-    @org.junit.jupiter.api.BeforeAll static void initMinecraftRegistries() {
-        net.minecraft.Bootstrap.initialize();
-    }
-
     @TempDir Path temporary;
 
     @Test void demoCottageIsCompleteHollowArchitecture() {

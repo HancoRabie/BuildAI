@@ -282,6 +282,7 @@ public final class BuildAIScreen extends Screen {
         final String activeOriginal=originalPrompt==null?"":originalPrompt;
         final String previousInMemory=BuildAIClient.designSpecification;
         GenerationProgress progress=new GenerationProgress(description);
+        progress.revisionMode(revise);
         if(!BuildAIClient.beginGeneration(progress)){
             status="Another blueprint generation is active.";return;
         }

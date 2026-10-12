@@ -12,6 +12,23 @@ public final class Blueprint {
     public final int width, height, length;
     private final String[] states;
     public final List<String> warnings = new ArrayList<>();
+    /** Optional original user prompt; persisted only for BuildAI-generated files.
+     * Missing for legacy or external schematics; never invent it from a filename. */
+    private String originalPrompt="";
+    /** Previous exact AI geometry JSON, inert metadata, NOT executable commands. */
+    private String designSpecification="";
+    public String originalPrompt(){return originalPrompt;}
+    public String designSpecification(){return designSpecification;}
+    public boolean hasOriginalPrompt(){return !originalPrompt.isBlank();}
+    public boolean hasRevisionContext(){return !designSpecification.isBlank();}
+    public void setGenerationContext(String original,String spec){
+        if(original==null)original="";
+        if(spec==null)spec="";
+        if(original.length()>4000 || spec.length()>1_500_000)
+            throw new IllegalArgumentException("Blueprint generation metadata exceeds supported limits");
+        originalPrompt=original;
+        designSpecification=spec;
+    }
     /** Explicitly reviewed executable logic, not serialized blockstate text. */
     private List<CommandBlockPlan.Entry> commands=List.of();
     public List<CommandBlockPlan.Entry> commands(){return commands;}

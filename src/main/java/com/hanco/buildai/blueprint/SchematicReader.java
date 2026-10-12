@@ -47,6 +47,14 @@ public final class SchematicReader {
             if(!states.containsKey(v))throw new IllegalArgumentException("Unknown palette index "+v);
             b.set(x,y,z,states.get(v));
         }
+        if(c.contains("BuildAISignPlan")){
+            JsonArray signs=com.google.gson.JsonParser.parseString(
+                c.getString("BuildAISignPlan")).getAsJsonArray();
+            b.setSigns(SignTextPlan.decode(signs,b));
+            b.warnings.add("Restored "+b.signs().size()+
+                " safe literal sign label(s). Arbitrary imported block entity "+
+                "payloads are still ignored.");
+        }
         if(c.contains("BuildAICommandPlan")){
             JsonArray commands=com.google.gson.JsonParser.parseString(
                 c.getString("BuildAICommandPlan")).getAsJsonArray();

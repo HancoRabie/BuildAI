@@ -3,7 +3,6 @@ package com.hanco.buildai.blueprint;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
@@ -16,7 +15,7 @@ public final class RedstoneKnowledge {
     private RedstoneKnowledge(){}
 
     private static final Pattern EXPLICIT=Pattern.compile(
-        "\\bred[\\s-]?stone\\b|\\b(?:comparator|repeater|observer|piston|sticky piston|"+
+        "\\bred[\\s-]?stone(?:\\b|_)|\\b(?:comparator|repeater|observer|piston|sticky piston|"+
         "hopper|dropper|dispenser|crafter|copper bulb|sculk sensor|lever|"+
         "button circuit|pressure plate|tripwire|logic gate|rs latch|t flip.flop|"+
         "analog circuit|digital circuit|wireless redstone|powered rail|detector rail|"+

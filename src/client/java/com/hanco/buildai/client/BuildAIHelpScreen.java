@@ -96,6 +96,8 @@ public final class BuildAIHelpScreen extends Screen {
         {
             "DO NOT test BuildAI on a valuable world without a backup.",
             "BuildAI now uses the normal Minecraft player camera for all placement. ChatGPT sign-in works with eligible accounts. Still incomplete: durable crash recovery, full rollback/refunds, complete legacy conversions and tested arbitrary redstone.",
+            "When your request mentions redstone, circuitry, automatic machines, pistons, hoppers, observers, crafters, sorters or command blocks, BuildAI automatically consults its bundled Java 1.21.1 Redstone Master Handbook. It covers real device quirks, support, power routing, timings, QC, memory, inventory and failure/recovery cases.",
+            "The AI is instructed to provide a redstone_plan for functional machines: input, signal path, output, timing, reset and in-world tests. Redstone Design QA flags absent paths, missing controls, default-facing devices and unsupported wire. This reference is NOT real model training or proof a machine works.",
             "Redstone normalization is connection and neighbor-update repair, NOT a full redstone simulator. It does not add missing wire, flip repeater/comparator facing, choose delays or certify logic. In-game testing is still required. Running manual /buildai normalize on a powered existing circuit can trigger pulses.",
             "Generated designs are automatically saved after successful completion; check Minecraft/buildai/blueprints. Construction sessions are not yet persisted across server restarts.",
             "For bug reports include the schematic type, block count, Minecraft/Fabric versions, build log and reproducible steps."

@@ -156,6 +156,7 @@ public final class BuildAIClient implements ClientModInitializer {
         final String key=apiKey;
         final String previous=newBuild?null:designSpecification;
         GenerationProgress progress=new GenerationProgress(description);
+        progress.revisionMode(previous!=null);
         if(!beginGeneration(progress)){
             message("A blueprint is already being generated. Wait for it to finish.");
             GenerationProgress pending=currentGeneration();

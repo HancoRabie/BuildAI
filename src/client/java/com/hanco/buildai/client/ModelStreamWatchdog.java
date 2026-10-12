@@ -9,9 +9,10 @@ import java.util.concurrent.atomic.AtomicLong;
  * SSE BodyHandlers.ofInputStream reads are potentially unbounded AFTER HTTP
  * response headers: HttpRequest.timeout DOES NOT bound a blocked readLine().
  *
- * A daemon watches time without actual blueprint text. It closes the stream
- * after 8 minutes of no text at all, or 3 minutes of inactivity after text
- * begins. Heartbeat/reasoning response events do NOT reset the deadline.
+ * A daemon watches time without actual blueprint text when the player keeps
+ * Auto-stop ON. With Auto-stop OFF, no silence deadline applies. Re-enabling
+ * begins a full fresh 8m/3m grace period. Heartbeat/reasoning events do NOT
+ * reset the deadline.
  * This does not change model output or lower quality for healthy requests.
  */
 final class ModelStreamWatchdog implements AutoCloseable {
@@ -51,23 +52,36 @@ final class ModelStreamWatchdog implements AutoCloseable {
     private void watch(){
         while(!closed.get()){
             long nanos=System.nanoTime();
-            long idle=nanos-lastText.get();
+            // Cancellation always works, even if the user disabled the
+            // silence watchdog. A disabled deadline never closes the stream.
             if(progress!=null&&progress.cancellationRequested()){
                 expired.set(true);
                 closeInput();
                 return;
             }
-            if(!warned&&!begun.get()&&idle>=2L*60*1_000_000_000L){
-                warned=true;
-                if(progress!=null)progress.stage(
-                    "Still waiting for model output",
-                    "No blueprint text yet. BuildAI will stop this request "+
-                    "after 8 minutes of silence, not wait indefinitely.");
-            }
-            if(isSilentTooLong(nanos,lastText.get(),begun.get())){
-                expired.set(true);
-                closeInput();
-                return;
+            boolean autoStop=progress==null||progress.autoStopEnabled();
+            long baseline=Math.max(lastText.get(),progress==null?0L:
+                progress.autoStopRearmedAtNanos());
+            long idle=nanos-baseline;
+            if(autoStop){
+                if(!warned&&!begun.get()&&idle>=2L*60*1_000_000_000L){
+                    warned=true;
+                    if(progress!=null)progress.stage(
+                        "Still waiting for model output",
+                        "No blueprint text yet. Auto-stop is ON; you can "+
+                        "switch it OFF here to continue waiting.");
+                }
+                if(isSilentTooLong(nanos,baseline,begun.get())){
+                    // Recheck the user's choice just before committing to
+                    // closing the stream, to avoid a stale loop snapshot.
+                    if(progress==null||progress.autoStopEnabled()){
+                        expired.set(true);
+                        closeInput();
+                        return;
+                    }
+                }
+            }else{
+                warned=false;
             }
             try{Thread.sleep(1500);}
             catch(InterruptedException e){return;}

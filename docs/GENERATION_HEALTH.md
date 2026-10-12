@@ -58,9 +58,32 @@ When it closes a silent request, the prompt remains available to retry.
 Users can:
 - **Check Request (Safe):** diagnostic only, never cancels or retries.
 - **Return to Game (Keep Generating):** play while the model continues.
-- **Cancel | Keep Prompt:** request clean cancellation; preserves the prompt
-  and current saved blueprint, then allows an explicit new attempt.
+- **Cancel & Refine:** interrupt the active worker and open the in-game
+  recovery editor immediately. The original building prompt is populated
+  and editable. Add optional positive clarification in a separate field
+  without transmitting the previous assistant refusal as conversation context.
+  Wait for the original network request to ACTUALLY close before the Start
+  New button can initiate a separate independent model request. Late output
+  from the cancelled attempt can never overwrite the existing blueprint.
+- **Refine & Start Fresh:** if a model failed or was cancelled, build a NEW
+  model request containing the player's original prompt plus any explicitly
+  edited clarifications. This is NOT continuation of the previous response.
 - **Back to BuildAI:** return to the studio without discarding progress.
+
+Both the F8 Create/AI prompt and the recovery editor's original prompt have
+a small **× clear** action at the right edge. Clearing the original prompt
+also deletes the local `last-generation-prompt.txt` backup and clears the
+studio's cached text, so it stays empty when F8 is reopened. The recovery
+editor has a separate × for its clarification field, which clears ONLY that
+clarification. The Restore Original button remains an explicit option while
+reviewing the old attempt, never an automatic restoration after clearing.
+
+A model refusal about missing inventory preloads or unverified machinery
+also triggers at most ONE automatic correction request (a new HTTP request,
+without any previous assistant turn). Only the category of the issue is
+translated into short developer guidance; hard engine limits do not trigger
+this retry. The new model attempt is still an engineering proposal to be
+tested in Minecraft, never proof that it works.
 
 Existing sessions launched with an older installed JAR cannot acquire the
 new controls or prompt backup retroactively. Copy their prompt manually

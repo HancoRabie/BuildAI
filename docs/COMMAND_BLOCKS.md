@@ -112,6 +112,40 @@ permissions. Command blocks are unobtainable through ordinary Survival
 crafting; approved map machinery is excluded from the Survival materials
 manifest.
 
+## Reattaching all saved scripts after Minecraft restart
+
+A Minecraft restart clears the old in-memory BuildAI construction/approval
+session, **but not the saved blueprint or physical blocks**. For any
+previously built project with a locally saved BuildAI `.schem`:
+
+1. Stand in your old build and aim at **any** command block belonging to it
+   (within 9 blocks). Keep the player looking at it.
+2. Open **F8 > My Blueprints**, select the exact saved `.schem`.
+3. Click **Attach Command Plan to Existing World Build**. BuildAI reads the
+   saved script metadata from the server's local blueprint directory, tests
+   possible alignment origins, and will accept **only one unambiguous full
+   match** of every saved command-block position and facing. It never pastes
+   the building or changes blocks during this matching step.
+4. Close My Blueprints when prompted. The native command-commissioning
+   checklist opens with the complete recovered plan. Select scripts or
+   **Approve All**.
+5. The server verifies all selected cells again, installs scripts, and only
+   then arms the saved Always Active settings.
+
+The chat equivalent is
+`/buildai commands recover exact-saved-filename.schem`
+while looking at an existing command block. This works in local
+singleplayer because the saved library and integrated server share the same
+game directory. Dedicated servers must have the matching schematic file in
+**their own** `buildai/blueprints` directory.
+
+If BuildAI cannot uniquely identify the full arrangement (unloaded chunks,
+edited/missing blocks, changed facing), it will refuse recovery rather than
+risk programming the wrong blocks. A schematic without embedded command
+metadata cannot recover scripts it never saved; the separate
+`/buildai commands preset` or `/buildai commands set` workflow can
+manually stage individual blank command blocks.
+
 ## Fixing an existing blank command block — no rebuild required
 
 A generated physical command block can be EMPTY if an earlier AI output did

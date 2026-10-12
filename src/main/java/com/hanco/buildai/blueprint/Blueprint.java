@@ -66,7 +66,12 @@ public final class Blueprint {
         List<BlockPos> result=new ArrayList<>();
         for(int y=0;y<height;y++)for(int z=0;z<length;z++)for(int x=0;x<width;x++)
             if(!isAir(x,y,z))result.add(new BlockPos(x,y,z));
-        result.sort(Comparator.comparingInt(BlockPos::getY)
+        // Complete walls, rail supports, wiring and mechanical internals
+        // BEFORE placing any water/lava source. Fluids can flow into exposed
+        // construction and wash away dust if installed during early Y passes.
+        result.sort(Comparator.comparingInt((BlockPos p)->
+                BuildFluidRules.isFluidSource(get(p.getX(),p.getY(),p.getZ()))?1:0)
+            .thenComparingInt(BlockPos::getY)
             .thenComparingInt(p->priority(get(p.getX(),p.getY(),p.getZ())))
             .thenComparingInt(BlockPos::getZ).thenComparingInt(BlockPos::getX));
         return result;
@@ -88,7 +93,8 @@ public final class Blueprint {
         for(int y=0;y<height;y++)for(int z=0;z<length;z++)for(int x=0;x<width;x++) {
             if(isAir(x,y,z))continue;
             String s=get(x,y,z);
-            if(!secondHalf(s))counts.merge(id(s),1,Integer::sum);
+            if(!secondHalf(s) && !BuildFluidRules.isFluidSource(s))
+                counts.merge(id(s),1,Integer::sum);
         }
         return counts;
     }

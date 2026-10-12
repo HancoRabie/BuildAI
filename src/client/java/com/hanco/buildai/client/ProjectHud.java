@@ -42,6 +42,13 @@ public final class ProjectHud {
                 lines.add("Repairing fence, wall and pane connections");
             }else if(s.phase().equals("CLEANUP")){
                 lines.add("Removing temporary supports");
+            }else if(s.phase().equals("WAITING_COMMAND_APPROVAL")){
+                lines.add("Physical build finished — awaiting your review");
+                lines.add("F8 > Design QA > Command Review");
+                lines.add("/buildai commands approve all");
+                lines.add("or approve 1,2,4 (OP4, no deadline)");
+            }else if(s.phase().equals("COMMISSION")){
+                lines.add("Installing approved scripts; others stay inactive");
             }else if(s.phase().equals("COMPLETE")){
                 lines.add("Build complete: "+s.placed()+" blocks");
             }else if(s.phase().equals("PAUSED_ERROR")){
@@ -87,6 +94,8 @@ public final class ProjectHud {
             case "WAITING_SUPPLIES"->"Waiting for supplies";
             case "CLEANUP"->"Cleaning supports";
             case "NORMALIZE"->"Normalizing connections";
+            case "WAITING_COMMAND_APPROVAL"->"Command approval paused";
+            case "COMMISSION"->"Programming approved commands";
             case "COMPLETE"->"Complete";
             case "CANCELLED"->"Cancelled";
             case "PAUSED_ERROR"->"Paused - safety";

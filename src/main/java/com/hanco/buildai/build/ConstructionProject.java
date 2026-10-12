@@ -16,7 +16,7 @@ import net.minecraft.util.math.*;
  * This first version deliberately refuses excavating block entities and bedrock.
  */
 public final class ConstructionProject {
-    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, COMMISSION, CINEMATIC_PULL, COMPLETE, CANCELLED, ROLLBACK_CHECK, ROLLBACK, PAUSED_ERROR }
+    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, WAITING_COMMAND_APPROVAL, COMMISSION, CINEMATIC_PULL, COMPLETE, CANCELLED, ROLLBACK_CHECK, ROLLBACK, PAUSED_ERROR }
     public Blueprint blueprint;
     private final Blueprint sourceBlueprint;
     private int rotation=0;
@@ -48,18 +48,45 @@ public final class ConstructionProject {
     public int rollbackProgress(){return rollbackIndex;}
     public int rollbackSize(){return rollbackOrder.size();}
     private boolean commandsApproved=false;
+    private Set<Integer> approvedCommandIndices=Set.of();
     private int programmingIndex=0,armingIndex=0;
     public int commandCount(){return blueprint.commands().size();}
     public boolean commandsApproved(){return commandsApproved;}
-    public void approveCommands(ServerPlayerEntity administrator){
-        if(phase!=Phase.REVIEW)throw new IllegalStateException("Lock the map location before approving scripts");
+    public int approvedCommandCount(){return approvedCommandIndices.size();}
+    public boolean isCommandApproved(int zeroBased){return approvedCommandIndices.contains(zeroBased);}
+    /**
+     * In no case does build speed advance approval. The finished physical
+     * build stops in WAITING_COMMAND_APPROVAL until an OP4 explicitly chooses
+     * all or specific command indices. Unselected blocks remain inert.
+     */
+    public void approveCommands(ServerPlayerEntity administrator,Set<Integer> selected){
+        if(phase!=Phase.WAITING_COMMAND_APPROVAL)
+            throw new IllegalStateException("Wait until construction finishes and BuildAI opens command review");
         if(!administrator.hasPermissionLevel(4))
             throw new IllegalStateException("Server operator level 4 is required for command approval");
         if(!world.getServer().areCommandBlocksEnabled())
-            throw new IllegalStateException("Command blocks are disabled: for 1.21.1 set enable-command-block=true in server.properties and restart");
-        for(CommandBlockPlan.Entry command:blueprint.commands())
-            CommandBlockPlan.validate(blueprint,command);
+            throw new IllegalStateException("Command blocks are disabled: set enable-command-block=true in server.properties and restart");
+        if(selected==null||selected.isEmpty())
+            throw new IllegalArgumentException("Select at least one command or cancel the project");
+        for(int i:selected){
+            if(i<0||i>=commandCount())throw new IllegalArgumentException("Invalid command index");
+            CommandBlockPlan.validate(blueprint,blueprint.commands().get(i));
+        }
+        // Recheck every block before approving ANY scripts. Fail closed if
+        // players have modified the map during their review.
+        for(int i:selected){
+            var e=blueprint.commands().get(i);
+            BlockPos pos=origin.add(e.x(),e.y(),e.z());
+            if(!world.isChunkLoaded(pos) ||
+               !CommandBlockPlan.isCommandBlock(
+                   Registries.BLOCK.getId(world.getBlockState(pos).getBlock()).toString()) ||
+               !world.getBlockState(pos).equals(BlockStates.parse(blueprint.get(e.x(),e.y(),e.z()))))
+                throw new IllegalStateException("Selected command block #"+(i+1)+" no longer matches the reviewed map");
+        }
+        approvedCommandIndices=Set.copyOf(selected);
         commandsApproved=true;
+        programmingIndex=0;armingIndex=0;
+        phase=Phase.COMMISSION;
     }
     public int collisions=0;
     public int constructionSpeed=16;
@@ -93,7 +120,7 @@ public final class ConstructionProject {
             throw new IllegalStateException("Cannot reposition after excavation has begun");
         blueprint=sourceBlueprint;order=sourceBlueprint.ordered();rotation=0;
         origin=BlockPos.ORIGIN;collisions=0;phase=Phase.SELECT_XZ;
-        commandsApproved=false;programmingIndex=0;armingIndex=0;
+        commandsApproved=false;approvedCommandIndices=Set.of();programmingIndex=0;armingIndex=0;
     }
     /** Preview is free to move client-side; only this method locks a server-approved XYZ origin. */
     public void selectOrigin(BlockPos proposal,int quarterTurns) {
@@ -104,7 +131,7 @@ public final class ConstructionProject {
         // Build a separate candidate so a failed lock never mutates the active
         // blueprint, even if the intended footprint changes from W×L to L×W.
         Blueprint candidate=BlueprintRotator.rotate(sourceBlueprint,quarterTurns);
-        commandsApproved=false;
+        commandsApproved=false;approvedCommandIndices=Set.of();
         int count=0;
         // Validate all cells first. A failed selection must never overwrite the prior approved preview.
         for(int y=0;y<candidate.height;y++)for(int z=0;z<candidate.length;z++)for(int x=0;x<candidate.width;x++){
@@ -125,10 +152,8 @@ public final class ConstructionProject {
     }
     public void confirm() {
         if(phase!=Phase.REVIEW)throw new IllegalStateException("Placement is not locked. Close F8, press G to freeze the visible preview (no ground target required), adjust with arrows/wheel, then ENTER to lock before /buildai confirm.");
-        if(commandCount()>0&&!commandsApproved)
-            throw new IllegalStateException("Review commands with /buildai commands list, then explicitly /buildai commands approve (op level 4) BEFORE confirm.");
-        if(commandCount()>0&&!world.getServer().areCommandBlocksEnabled())
-            throw new IllegalStateException("Enable command blocks in server.properties (Minecraft 1.21.1) before starting construction.");
+        // Command approval is intentionally AFTER physical construction,
+        // never a pre-confirm race for small, fast-build projects.
         // No multi-million-block snapshot on the server tick! Save affected
         // ORIGINAL states lazily, exactly before each excavation/placement.
         // A previously AIR cell is represented by absence from originals.
@@ -217,7 +242,12 @@ public final class ConstructionProject {
                 if(PaneNormalizer.normalize(world,pos))normalizedPanes++;
                 normalizeIndex++;
             }
-            if(normalizeIndex>=order.size())phase=commandCount()>0?Phase.COMMISSION:Phase.COMPLETE;
+            if(normalizeIndex>=order.size())phase=commandCount()>0?
+                Phase.WAITING_COMMAND_APPROVAL:Phase.COMPLETE;
+            return;
+        }
+        if(phase==Phase.WAITING_COMMAND_APPROVAL){
+            // No timeout; no automatic approval and no command programming.
             return;
         }
         if(phase==Phase.COMMISSION){
@@ -229,8 +259,9 @@ public final class ConstructionProject {
                 CommandBlockPlan.Entry e=programs.get(programmingIndex);
                 // The immutable local XYZ -> world XYZ translation, and block
                 // type/facing, are rechecked before programming each ordinal.
-                CommandBlockInstaller.program(world,origin.add(e.x(),e.y(),e.z()),e,
-                    blueprint.get(e.x(),e.y(),e.z()));
+                if(approvedCommandIndices.contains(programmingIndex))
+                    CommandBlockInstaller.program(world,origin.add(e.x(),e.y(),e.z()),e,
+                        blueprint.get(e.x(),e.y(),e.z()));
                 programmingIndex++;
             }
             // Do not arm ANY blocks until all command text has been installed.
@@ -238,7 +269,8 @@ public final class ConstructionProject {
             work=0;
             while(armingIndex<programs.size()&&work++<12){
                 CommandBlockPlan.Entry e=programs.get(armingIndex);
-                CommandBlockInstaller.arm(world,origin.add(e.x(),e.y(),e.z()),e);
+                if(approvedCommandIndices.contains(armingIndex))
+                    CommandBlockInstaller.arm(world,origin.add(e.x(),e.y(),e.z()),e);
                 armingIndex++;
             }
             if(armingIndex>=programs.size())phase=Phase.COMPLETE;
@@ -392,7 +424,12 @@ public final class ConstructionProject {
             case WAITING_SUPPLIES->"Waiting for supply chests to receive materials";
             case CLEANUP->"Removing temporary construction supports";
             case NORMALIZE->"Connecting glass panes, fences, walls and iron bars";
-            case COMMISSION->"Installing approved 1.21.1 command-block logic after physical construction";
+            case WAITING_COMMAND_APPROVAL->"Build physically complete. COMMAND REVIEW REQUIRED: "+
+                commandCount()+" scripts remain inactive. Review in the in-game BuildAI screen. "+
+                "Then /buildai commands approve all OR /buildai commands approve 1,2,4 (OP4). "+
+                "BuildAI will wait as long as necessary.";
+            case COMMISSION->"Commissioning "+approvedCommandIndices.size()+" approved of "+
+                commandCount()+" command scripts; unapproved blocks remain inert";
             case ROLLBACK_CHECK->"Undo safety scan: checking "+rollbackCheckIndex+"/"+rollbackOrder.size()+" affected positions";
             case ROLLBACK->"Restoring original block states: "+rollbackIndex+"/"+rollbackOrder.size();
             case COMPLETE->"Construction complete";

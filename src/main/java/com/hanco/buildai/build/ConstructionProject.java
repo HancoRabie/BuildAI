@@ -578,6 +578,8 @@ public final class ConstructionProject {
     }
     public int cells(){return blueprint.width*blueprint.height*blueprint.length;}
     public Map<String,Integer> requirements(){
+        // Creative never requires supply-chest materials, including fluids.
+        if(creative)return Map.of();
         Map<String,Integer> result=new TreeMap<>();
         int water=0,lava=0;
         for(BlockPos local:order){

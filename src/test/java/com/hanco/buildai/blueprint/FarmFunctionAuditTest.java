@@ -24,6 +24,17 @@ public class FarmFunctionAuditTest {
         assertTrue(report.warnings().stream().anyMatch(s->s.contains("bone meal")),report.warnings().toString());
         assertTrue(report.warnings().stream().anyMatch(s->s.contains("replanting")),report.warnings().toString());
     }
+    @Test void userChosenDispenserWaterMechanismDoesNotRequirePiston(){
+        var report=FarmFunctionAudit.inspect(carrots(),
+            "Build an automated carrot harvest using a water bucket dispenser "+
+            "that I will manually fill. Use hoppers and a chest.",null);
+        assertTrue(report.blockers().stream().noneMatch(x->
+            x.contains("crop-breaking")),report.warnings().toString());
+        assertTrue(report.cautions().stream().anyMatch(x->
+            x.contains("PLAYER loads")),report.warnings().toString());
+        assertTrue(report.cautions().stream().anyMatch(x->
+            x.contains("manual replanting")),report.warnings().toString());
+    }
     @Test void provenPistonObserverCaneIsNotFalselyRejected(){
         Blueprint b=new Blueprint("Cane",12,8,12);
         for(int z=2;z<9;z++){

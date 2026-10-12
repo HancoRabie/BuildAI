@@ -182,7 +182,7 @@ public final class BuildAIClient implements ClientModInitializer {
                     :previous==null
                         ?AIArchitect.generateDesign(key,description,progress)
                         :AIArchitect.reviseDesign(key,description,previous,progress);
-                return FarmFunctionRepair.review(description,result,key,
+                return BuildQualityReview.review(description,result,key,
                     ChatGPTSignIn.connected(),progress);
             }catch(Exception error){throw new RuntimeException(error);}
             finally{progress.releaseWorker();}

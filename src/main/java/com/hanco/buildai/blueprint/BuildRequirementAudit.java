@@ -58,8 +58,9 @@ public final class BuildRequirementAudit {
             if(target.equals("_button")&&button(id))return true;
             if(target.equals("minecraft:piston")&&
                 (id.equals(target)||id.equals("minecraft:sticky_piston")))return true;
-            if(target.equals("minecraft:chest")&&
-                (id.equals(target)||id.equals("minecraft:trapped_chest")))return true;
+            // Chests are NOT interchangeable: only trapped chests emit
+            // opening signals, whereas a regular chest is ordinary storage.
+            if(id.equals(target))return true;
             if(id.equals(target))return true;
         }
         return false;
@@ -122,12 +123,32 @@ public final class BuildRequirementAudit {
             }
         List<String> blockers=new ArrayList<>(),suggestions=new ArrayList<>();
         if(solids==0)blockers.add("Blueprint contains no placeable blocks.");
+        boolean trappedRequested=Pattern.compile(
+            "(?i)\\b(?:trapped|redstone)[ -]chests?\\b|"+
+            "\\bchests?\\s+(?:that|which|to)\\s+(?:emit|send|output|produce)\\s+redstone\\b")
+            .matcher(prompt).find();
+        boolean normalRequested=Pattern.compile(
+            "(?i)\\b(?:normal|regular|ordinary|plain|simple|standard|"+
+            "non[- ]trapped)\\s+chests?\\b").matcher(prompt).find();
+        boolean trappedProhibited=Pattern.compile(
+            "(?i)\\b(?:no|without|avoid|exclude)\\s+(?:trapped|redstone)\\s+chests?\\b")
+            .matcher(prompt).find();
+        if(trappedRequested && counts.getOrDefault("minecraft:trapped_chest",0)==0)
+            blockers.add("Requested redstone/trapped chest is absent: "+
+                "minecraft:chest does NOT output an opening signal.");
+        if(trappedProhibited && counts.getOrDefault("minecraft:trapped_chest",0)>0)
+            blockers.add("Trapped chest is present despite player's instruction "+
+                "to exclude it; ordinary chest is a separate Minecraft block.");
         // A literal requested component is a concrete, machine-verifiable
         // requirement. Avoid treating mentions inside negative instructions
         // like 'no dispensers' as positive requirements.
         for(var entry:NAMED_BLOCKS.entrySet()){
             String name=entry.getKey();
             if(!includes(prompt,name))continue;
+            // The word "chest" inside "trapped chest" is not a demand
+            // for a separate normal chest unless the request says so.
+            if(name.equals("chest")&&trappedRequested&&!normalRequested)
+                continue;
             if(Pattern.compile("(?i)\\b(?:no|without|avoid|exclude|remove|not using)\\s+"+
                 Pattern.quote(name)+"s?\\b").matcher(prompt).find())continue;
             if(!hasBlock(counts,entry.getValue()))

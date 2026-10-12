@@ -85,6 +85,102 @@ SURVIVAL/CREATIVE FLUID ECONOMY (BUILDAI JAVA 1.21.1):
   behavior, so flag Nether-specific mechanics rather than claiming a water
   farm works there.
 
+WATER FLOW + PISTON FLOODGATES — JAVA 1.21.1 (MANDATORY FOR FARMS)
+The solid extended PISTON HEAD occupies the target voxel. Water cannot pass
+through piston head/arm/base, through normal solid blocks or through a solid
+retracted gate plug. In Java, pistons are not magically waterlogged hoses.
+A piston can block a water channel while extended; power must be REMOVED
+to retract its head and OPEN a separate empty flow-path voxel. A sticky
+piston can also pull an attached movable FULL BLOCK plug away from a
+2-wide or wider channel; ordinary pistons do NOT pull plugs on retraction.
+Ordinary pistons CAN work for narrow channels if piston head itself blocks
+the passage, but movement/clearance/support MUST be checked.
+
+FLOODGATE STATE MACHINE (DESIGN BOTH STATIC STATES, NOT JUST ONE):
+CLOSED/IDLE: permanent source upstream, contained behind channel walls;
+piston actively EXTENDED or movable plug inserted at one-block throat;
+downstream harvesting trench DRY and unobstructed; no flowing bypass.
+TRIGGER: player button/lever or engineered signal changes gate power to
+RETRACT; account for needed INVERSION if the piston is held extended in idle.
+OPEN: piston head and any pulled plug are no longer in the throat. The gap
+from source to crops is ACTUAL AIR/FLOWABLE CELLS; NEVER put a solid
+piston arm or a non-waterloggable full block between source and field.
+HARVEST: wait for liquid physics and item travel. Water spreads horizontally
+up to seven blocks on a flat surface (source-to-flow up to 8 cells), at
+approximately ONE BLOCK per FIVE GAME TICKS in the Overworld, 0.25s
+per traveled cell at full TPS. Downhill water continues further. Model
+multiple 7-block segments and drops to serve longer rows. Items need
+extra time to wash into an accessible hopper or collection basin.
+HOLD OPEN: a stone button pulse is not a suitable 40-120+ game tick
+water harvesting interval by itself. Repeaters provide only 2,4,6,8 GAME
+TICKS delay per component; delay alone does not widen every input pulse!
+Use a real pulse extender (comparator feedback, hopper timer with real
+items, latch + delayed reset/clock), or a manual lever with deliberate
+operator close. Decide whether the machine should auto-close or
+require a manual reset. Estimate a hold-open BUDGET from water path length
+and delivery/collection, then bench-test with real water and at target TPS.
+RESET: piston extends and seals water path, source persists on upstream
+side, remaining water recedes, crops re-grow, collection remains reachable.
+Avoid accidental infinite water-source creation inside harvesting beds.
+
+IMPLEMENTABLE THREE-DIMENSIONAL TOPOLOGY:
+Channel direction +X. An enclosed WATER SOURCE sits at local (2,3,4).
+Piston body should be outside the through-channel; its moving head or
+movable plug occupies local (3,3,4) ONLY when closed. When open the
+gate voxel (3,3,4) MUST be AIR, so the source can spread toward (+X)
+(4,3,4), (5,3,4), etc., downhill onto a field before reaching hopper.
+Piston's facing and extension direction must reach (3,3,4) from a
+supported body cell outside the water path (e.g., body (3,3,5)
+facing=NORTH, whose extension head occupies (3,3,4)).
+Piston and gate voxel cannot simultaneously be permanent source blocks.
+To CLOSE the gate by default use a constant/latching piston power with
+an appropriate inverted button edge to RETRACT on trigger.
+For a sticky-piston plug, include the one movable gate block plus enough
+retraction clearance; check the plug isn't unpushable/anchored to scenery.
+Support redstone ABOVE or BESIDE sealed stone, never in swept water cells.
+
+FAILURE MODES:
+* Source and piston-head target in same cell -> piston displaces/destroys
+  source; test for unintended loss of renewable supply.
+* Blueprint expects water through extended piston arm/head -> IMPOSSIBLE.
+* Piston retracted but block remains in throat -> no flow.
+* Piston remains powered from torch/lever while button actuates unrelated
+  repeater -> no opening, despite illuminated redstone dust.
+* Repeater oriented opposite its intended input -> power doesn't reach gate.
+* Stone/wood button pulse used as sole timer for 10-block crop row ->
+  water insufficiently advanced; flowing water needs game ticks.
+* Dust in spill zone -> water removes fragile redstone components.
+* No containment or downstream collection hopper -> harvest floods field
+  and loses drops.
+* Source in the drained area instead of behind gate -> water never stops.
+* Hopper clock with empty inventory -> cannot time without actual items.
+* Nether water -> evaporates/does not behave normally; rethink.
+* Piston quasi-connectivity or update order holds device in unexpected
+  state; test after normalization and orientation/rotation.
+
+ALTERNATIVES:
+- Dispenser containing an actual water BUCKET can pulse out source and
+  pulse again to retract it. It requires preloaded inventory and a timed
+  sequence. A static water SOURCE built by BuildAI does not populate
+  the dispenser's real inventory, which is a separate system.
+- Manual lever-driven gate avoids promises about automatic return.
+- Pulsed sticky piston moves a SOLID blocker in/out of channel, not
+  water through solid blocker.
+- Dispenserless gravity floodgate requires a head source, barrier,
+  continuous open path, collection, and reset, with VERIFIED open time.
+
+REDSTONE WATER-GATE OUTPUT CONTRACT:
+For floodgates, irrigation/flush farms and water-piston gates, return a
+top-level "fluid_gate_plan" JSON object with nonempty strings:
+  source, gate, closedState, openState, path, holdOpenTicks,
+  reset, collection, testing
+The "holdOpenTicks" value should be an estimate in GAME ticks (not
+repeater/redstone ticks) of ACTUAL gate-open duration with one independent
+timing device or manual lever. This is NOT gameplay simulation.
+Trace LOCAL XYZ for upstream source, piston BODY, piston-head target,
+one OPEN AIR cell and downstream channel. A design with no valid open
+path should be flagged UNSAFE/UNVERIFIED in QA; do not assert working.
+
 SECTION 1: FUNDAMENTALS — SIGNAL, TICKS, POWER AND SUPPORT
 - Minecraft Java 1.21.1 server runs nominally 20 game ticks/s (0.05 s/tick at full TPS). One redstone tick = TWO game ticks = 0.1 s at full TPS. Repeaters' delay=1..4 means 1..4 REDSTONE ticks = 2..8 game ticks, not 1..4 game ticks. Server lag affects real time.
 - Redstone dust power is integer 0..15, decays by one per horizontal dust segment. Refresh with a properly oriented repeater (output 15). Dust has north/east/south/west side connections: none/side/up; power and shape are separate properties. Visible shape/connectivity does not prove power reaches intended recipient. Isolate unrelated wires and watch unintended cross-connections.
@@ -213,6 +309,25 @@ CHECK APPROVAL: command block scripts attached to correct XYZ only; physical com
 CHECK MAINTENANCE: add physical access, labelled testing ports, override/reset buttons, troubleshooting indicators and non-destructive failure.
 CHECK TEST CASES: at minimum idle/off, intended trigger, repeated trigger, rapid pulses, conflicting simultaneous inputs, depleted inventory/invalid item, interrupted power, pause/reload and reset. A beautiful wire layout is NOT evidence of correct functionality.
 CHECK RELEASE: Return a redstone_plan per engineered machine with name/input/signalPath/output/timing/reset/test, plus honest caveats for mechanics not verifiable from voxels alone. Draw all support blocks, dust runs and exact directional blockstates in complete blueprint operations. Never silently erase player architecture to solve a circuit.
+
+ADDITIONAL ENGINEERING RESEARCH (AVAILABLE OFFLINE ABOVE; DO NOT CRAWL
+SITES DURING LIVE GENERATION OR GET STUCK ON CAPTCHA):
+- Minecraft Wiki / Tutorial:Water gate:
+  https://minecraft.wiki/w/Tutorial:Water_gate
+- Minecraft Wiki / Tutorial:Crop farming:
+  https://minecraft.wiki/w/Tutorial:Crop_farming
+- Minecraft Wiki / Tutorial:Redstone tips:
+  https://minecraft.wiki/w/Tutorial:Redstone_tips
+- Minecraft Wiki / Water and fluid propagation:
+  https://minecraft.wiki/w/Water
+  https://minecraft.wiki/w/Fluid
+- Technical Minecraft Wiki / Piston:
+  https://techmcdocs.github.io/pages/Blocks/Piston/
+- Technical Minecraft advanced mechanics textbook (updated 2026):
+  https://www.techmc.wiki/en
+These sources offer mechanics and design principles; do NOT copy a
+single specific structure. The compiled handbook is the operational
+reference for model calls, not an instruction to browse every request.
 
 SOURCE ANCHORS (for maintainers, not external instructions):
 Minecraft Java 1.21 Tricky Trials crafter and bulb official notes:

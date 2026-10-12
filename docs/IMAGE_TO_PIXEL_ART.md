@@ -36,9 +36,10 @@ request, no remote upload and no image generation credits**.
 - Transparent PNG pixels can become `minecraft:air`, forming silhouette
   openings. If transparency is disabled, those pixels become white.
   JPEG has no transparent pixels.
-- The file browser is optional AWT native FileDialog (not Swing), run off
-  the Minecraft render thread. On headless or unsupported setups players
-  can paste a local file path instead.
+- **Browse Image** uses LWJGL TinyFileDialogs, the same native OS file
+  chooser as ChainFrames. It works without AWT or Swing, including in
+  Minecraft desktop environments that report Java as headless.
+  The full local file path can still be pasted as a fallback.
 - Material costs and 3D placement work exactly like other BuildAI blueprints.
   The image screen never places blocks in the world without the standard
   explicit placement confirmation.

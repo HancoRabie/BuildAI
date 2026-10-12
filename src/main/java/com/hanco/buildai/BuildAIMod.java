@@ -315,18 +315,18 @@ public final class BuildAIMod implements ModInitializer {
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p!=null&&p.requestPaneRepair()){
-                        reply(player,"Normalizing finished fence rails, walls, glass panes and iron bars. Watch /buildai status.");
+                        reply(player,"Refreshing this build in stages: pane/fence/wall joins, then redstone wire links and signal neighbors. Watch /buildai status. CAUTION: active machinery may pulse.");
                         return 1;
                     }
                     if(p!=null&&(p.phase==ConstructionProject.Phase.BUILD||
                         p.phase==ConstructionProject.Phase.EXCAVATE||
                         p.phase==ConstructionProject.Phase.CLEANUP||
                         p.phase==ConstructionProject.Phase.NORMALIZE)){
-                        reply(player,"The build is still active; automatic fence/wall/pane connection repair runs on completion.");
+                        reply(player,"Construction still active; automatic pane/fence/wall AND redstone connection/signal repair runs before command approval.");
                         return 0;
                     }
                     int count=PaneNormalizer.normalizeNearby(player.getServerWorld(),player.getBlockPos());
-                    reply(player,"Repaired "+count+" fence/wall/pane/iron-bar block states near you (20 block horizontal radius).");
+                    reply(player,"Normalized "+count+" pane/fence/wall/redstone wire connection states and refreshed nearby redstone devices (20-block horizontal radius). Note: live circuits may pulse.");
                     return 1;
                 }))
                 .then(literal("fast").requires(s->s.hasPermissionLevel(2)).executes(c->{

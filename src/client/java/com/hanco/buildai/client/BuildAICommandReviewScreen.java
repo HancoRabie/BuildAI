@@ -51,7 +51,7 @@ public final class BuildAICommandReviewScreen extends Screen {
     private List<CommandReviewPayload.Item> entries(){return snapshot.entries();}
     private int panelWidth(){return Math.min(660,Math.max(150,width-20));}
     private int left(){return (width-panelWidth())/2;}
-    private int visibleLines(){return Math.max(1,(height-180)/11);}
+    private int visibleLines(){return Math.max(1,(height-205)/11);}
     private List<OrderedText> wrapped(){
         if(entries().isEmpty())return textRenderer.wrapLines(
             Text.literal("No command scripts in this blueprint."),panelWidth()-24);
@@ -98,8 +98,9 @@ public final class BuildAICommandReviewScreen extends Screen {
         int nav=height-83,act=height-58,foot=height-33;
         control("PREVIOUS COMMAND",x,nav,half,()->navigate(-1)).active=entries().size()>1;
         control("NEXT COMMAND",x+half+gap,nav,half,()->navigate(1)).active=entries().size()>1;
-        control(marked.contains(entries().get(current).number())?"UNMARK #"+(current+1):
-            "MARK #"+(current+1),x,act,third,this::toggle).active=!entries().isEmpty();
+        control(!entries().isEmpty()&&marked.contains(entries().get(current).number())?
+            "UNMARK #"+(current+1):"MARK #"+(current+1),
+            x,act,third,this::toggle).active=!entries().isEmpty();
         control("APPROVE MARKED ("+marked.size()+")",x+third+gap,act,third,
             ()->approve(marked.stream().map(Object::toString).collect(Collectors.joining(","))))
             .active=serverReview&&!marked.isEmpty();
@@ -148,10 +149,10 @@ public final class BuildAICommandReviewScreen extends Screen {
                 x+10,92+(i-textPage*rows)*11,TXT);
         ctx.drawTextWithShadow(textRenderer,
             textRenderer.trimToWidth("Text page "+(textPage+1)+"/"+pages+"  |  "+
-                marked.size()+" marked of "+entries().size()+"  |  You can return later — no timer.",w-16),
-            x+9,height-103,DIM);
+                marked.size()+" marked of "+entries().size()+"  |  Review has no countdown.",w-16),
+            x+9,height-112,DIM);
         ctx.drawTextWithShadow(textRenderer,
-            textRenderer.trimToWidth(status,w-16),x+9,height-96,GOLD);
+            textRenderer.trimToWidth(status,w-16),x+9,height-101,GOLD);
         super.render(ctx,mx,my,delta);
     }
     @Override public boolean shouldPause(){return false;}

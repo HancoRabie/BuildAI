@@ -14,12 +14,62 @@ public final class GenerationProgress {
                            double charactersPerSecond) {}
 
     private final String category;
+    private final String originalPrompt;
     private final long startedNanos=System.nanoTime();
+    private long lastStreamEventNanos=0;
+    private String lastStreamEvent="None yet";
+    private boolean responseAccepted=false;
+    private String modelLabel="Unknown";
+    private String probeResult="";
+    private boolean checking=false;
     private long firstCharactersNanos=0L;
 
     public GenerationProgress(){this(null);}
-    public GenerationProgress(String prompt){category=GenerationHistory.category(prompt);}
+    public GenerationProgress(String prompt){
+        originalPrompt=prompt==null?"":prompt;
+        category=GenerationHistory.category(prompt);
+    }
     public String category(){return category;}
+    public String originalPrompt(){return originalPrompt;}
+
+    public synchronized void requestSent(String model){
+        modelLabel=model==null||model.isBlank()?"Unknown":model;
+    }
+    public synchronized void responseAccepted(){
+        responseAccepted=true;
+        lastStreamEventNanos=System.nanoTime();
+        lastStreamEvent="HTTP 200 / stream opened";
+    }
+    public synchronized void streamEvent(String type){
+        lastStreamEventNanos=System.nanoTime();
+        lastStreamEvent=type==null?"Unknown":type;
+    }
+    public synchronized String localDiagnostic(){
+        long now=System.nanoTime();
+        long age=(now-startedNanos)/1_000_000_000L;
+        String connection=responseAccepted?
+            "Request accepted (HTTP 200)":"Awaiting model connection";
+        String event=lastStreamEventNanos==0?"No stream event yet":
+            "Last event "+lastStreamEvent+" "+
+                ((now-lastStreamEventNanos)/1_000_000_000L)+"s ago";
+        return "Model "+modelLabel+" | "+connection+" | "+
+            receivedCharacters+" blueprint characters | "+event+
+            " | elapsed "+age+"s. "+
+            "A successful connection check cannot verify that "+
+            "THIS model response is still processing.";
+    }
+    public synchronized boolean beginCheck(){
+        if(checking)return false;
+        checking=true;
+        probeResult="Checking OpenAI independently. Active generation is unchanged.";
+        return true;
+    }
+    public synchronized void completeCheck(String status){
+        probeResult=status==null?"No health report available":status;
+        checking=false;
+    }
+    public synchronized String checkStatus(){return probeResult;}
+    public synchronized boolean checking(){return checking;}
     private long lastActivityNanos=startedNanos;
     private String stage="Preparing request";
     private String detail="Connecting to the model service.";

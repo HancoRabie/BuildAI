@@ -1,6 +1,7 @@
 package com.hanco.buildai.client;
 
 import com.google.gson.*;
+import com.hanco.buildai.blueprint.ArchitecturalStyleAnalyzer;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;

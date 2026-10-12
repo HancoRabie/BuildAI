@@ -10,6 +10,16 @@ block commissioning, and circuit test scenarios. The
 lists the key mechanics and quirks of **59 component families** (including
 some redstone-relevant entities, which are explicitly identified as entities).
 
+## Targeted engineering test campaign
+
+We now organize Minecraft Java 1.21.1 redstone improvements into
+[ten isolated mechanism tracks](REDSTONE_TEST_CAMPAIGN.md), beginning with
+[R01A: four-direction signal routing and independent outputs](redstone-tests/R01A_DIRECTIONAL_ROUTING.md).
+The repeatable [result sheet](redstone-tests/RESULT_SHEET.md) records
+in-game observations separately from static block-state checks, with
+before/after optimization scoring. Only verified successes may promote
+reusable RBL patterns; the test campaign is NOT an implemented tick simulator.
+
 ## Automatic AI usage
 
 Both of BuildAI's inference routes—connected ChatGPT and developer API

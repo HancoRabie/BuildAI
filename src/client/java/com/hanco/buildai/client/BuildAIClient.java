@@ -46,6 +46,21 @@ public final class BuildAIClient implements ClientModInitializer {
             mc.player.sendMessage(link,false);
         }
     }
+    /** Exact post-build command review received from the server, not inferred from draft. */
+    private static volatile com.hanco.buildai.net.CommandReviewPayload waitingCommandReview;
+    private static volatile boolean commandReviewShown=false;
+    public static com.hanco.buildai.net.CommandReviewPayload waitingCommandReview(){
+        return waitingCommandReview;
+    }
+    private static void openQueuedCommandReview(MinecraftClient client){
+        if(waitingCommandReview==null||commandReviewShown||client.player==null)return;
+        if(client.currentScreen!=null&&!(client.currentScreen instanceof BuildAIScreen))return;
+        net.minecraft.client.gui.screen.Screen parent=client.currentScreen!=null
+            ?client.currentScreen:new BuildAIScreen();
+        commandReviewShown=true;
+        client.setScreen(new BuildAICommandReviewScreen(parent,waitingCommandReview));
+    }
+
     public static volatile boolean selecting=false;
     public static volatile boolean surfacePending=false;
     public static volatile boolean previewLocked=false;
@@ -236,14 +251,25 @@ public final class BuildAIClient implements ClientModInitializer {
             com.hanco.buildai.net.ProjectStatusPayload.ID,
             (payload,context)->context.client().execute(()->{
                 ProjectHud.latest=payload;
+                if(!payload.phase().equals("WAITING_COMMAND_APPROVAL")){
+                    waitingCommandReview=null;
+                    commandReviewShown=false;
+                }
                 if(payload.phase().equals("COMPLETE") || payload.phase().equals("CANCELLED")){
                     clearPreview();
                     CinematicExcavationRenderer.reset();
                 }
             }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            com.hanco.buildai.net.CommandReviewPayload.ID,
+            (payload,context)->context.client().execute(()->{
+                waitingCommandReview=payload;
+                openQueuedCommandReview(context.client());
+            }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler,client)->{
                 ProjectHud.latest=null;chatMode=false;clearPreview();
+                waitingCommandReview=null;commandReviewShown=false;
                 CinematicExcavationRenderer.reset();
             });
         open=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.buildai.open",InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_F8,"category.buildai"));
@@ -277,6 +303,7 @@ public final class BuildAIClient implements ClientModInitializer {
                     if(selecting||previewLocked||PlacementMode.active())PlacementMode.retry();
                 }
             }
+            openQueuedCommandReview(client);
             PlacementMode.tick();
             CinematicExcavationRenderer.tick();
         });

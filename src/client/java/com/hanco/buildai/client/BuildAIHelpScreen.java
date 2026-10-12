@@ -83,7 +83,7 @@ public final class BuildAIHelpScreen extends Screen {
             "/buildai substitute <original> <replacement> - allow compatible material substitutions before construction.",
             "/buildai cinematic - conceal chunk-safe excavation behind a void shroud, then show blocks spiraling into the central black hole. Construction starts afterward.",
             "/buildai fast - skip the cinematic wait and use faster construction. Large excavations are still batched to protect server performance.",
-            "/buildai normalize - repair fence, wall, glass pane and iron bar connections, including older completed builds near you.",
+            "/buildai normalize - repair fence, wall, glass pane, iron bar AND redstone dust connections. A final signal pass wakes supported vanilla 1.21.1 devices after wiring. Works on finished BuildAI projects and nearby older builds.",
             "Chains are not self-connecting fences. BuildAI now flags one-block gaps between aligned chain segments as QA warnings; add real links to bridge a gap.",
             "For command-driven maps, AI supplies a command plan mapped to actual placed blocks. Lock placement at zero-degree rotation. Build the physical map normally with /buildai confirm: you do NOT need to race against construction to approve commands.",
             "AFTER the physical build and naturalization finish, BuildAI pauses indefinitely at WAITING_COMMAND_APPROVAL and automatically opens the full command review IN Minecraft. Each script has a stable number, exact world location and matching block. You can close and reopen the review at F8 > Placement / Export > Design QA.",
@@ -96,7 +96,7 @@ public final class BuildAIHelpScreen extends Screen {
         {
             "DO NOT test BuildAI on a valuable world without a backup.",
             "BuildAI now uses the normal Minecraft player camera for all placement. ChatGPT sign-in works with eligible accounts. Still incomplete: durable crash recovery, full rollback/refunds, complete legacy conversions and tested arbitrary redstone.",
-            "The AI can generate block geometry and write schematics, but does not yet simulate every redstone mechanism. Check machinery in Minecraft.",
+            "Redstone normalization is connection and neighbor-update repair, NOT a full redstone simulator. It does not add missing wire, flip repeater/comparator facing, choose delays or certify logic. In-game testing is still required. Running manual /buildai normalize on a powered existing circuit can trigger pulses.",
             "Generated designs are automatically saved after successful completion; check Minecraft/buildai/blueprints. Construction sessions are not yet persisted across server restarts.",
             "For bug reports include the schematic type, block count, Minecraft/Fabric versions, build log and reproducible steps."
         }

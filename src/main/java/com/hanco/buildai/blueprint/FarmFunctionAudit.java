@@ -150,14 +150,27 @@ public final class FarmFunctionAudit {
         }
 
         if(roots>0){
-            if(!plausibleWaterRelease){
-                blockers.add("Root crops ("+roots+" carrots/potatoes/wheat/beetroot plants) lack "+
-                    "an identifiable water-release harvest route at plant height with a "+
-                    "controlled piston gate. Soil hydration water alone does NOT harvest.");
-            }else {
-                cautions.add("Water and piston geometry is present near root-crop height, "+
-                    "but flow from release to every crop and downstream collection is "+
-                    "not physically simulated. Inspect containment, timer and reset.");
+            // Mechanism-neutral: the player's request, not an audit rule,
+            // determines whether to use a piston gate, a stocked dispenser
+            // or an explicitly requested external mechanism.
+            String intent=prompt==null?"":prompt.toLowerCase(Locale.ROOT);
+            boolean harvestRequired=intent.contains("harvest")||
+                intent.contains("automat")||intent.contains("flush");
+            boolean suppliedDispenser=intent.contains("water bucket")&&
+                intent.contains("dispenser");
+            if(!plausibleWaterRelease&&harvestRequired){
+                String problem="Root crops lack an independently verifiable "+
+                    "crop-breaking harvest path. Farmland hydration alone "+
+                    "does not move drops into collectors.";
+                if(dispensers>0&&suppliedDispenser)
+                    cautions.add(problem+" A requested dispenser-based solution "+
+                        "may work after the PLAYER loads its inventory; verify "+
+                        "activation, water propagation and collection in Minecraft.");
+                else blockers.add(problem);
+            }else if(plausibleWaterRelease) {
+                cautions.add("A candidate water-release mechanism exists near "+
+                    "root crops, but it was NOT simulated. Inspect activation, "+
+                    "real flow path, collection, reset and containment.");
             }
             if(missingFarmland>0)
                 blockers.add(missingFarmland+" root crop plant(s) lack farmland "+
@@ -204,9 +217,10 @@ public final class FarmFunctionAudit {
                 "explicit inventory loading and power. Remove unnecessary dispensers "+
                 "or document required player setup.");
             if(roots>0 && !plausibleWaterRelease)
-                blockers.add("Dispensers cannot substitute for a working, supplied "+
-                    "harvest-water release. A bonemeal dispenser grows crops but does "+
-                    "not harvest them; an empty water-bucket dispenser does nothing.");
+                cautions.add("Dispenser presence is not proof of harvesting: "+
+                    "bone meal only grows crops, and an empty water-bucket "+
+                    "dispenser cannot release harvest water. Check player "+
+                    "intent and explicit inventory setup.");
         }
         if((roots>0||cane>0)&&hoppers>0)
             cautions.add("Hoppers are present, but BuildAI has NOT simulated "+

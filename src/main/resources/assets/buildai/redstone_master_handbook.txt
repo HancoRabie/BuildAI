@@ -243,7 +243,21 @@ target: projectile-hits generate pulses whose strength reflects hit accuracy. Us
 sculk_sensor: detects eligible vibrations in its sensing area, outputs analog strength by event; wool occludes vibrations and unintended machines/players can false-trigger. Has cooldown/state and may require calibrated variant for filtering.
 calibrated_sculk_sensor: selector input on its amethyst-bearing side filters vibration frequency categories (1..15). Carefully orient sensor and supply correct analog selection; verify event tables for 1.21.1. Sensitivity and relay interactions are directional.
 lightning_rod: lightning strikes create redstone pulse; weather-dependent and no reliable on-demand clock. Needs clear exposure for reliable strikes, not for manual buttons.
-trapped_chest: powers based on players opening it; comparator also reads inventory; do not treat normal chest as the same power source.
+CHEST BLOCK DISTINCTION (MINECRAFT JAVA 1.21.1; DO NOT SUBSTITUTE):
+minecraft:chest is an ordinary storage chest. It does NOT produce redstone
+power merely because a player opens it. A comparator can read its
+INVENTORY FULLNESS even when nobody has it open; that analog signal is
+not an opening event. For a generic storage chest, choose minecraft:chest.
+minecraft:trapped_chest is the trap/redstone-output chest. When opened,
+it emits a redstone signal while players are viewing it (strength based
+on number of viewers, capped at 15). Comparator inventory FULLNESS is
+also readable, independently of the opening trigger. If a player wants
+a "redstone chest", "trapped chest" or a chest that powers a circuit
+ON OPEN, select minecraft:trapped_chest, not ordinary minecraft:chest.
+For "normal", "regular", "simple", "plain" or general storage chests,
+select minecraft:chest. Redstone nearby does not turn normal chests
+into trapped ones, and inventory fullness is not a lid-open sensor.
+Do not mistake either chest for a hopper, dropper or item-generating block.
 lectern: comparator output reflects book page (depends on page count), opening/turning pages can pulse nearby observers; requires book data. Default empty lectern will NOT emulate a populated puzzle.
 item_frame / glow_item_frame: comparator through attached solid backing reads contents/rotation as signal (typically 1..8 when occupied); the frame is an ENTITY and may not survive BuildAI's schematic block-only export. Don't claim frame-input controls work unless entities exist.
 chiseled_bookshelf: comparator output indicates last interacted slot (1..6), 0 before interaction; inventory and slot state require real block entity data and player events.

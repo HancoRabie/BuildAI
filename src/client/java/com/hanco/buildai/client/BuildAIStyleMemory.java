@@ -2,6 +2,7 @@ package com.hanco.buildai.client;
 
 import com.google.gson.*;
 import com.hanco.buildai.blueprint.ArchitecturalStyleAnalyzer;
+import com.hanco.buildai.blueprint.ReviewIdentity;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -59,17 +60,14 @@ public final class BuildAIStyleMemory {
      */
     public record SavedFeedback(int rating,String comment,long savedAt,boolean legacy) {}
     private static String projectKey(Path path) {
-        return path.toAbsolutePath().normalize().toString();
+        return ReviewIdentity.key(path);
     }
     private static boolean sameProject(JsonObject item,Path path) {
         if(item.has("projectPath"))
-            return item.get("projectPath").getAsString().equals(projectKey(path));
-        // A previous version stored only the basename. Match that legacy
-        // record only for a build from BuildAI's own saved-blueprint folder.
-        Path parent=path.toAbsolutePath().normalize().getParent();
-        return parent!=null && parent.equals(BlueprintLibrary.directory().toAbsolutePath().normalize())
-            && item.has("file")
-            && item.get("file").getAsString().equals(path.getFileName().toString());
+            return ReviewIdentity.matches(item.get("projectPath").getAsString(),path);
+        // Legacy basename-only entries are ambiguous outside our own library.
+        return item.has("file") && ReviewIdentity.legacyMatches(
+            item.get("file").getAsString(),path,BlueprintLibrary.directory());
     }
     public static synchronized SavedFeedback feedbackFor(Path schematic) throws IOException {
         if(schematic==null)return null;
@@ -203,6 +201,23 @@ public final class BuildAIStyleMemory {
             }
         }
         return new FolderScan(saved,failed,candidates.size(),firstError);
+    }
+
+    /** Mark a chosen whole-build reference as the most recent active style. */
+    public static synchronized void activateArchitectureReference(String name) throws IOException {
+        JsonObject data=load();
+        JsonArray old=data.getAsJsonArray("architectures"),updated=new JsonArray();
+        JsonObject target=null;
+        for(JsonElement elem:old){
+            JsonObject item=elem.getAsJsonObject();
+            if(item.get("source").getAsString().equals(name))target=item;
+            else updated.add(item);
+        }
+        if(target==null)throw new IOException("Reference is no longer in the style library: "+name);
+        target.addProperty("enabled",true);
+        updated.add(target);
+        data.add("architectures",updated);
+        save(data);
     }
 
     public static synchronized List<ArchitectureReference> architectureReferences() throws IOException {

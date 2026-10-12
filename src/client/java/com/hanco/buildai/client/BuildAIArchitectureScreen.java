@@ -74,16 +74,23 @@ public final class BuildAIArchitectureScreen extends Screen {
                 button(name+"  (click to change)",x+8,top+16,w-16,h,b->chooseSaved());
             }
             int inputY=top+(showSaved?52:19);
-            pathField=new TextFieldWidget(textRenderer,x+8,inputY,w-16,h,Text.literal("Schematic file path"));
-            pathField.setMaxLength(1024);
+            int browseWidth=Math.min(106,Math.max(66,(w-24)/3));
+            pathField=new TextFieldWidget(textRenderer,x+8,inputY,
+                w-20-browseWidth,h,Text.literal("Schematic file path"));
+            pathField.setMaxLength(2048);
             pathField.setText(entered);
-            pathField.setPlaceholder(Text.literal("Paste a schematic file path here"));
+            pathField.setPlaceholder(Text.literal("Selected .schem or paste path"));
             addDrawableChild(pathField);
+            button("BROWSE FILE(S)",x+w-8-browseWidth,inputY,browseWidth,h,
+                b->browseSchematics()).active=!busy;
             int actionY=top+(showSaved?79:43);
-            ButtonWidget analyze=button("ANALYZE FILE",x+8,actionY,half-10,h,b->analyzePath());
-            ButtonWidget folder=button("SCAN FOLDER",x+half+gap,actionY,half-8,h,b->analyzeFolder());
-            analyze.active=!busy;
-            folder.active=!busy;
+            int actionWidth=(w-16-2*gap)/3;
+            button("ANALYZE FILE",x+8,actionY,actionWidth,h,
+                b->analyzePath()).active=!busy;
+            button("SCAN FOLDER",x+8+actionWidth+gap,actionY,actionWidth,h,
+                b->analyzeFolder()).active=!busy;
+            button("OPEN FOLDER",x+8+2*(actionWidth+gap),actionY,
+                w-16-2*(actionWidth+gap),h,b->openFolder()).active=!busy;
         }else if(step==1){
             if(references.isEmpty()){
                 button("Choose a schematic first",x+8,top+25,w-16,h,b->navigate(0));
@@ -125,6 +132,55 @@ public final class BuildAIArchitectureScreen extends Screen {
         if(references.isEmpty())return;
         referenceIndex=(referenceIndex+1)%references.size();
         clearChildren();init();
+    }
+
+    private void browseSchematics(){
+        if(busy)return;
+        capture();
+        try{
+            List<Path> paths=NativeFileAccess.chooseSchematics(
+                BuildAIStyleMemory.architectureDirectory(),true);
+            if(paths.isEmpty()){status="File selection cancelled.";return;}
+            if(paths.size()==1){
+                entered=paths.get(0).toString();
+                if(pathField!=null)pathField.setText(entered);
+                status="Selected "+paths.get(0).getFileName()+
+                    ". Click Analyze File to learn its style.";
+                return;
+            }
+            if(paths.size()>12){
+                status="Choose up to 12 schematics per batch (selected "+paths.size()+").";
+                return;
+            }
+            busy=true;status="Analyzing "+paths.size()+" chosen schematics...";
+            CompletableFuture.supplyAsync(()->{
+                int success=0,failed=0;String firstError="";
+                for(Path path:paths){
+                    try{BuildAIStyleMemory.addArchitectureReference(path);success++;}
+                    catch(Exception ex){
+                        failed++;
+                        if(firstError.isEmpty())firstError=root(ex);
+                    }
+                }
+                return new BuildAIStyleMemory.FolderScan(success,failed,paths.size(),firstError);
+            }).whenComplete((scan,error)->MinecraftClient.getInstance().execute(()->{
+                busy=false;
+                if(error!=null){status="Selected-file import failed: "+root(error);return;}
+                status="Imported "+scan.saved()+"/"+scan.inspected()+
+                    " selected schematics"+
+                    (scan.failed()>0?"; "+scan.failed()+" failed: "+scan.firstError():"");
+                if(scan.saved()>0){referenceIndex=0;navigate(1);}
+            }));
+        }catch(Exception ex){status="Native schematic picker: "+root(ex);}
+    }
+
+    private void openFolder(){
+        if(busy)return;
+        try{
+            NativeFileAccess.openStyleReferenceFolder();
+            status="Opened buildai/style-references; drop .schem files here, "+
+                "then click Scan Folder.";
+        }catch(Exception ex){status="Cannot open folder: "+root(ex);}
     }
 
     private void analyzePath(){
@@ -248,12 +304,12 @@ public final class BuildAIArchitectureScreen extends Screen {
             x+9,top+39,w-18,DIM,0.75f);
         int actions=top+(showSaved?79:43);
         if(layout.bodyBottom()>=actions+39){
-            small(ctx,"BATCH OPTION  /  place .schem files in game/buildai/style-references/",
+            small(ctx,"BATCH OPTION  /  Open Folder -> drop .schem files -> Scan Folder",
                 x+9,actions+24,w-18,DIM,0.76f);
             small(ctx,"Scan Folder analyzes up to 12 files; source files remain unchanged.",
                 x+9,actions+34,w-18,DIM,0.76f);
         }else if(layout.bodyBottom()>=actions+27){
-            small(ctx,"For batches, use game/buildai/style-references/",x+9,actions+23,w-18,DIM,0.77f);
+            small(ctx,"Browse files or Open Folder, then Scan Folder",x+9,actions+23,w-18,DIM,0.77f);
         }
     }
 

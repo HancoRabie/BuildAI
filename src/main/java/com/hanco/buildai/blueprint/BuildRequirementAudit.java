@@ -152,6 +152,13 @@ public final class BuildRequirementAudit {
                 suggestions.add((hoppers.size()-valid)+" hopper(s) do not "+
                     "have a directed route to storage; inspect their purpose.");
         }
+        // Blank sign blocks do not fulfill a player's labeling requirement.
+        String lower=prompt.toLowerCase(Locale.ROOT);
+        boolean signageRequested=lower.matches(
+            "(?s).*(label(?:s|ed|ing)?|signs?|numbered stations|number each).*");
+        if(signageRequested&&b.signs().isEmpty())
+            blockers.add("Requested readable station/room signs have no "+
+                "literal sign text metadata.");
         int dispensers=counts.getOrDefault("minecraft:dispenser",0);
         if(dispensers>0)
             suggestions.add(dispensers+" dispenser(s) require supplies to function. "+

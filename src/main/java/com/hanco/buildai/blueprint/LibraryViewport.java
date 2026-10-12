@@ -14,14 +14,15 @@ public record LibraryViewport(
 
     public static LibraryViewport fit(int width,int height) {
         boolean compact=height<330 || width<680;
-        int listTop=compact?33:67;
-        int step=compact?21:28;
-        int rowHeight=compact?18:22;
-        int utilityY=height-26;
-        int actionY=utilityY-23;
-        int navY=actionY-23;
-        int statusY=navY-15;
-        int listEnd=statusY-6;
+        boolean ultraCompact=height<165;
+        int listTop=ultraCompact?26:compact?33:67;
+        int step=ultraCompact?18:compact?21:28;
+        int rowHeight=ultraCompact?16:compact?18:22;
+        int utilityY=height-(ultraCompact?21:26);
+        int actionY=utilityY-(ultraCompact?19:23);
+        int navY=actionY-(ultraCompact?19:23);
+        int statusY=navY-(ultraCompact?12:15);
+        int listEnd=statusY-(ultraCompact?3:6);
         int capacity=(listEnd-listTop)/step;
         // At below ~150 logical pixels there is no physical space for a
         // readable file list AND three action rows; use the minimum
@@ -31,6 +32,7 @@ public record LibraryViewport(
             statusY,navY,actionY,utilityY,visible);
     }
     public boolean listAndFooterDoNotOverlap(){
-        return listTop+(visibleItems-1)*rowStep+rowHeight <=statusY-6;
+        return listTop+(visibleItems-1)*rowStep+rowHeight <=
+            statusY-(listTop<30?3:6);
     }
 }

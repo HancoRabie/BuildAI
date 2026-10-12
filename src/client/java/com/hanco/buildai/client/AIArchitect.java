@@ -382,10 +382,14 @@ public final class AIArchitect {
         StringBuilder generated=new StringBuilder();
         boolean completed=false;
         boolean startedReceiving=false;
+        // Persist raw streamed text AS IT ARRIVES. It is inert recovery
+        // material, never directly placed into the world.
+        ModelStreamDraftJournal draft=ModelStreamDraftJournal.inGameDirectory();
         try(var responseStream=response.body();
             var watchdog=new ModelStreamWatchdog(responseStream,progress);
             var reader=new java.io.BufferedReader(new java.io.InputStreamReader(responseStream,
-                StandardCharsets.UTF_8))){
+                StandardCharsets.UTF_8));
+            var checkpoint=draft){
             String line;
             try{
                 while((line=reader.readLine())!=null) {
@@ -413,6 +417,7 @@ public final class AIArchitect {
                             startedReceiving=true;
                         }
                         generated.append(delta);
+                        draft.append(delta);
                         watchdog.textArrived();
                         if(progress!=null)progress.receivedCharacters(delta.length());
                         if(generated.length()>1_500_000)
@@ -444,13 +449,20 @@ public final class AIArchitect {
             if(watchdog.expired())
                 throw new java.io.IOException(watchdog.reason());
         }
-        if(!completed)throw new java.io.IOException("ChatGPT stream ended without response.completed; no blueprint was applied");
+        // response.completed is authoritative, but a connection can end
+        // AFTER the complete JSON object arrives and BEFORE that final SSE
+        // event. Preserve and validate any such text instead of throwing away
+        // fifteen minutes of user work. No world edits happen here.
+        boolean unverifiedStream=!completed;
         String spec=generated.toString().trim();
         if(spec.isEmpty())throw new java.io.IOException(
-            "OpenAI completed without generating any blueprint data. "+
-            "Existing blueprint unchanged; retry without restarting your world.");
-        report(progress,"Compiling 3D blueprint","Converting AI design operations into exact block positions.");
-        if(!recovery && BlueprintDeliveryPolicy.retryableLimitation(spec)){
+            "The stream ended without blueprint text; previous blueprint unchanged.");
+        report(progress,unverifiedStream?"Checking interrupted stream":"Compiling 3D blueprint",
+            unverifiedStream
+                ?"OpenAI's final event was missing. Validating the saved "+
+                  "JSON as an UNVERIFIED draft; no world blocks will be changed."
+                :"Converting AI design operations into exact block positions.");
+        if(completed && !recovery && BlueprintDeliveryPolicy.retryableLimitation(spec)){
             if(progress!=null)
                 progress.modelLimitation(BlueprintDeliveryPolicy.shortReason(spec));
             report(progress,"Starting independent recovery request",
@@ -462,11 +474,34 @@ public final class AIArchitect {
             return generateWithChatGPTAttempt(prompt,previous,progress,true,
                 inspiration,BlueprintDeliveryPolicy.recoveryForResponse(spec));
         }
-        ProceduralGenerator.Compilation compilation=ProceduralGenerator.compileDesign(spec);
-        Blueprint compiled=compilation.blueprint();
-        DoorPlanner.completeSafePairs(compiled);
-        report(progress,"Validating Minecraft blocks","Checking block IDs and states before displaying the blueprint.");
-        BlockStates.validate(compiled);
+        ProceduralGenerator.Compilation compilation;
+        Blueprint compiled;
+        try{
+            compilation=ProceduralGenerator.compileDesign(spec);
+            compiled=compilation.blueprint();
+            DoorPlanner.completeSafePairs(compiled);
+            report(progress,"Validating Minecraft blocks",
+                "Checking block IDs and states before displaying the blueprint.");
+            BlockStates.validate(compiled);
+        }catch(RuntimeException rejected){
+            throw new java.io.IOException(
+                (unverifiedStream
+                    ?"OpenAI's stream ended without response.completed and the partial "+
+                     "design is not valid enough to review."
+                    :"Blueprint compilation/validation failed.")+
+                draft.recoveryNotice()+
+                " No blueprint was applied. Existing blueprint unchanged.",rejected);
+        }
+        if(unverifiedStream){
+            compiled.warnings.add(0,"UNVERIFIED INTERRUPTED STREAM: "+
+                "The connection ended without response.completed. The JSON "+
+                "compiled, but its completeness is NOT confirmed. Inspect "+
+                "every expected machine/room and Design QA before placement; "+
+                "missing sections may not appear as errors.");
+            if(progress!=null)progress.stage("Recovered unverified blueprint",
+                "JSON compiled after interrupted stream. "+
+                "Review completeness before placing ANY blocks.");
+        }
         report(progress,"Architectural QA","Checking stairs, floor openings, room declarations and interior access warnings.");
         try{
             compiled.warnings.addAll(ArchitectureAudit.inspect(compiled,prompt,spec));
@@ -480,6 +515,9 @@ public final class AIArchitect {
             // merely because a *non-essential* quality heuristic misbehaves.
             compiled.warnings.add("Architectural QA could not finish. Inspect stairs, rooms and openings manually.");
         }
+        // Only successful compilation + basic QA removes the recovery file.
+        // Failed/incomplete data remains on disk for diagnosis instead.
+        draft.discard();
         return new DesignResult(compiled,compilation.correctedSpecification(),inspiration);
     }
 

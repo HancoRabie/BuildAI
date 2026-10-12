@@ -77,7 +77,7 @@ public final class BuildAIRemixScreen extends Screen {
             :"Original prompt (enter manually for older schematics)"));
         addDrawableChild(entry);
         button(revision?"GENERATE REVISED COPY":"GENERATE FRESH COPY",
-            x,actionTop,panel,20,()->{
+            x,actionTop,panel,()->{
                 saveText();
                 String instruction=(revision?changeText:recreateText).trim();
                 if(instruction.isEmpty()){
@@ -93,7 +93,7 @@ public final class BuildAIRemixScreen extends Screen {
                 // Successful requests open the normal generation monitor; no
                 // changes are made to the selected file on failures.
             });
-        button("BACK TO BLUEPRINT LIBRARY",x,backTop,panel,20,this::close);
+        button("BACK TO BLUEPRINT LIBRARY",x,backTop,panel,this::close);
     }
     private void print(DrawContext ctx,String value,int py,int color){
         if(py<0||py>height-10)return;

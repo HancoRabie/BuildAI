@@ -51,6 +51,39 @@ public class FarmFunctionAuditTest {
         var notes=FarmFunctionAudit.inspect(carrots(),"automated farm",null);
         assertTrue(notes.needsRepair());
     }
+    @Test void nearbyPistonGateIsEvidenceButStillNotSimulation(){
+        Blueprint b=carrots();
+        b.set(6,3,4,"minecraft:water[level=0]");
+        b.set(6,3,3,"minecraft:sticky_piston[facing=south,extended=false]");
+        var report=FarmFunctionAudit.inspect(b,"automatic carrot farm",null);
+        assertTrue(report.blockers().isEmpty(),report.warnings().toString());
+        assertTrue(report.cautions().stream().anyMatch(s->s.contains("not physically simulated")));
+    }
+    @Test void farAwayDecorativePistonDoesNotFakeWaterHarvest(){
+        Blueprint b=carrots();
+        b.set(0,7,0,"minecraft:piston[facing=south,extended=false]");
+        b.set(1,7,0,"minecraft:water[level=0]");
+        var report=FarmFunctionAudit.inspect(b,"automatic carrot farm",null);
+        assertTrue(report.blockers().stream().anyMatch(s->s.contains("water-release")));
+    }
+    @Test void detectsMissingRequestedCropButIgnoresSharedIntegrationStage(){
+        Blueprint empty=new Blueprint("Bus",27,41,35);
+        empty.set(3,2,3,"minecraft:stone");
+        var generic=FarmFunctionAudit.inspect(empty,
+            "Build automated carrot potato sugar cane farm",null);
+        assertEquals(3,generic.blockers().size());
+        String stage="""
+            BUILDAI STAGED GENERATION — NEW INDEPENDENT MODEL REQUEST:
+            STAGE 5 of 5: Shared controls and item transport
+            SCOPE: Connect storage, do not regenerate crops.
+            The full player request below is authoritative.
+            ORIGINAL PLAYER REQUIREMENTS:
+            Floor 1: carrots
+            Floor 2: potatoes
+            Floor 3: sugar cane
+            """;
+        assertTrue(FarmFunctionAudit.inspect(empty,stage,null).blockers().isEmpty());
+    }
     @Test void unrelatedArchitectureIsNotFlagged(){
         Blueprint b=new Blueprint("House",10,6,10);
         b.set(2,1,2,"minecraft:dispenser[facing=east]");

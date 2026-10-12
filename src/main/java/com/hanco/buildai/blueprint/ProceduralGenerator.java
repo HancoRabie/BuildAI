@@ -152,6 +152,14 @@ public final class ProceduralGenerator {
                 "toward the INPUT; the physical front/output is opposite. "+
                 "Complex ambiguous circuits still require in-world testing.");
         }
+        // Sign text is passive block-entity state, not a block property.
+        // Require an actual placed sign at each declared XYZ coordinate.
+        if(root.has("signs")){
+            b.setSigns(SignTextPlan.decode(root.getAsJsonArray("signs"),b));
+            if(!b.signs().isEmpty())
+                b.warnings.add("TEXT SIGNS: "+b.signs().size()+
+                    " four-line label(s) will be programmed after physical placement.");
+        }
         // AI can declare the actual command and block-entity settings separately
         // from the geometry. Their activation always requires operator approval.
         if(root.has("commands")){

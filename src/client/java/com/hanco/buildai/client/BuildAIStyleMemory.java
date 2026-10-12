@@ -52,22 +52,77 @@ public final class BuildAIStyleMemory {
             Files.move(temp,path,StandardCopyOption.REPLACE_EXISTING);
         }
     }
+    /**
+     * Feedback identity is the normalized local schematic path, not just a
+     * filename. Legacy v0.1 entries were filename-only; these are displayed
+     * with a warning and never blindly reassigned to another directory.
+     */
+    public record SavedFeedback(int rating,String comment,long savedAt,boolean legacy) {}
+    private static String projectKey(Path path) {
+        return path.toAbsolutePath().normalize().toString();
+    }
+    private static boolean sameProject(JsonObject item,Path path) {
+        if(item.has("projectPath"))
+            return item.get("projectPath").getAsString().equals(projectKey(path));
+        // A previous version stored only the basename. Match that legacy
+        // record only for a build from BuildAI's own saved-blueprint folder.
+        Path parent=path.toAbsolutePath().normalize().getParent();
+        return parent!=null && parent.equals(BlueprintLibrary.directory().toAbsolutePath().normalize())
+            && item.has("file")
+            && item.get("file").getAsString().equals(path.getFileName().toString());
+    }
+    public static synchronized SavedFeedback feedbackFor(Path schematic) throws IOException {
+        if(schematic==null)return null;
+        JsonArray entries=load().getAsJsonArray("reviews");
+        JsonObject latest=null;
+        for(JsonElement e:entries){
+            if(!e.isJsonObject())continue;
+            JsonObject item=e.getAsJsonObject();
+            if(sameProject(item,schematic)) {
+                // Exact-path records take precedence over older filename-only
+                // entries even if the array order was imported or reordered.
+                if(latest==null || (item.has("projectPath")&&!latest.has("projectPath")) ||
+                    (item.has("projectPath")==latest.has("projectPath") &&
+                    item.has("created") && latest.has("created") &&
+                    item.get("created").getAsLong()>=latest.get("created").getAsLong()))
+                    latest=item;
+            }
+        }
+        if(latest==null)return null;
+        return new SavedFeedback(latest.get("rating").getAsInt(),
+            latest.get("comment").getAsString(),
+            latest.has("created")?latest.get("created").getAsLong():0,
+            !latest.has("projectPath"));
+    }
+    /** Update the currently selected build, not the last edited form. */
     public static synchronized void review(Path schematic,int rating,String comments) throws IOException {
-        if(rating<1||rating>5)throw new IOException("Choose 1–5 stars");
+        if(schematic==null||!Files.isRegularFile(schematic))
+            throw new IOException("Choose an existing schematic before saving feedback");
+        if(rating<1||rating>5)throw new IOException("Choose 1-5 stars");
         String note=clean(comments,1100);
-        if(note.isBlank())throw new IOException("Add a comment so BuildAI knows what to repeat or improve");
+        if(note.isBlank())throw new IOException("Write feedback before saving");
         JsonObject data=load();
         JsonArray previous=data.getAsJsonArray("reviews"),next=new JsonArray();
+        // Replace any previously saved exact-path review for this project.
+        // Legacy name-only notes remain intact for historical compatibility.
         for(JsonElement e:previous){
-            if(next.size()>=MAX_REVIEWS-1)break;
+            if(!e.isJsonObject())continue;
+            JsonObject item=e.getAsJsonObject();
+            if(item.has("projectPath") &&
+                item.get("projectPath").getAsString().equals(projectKey(schematic)))continue;
             next.add(e);
         }
         JsonObject entry=new JsonObject();
-        entry.addProperty("file",schematic==null?"Unspecified previous build":schematic.getFileName().toString());
+        entry.addProperty("file",schematic.getFileName().toString());
+        entry.addProperty("projectPath",projectKey(schematic));
         entry.addProperty("rating",rating);
         entry.addProperty("comment",note);
         entry.addProperty("created",System.currentTimeMillis());
-        next.add(entry);data.add("reviews",next);save(data);
+        next.add(entry);
+        // Retain the most recent 120 entries, not just the oldest 119.
+        JsonArray bounded=new JsonArray();
+        for(int i=Math.max(0,next.size()-MAX_REVIEWS);i<next.size();i++)bounded.add(next.get(i));
+        data.add("reviews",bounded);save(data);
     }
     public static synchronized int addReference(Path path) throws Exception {
         if(path==null||!Files.isRegularFile(path))throw new IOException("Choose a real schematic file first");

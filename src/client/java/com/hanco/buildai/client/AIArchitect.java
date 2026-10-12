@@ -114,6 +114,27 @@ public final class AIArchitect {
         generate" conclusions: design the solid channel and source positions,
         then let the Survival construction phase wait for the explicit bucket
         supplies. A static fluid source is NOT an automatic dispenser.
+        PISTON WATER GATES / AUTO-FLUSHING FARMS:
+        Do NOT pretend water passes THROUGH an extended piston head/arm or
+        any other solid full block. A valid floodgate has BOTH an explicitly
+        modeled CLOSED (head/plug blocks throat) and OPEN (head retracted,
+        throat AIR, upstream source connected downstream) mechanical state.
+        Power must actually retract the piston to open. If idle gate is held
+        extended, provide an inverter or latch so a button releases it.
+        Water in the Overworld normally spreads 1 block per 5 GAME ticks;
+        a momentary button and 1-4 repeater ticks will not keep a long
+        channel open long enough. A repeater DELAYS a signal, it does not
+        by itself EXTEND its duration. Plan an explicit pulse extender,
+        comparator/hopper timer with real materials, latch+delayed reset,
+        or manual lever. Include flow distances, source preservation,
+        retraction clearance, dry redstone compartment, crops, hopper
+        collection and overflow safety. Include top-level "fluid_gate_plan"
+        object with source,gate,closedState,openState,path,holdOpenTicks,
+        reset,collection,testing; describe actual local XYZ for throat and
+        piston body. In GAME ticks, hold-open duration must accommodate
+        water reaching the furthest field and moving drops to collection.
+        In-game testing still required; NEVER promise functional farm
+        solely from a geometrically plausible piston/redstone sculpture.
         RAIL SYSTEMS: Default to MOSTLY normal minecraft:rail; add sparse
         minecraft:powered_rail boosters where slopes, acceleration or heavy
         minecarts need them. A redstone block below EVERY rail or powered

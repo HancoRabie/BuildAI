@@ -69,6 +69,10 @@ final class StagedFarmArchitect {
             AIArchitect.DesignResult piece=connectedChat
                 ?AIArchitect.generateStageWithChatGPT(stagePrompt,progress,inspiration)
                 :AIArchitect.generateStageWithApi(apiKey,stagePrompt,progress,inspiration);
+            // Validate and, when needed, attempt ONE specific farm-machine
+            // repair before a stage is checkpointed or joined to the whole.
+            piece=FarmFunctionRepair.review(stagePrompt,piece,apiKey,
+                connectedChat,progress);
             merged.add(stage,piece.specification());
             checkpoint.save(i,piece.specification());
             if(progress!=null)progress.stage(
@@ -98,6 +102,8 @@ final class StagedFarmArchitect {
             blueprint.warnings.addAll(FluidGateAudit.inspect(
                 blueprint,original,compiled.correctedSpecification()));
             blueprint.warnings.addAll(ChainGapAudit.inspect(blueprint));
+            blueprint.warnings.addAll(FarmFunctionAudit.inspect(
+                blueprint,original,compiled.correctedSpecification()).warnings());
         }catch(RuntimeException qaError){
             blueprint.warnings.add("Some nonessential staged Design QA "+
                 "checks failed; inspect cross-floor control, hopper and "+

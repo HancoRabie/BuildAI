@@ -17,7 +17,7 @@ import net.minecraft.text.Text;
  */
 public final class BuildAIRemixScreen extends Screen {
     private static final int TEAL=0xFF6DE5C5,BLUE=0xFF9BCDF0,
-        DIM=0xFFB1C5D2,GOLD=0xFFEBC98A,ERROR=0xFFFF9F97;
+        DIM=0xFFB1C5D2,GOLD=0xFFEBC98A;
     private final BlueprintLibraryScreen library;
     private final BuildAIScreen studio;
     private final Blueprint original;
@@ -85,9 +85,13 @@ public final class BuildAIRemixScreen extends Screen {
                         "This legacy file has no original prompt. Type the request to remake it.";
                     return;
                 }
+                if(!ChatGPTSignIn.connected()&&BuildAIClient.getKey().isBlank()){
+                    status="Connect ChatGPT or set your optional API key via F8 > Create / AI first.";
+                    return;
+                }
                 studio.startFromLibrary(original,instruction,revision);
-                // The studio will show the generation monitor if authorized.
-                // If it cannot begin, its status remains on the studio screen.
+                // Successful requests open the normal generation monitor; no
+                // changes are made to the selected file on failures.
             });
         button("BACK TO BLUEPRINT LIBRARY",x,backTop,panel,20,this::close);
     }
@@ -106,11 +110,11 @@ public final class BuildAIRemixScreen extends Screen {
         super.render(ctx,mx,my,dt);
         print(ctx,"BUILDAI  /  REMAKE OR REVISE",12,TEAL);
         print(ctx,original.name,24,BLUE);
-        if(height>=180){
+        if(height>=245){
             print(ctx,revision
                 ?"REVISE: use this saved design as the source; give a change instruction."
                 :"REMAKE: use EXACTLY the stored user prompt, without copying the old blocks.",
-                Math.max(36,modeTop-13),DIM);
+                modeTop-14,DIM);
         }
         if(height>=205){
             print(ctx,revision

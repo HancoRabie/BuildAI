@@ -55,7 +55,7 @@ public final class BuildAICommandReviewScreen extends Screen {
     private int panelWidth(){return Math.min(930,Math.max(165,width-28));}
     private int left(){return (width-panelWidth())/2;}
     private int top(){return 6;}
-    private boolean wide(){return panelWidth()>=560;}
+    private boolean wide(){return panelWidth()>=560&&height>=310;}
     private int listLeft(){return left()+9;}
     private int listWidth(){return wide()?(panelWidth()*57/100)-12:panelWidth()-18;}
     private int detailLeft(){return listLeft()+listWidth()+9;}
@@ -186,7 +186,7 @@ public final class BuildAICommandReviewScreen extends Screen {
             int color=check?TEAL:MUTED;
             ctx.fill(x+8,y+7,x+19,y+18,0xFF071825);
             ctx.drawBorder(x+8,y+7,11,11,color);
-            if(check)line(ctx,"✓",x+10,y+8,10,TEAL);
+            if(check)line(ctx,"X",x+10,y+8,10,TEAL);
             line(ctx,"#"+e.number(),x+25,y+4,42,check?TEAL:AMBER);
             line(ctx,CommandPurpose.summary(e.command()),x+69,y+4,w-84,LIGHT);
             line(ctx,e.command(),x+69,y+15,w-91,MUTED);

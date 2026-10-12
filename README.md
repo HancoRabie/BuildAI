@@ -239,7 +239,7 @@ Glass-block-to-pane is allowed only at glass positions with an original glass bl
 - Selected X/Z + world surface block -> world-space alignment.
 - Server tick engine -> staged excavation -> progressive material-consuming placement -> staging cleanup.
 
-See [docs/AI_CONTRACT.md](docs/AI_CONTRACT.md) and [docs/REDSTONE_REFERENCE.md](docs/REDSTONE_REFERENCE.md). The AI receives a redstone component summary. The separate machine-readable redstone library under assets/buildai is intended to grow into verified mechanical templates; simply generating redstone does not prove a machine works.
+See [docs/AI_CONTRACT.md](docs/AI_CONTRACT.md) and [docs/REDSTONE_REFERENCE.md](docs/REDSTONE_REFERENCE.md). For any AI request involving **redstone, automated machines, pistons, observers, hoppers, crafters, redstone circuits or command-block games**, BuildAI loads its full bundled [Java 1.21.1 Redstone Master Handbook](src/main/resources/assets/buildai/redstone_master_handbook.txt) as mandatory technical model context. The [machine-readable glossary](src/main/resources/assets/buildai/redstone_reference.json) documents 59 component families and important quirks. Both connected ChatGPT and API-key paths use the same reference; revisions retain it for existing redstone builds. Future circuits are expected to include a `redstone_plan.circuits` engineering manifest (input, signalPath, output, timing, reset, test), checked by read-only Design QA for missing mechanisms, unsupported dust and default-facing components. **This is informed prompting and structural inspection, not trained model weights or proof a redstone contraption works**. Final validation still requires Minecraft 1.21.1 gameplay.
 
 ## Safety notes
 

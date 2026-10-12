@@ -77,10 +77,29 @@ public final class BuildAIScreen extends Screen {
             });
 
         if(tab==0){
-            prompt=new TextFieldWidget(textRenderer,left,row(3),panelWidth,buttonHeight,text("Building description"));
+            // One unified prompt row: text entry plus a small trailing
+            // in-field clear button, never drawn ON TOP of the typed text.
+            int clearWidth=20;
+            int promptHeight=Math.max(12,buttonHeight);
+            prompt=new TextFieldWidget(textRenderer,left,row(3),
+                panelWidth-clearWidth,promptHeight,text("Building description"));
             prompt.setMaxLength(4000);prompt.setText(promptValue);
             prompt.setPlaceholder(text("Describe a castle, house, factory, or a requested revision"));
             addDrawableChild(prompt);
+            ButtonWidget clearPrompt=ButtonWidget.builder(
+                text("×"),button->{
+                    promptValue="";
+                    prompt.setText("");
+                    boolean cleared=GenerationPromptJournal.clear();
+                    prompt.setFocused(true);
+                    status=cleared
+                        ?"Prompt cleared. The retained prompt backup was removed."
+                        :"Prompt cleared here, but saved backup could not be deleted.";
+                }).dimensions(left+panelWidth-clearWidth,row(3),
+                    clearWidth,promptHeight).build();
+            clearPrompt.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(
+                text("Clear the prompt AND its saved local backup")));
+            addDrawableChild(clearPrompt);
             add(ChatGPTSignIn.connected()?"Reconnect ChatGPT":"Continue with ChatGPT",
                 left,row(5),half,buttonHeight,b->connectChatGPT());
             add("API key option",left+half+gap,row(5),half,buttonHeight,b->{

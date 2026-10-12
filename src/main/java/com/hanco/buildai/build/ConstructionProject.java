@@ -16,7 +16,7 @@ import net.minecraft.util.math.*;
  * This first version deliberately refuses excavating block entities and bedrock.
  */
 public final class ConstructionProject {
-    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, CINEMATIC_PULL, COMPLETE, CANCELLED, PAUSED_ERROR }
+    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, COMMISSION, CINEMATIC_PULL, COMPLETE, CANCELLED, PAUSED_ERROR }
     public Blueprint blueprint;
     private final Blueprint sourceBlueprint;
     private int rotation=0;
@@ -42,6 +42,20 @@ public final class ConstructionProject {
     private final Set<BlockPos> linkedChests=new LinkedHashSet<>();
     private long lastChestScan=0;
     private boolean hasSnapshot=false;
+    private boolean commandsApproved=false;
+    private int programmingIndex=0,armingIndex=0;
+    public int commandCount(){return blueprint.commands().size();}
+    public boolean commandsApproved(){return commandsApproved;}
+    public void approveCommands(ServerPlayerEntity administrator){
+        if(phase!=Phase.REVIEW)throw new IllegalStateException("Lock the map location before approving scripts");
+        if(!administrator.hasPermissionLevel(4))
+            throw new IllegalStateException("Server operator level 4 is required for command approval");
+        if(!world.getServer().areCommandBlocksEnabled())
+            throw new IllegalStateException("Command blocks are disabled: for 1.21.1 set enable-command-block=true in server.properties and restart");
+        for(CommandBlockPlan.Entry command:blueprint.commands())
+            CommandBlockPlan.validate(blueprint,command);
+        commandsApproved=true;
+    }
     public int collisions=0;
     public int constructionSpeed=16;
     public boolean cinematic=true;
@@ -74,6 +88,7 @@ public final class ConstructionProject {
             throw new IllegalStateException("Cannot reposition after excavation has begun");
         blueprint=sourceBlueprint;order=sourceBlueprint.ordered();rotation=0;
         origin=BlockPos.ORIGIN;collisions=0;phase=Phase.SELECT_XZ;
+        commandsApproved=false;programmingIndex=0;armingIndex=0;
     }
     /** Preview is free to move client-side; only this method locks a server-approved XYZ origin. */
     public void selectOrigin(BlockPos proposal,int quarterTurns) {
@@ -84,6 +99,7 @@ public final class ConstructionProject {
         // Build a separate candidate so a failed lock never mutates the active
         // blueprint, even if the intended footprint changes from W×L to L×W.
         Blueprint candidate=BlueprintRotator.rotate(sourceBlueprint,quarterTurns);
+        commandsApproved=false;
         int count=0;
         // Validate all cells first. A failed selection must never overwrite the prior approved preview.
         for(int y=0;y<candidate.height;y++)for(int z=0;z<candidate.length;z++)for(int x=0;x<candidate.width;x++){
@@ -104,6 +120,10 @@ public final class ConstructionProject {
     }
     public void confirm() {
         if(phase!=Phase.REVIEW)throw new IllegalStateException("Placement is not locked. Close F8, aim at a ground block TOP and press G, then press ENTER to lock XYZ before /buildai confirm.");
+        if(commandCount()>0&&!commandsApproved)
+            throw new IllegalStateException("Review commands with /buildai commands list, then explicitly /buildai commands approve (op level 4) BEFORE confirm.");
+        if(commandCount()>0&&!world.getServer().areCommandBlocksEnabled())
+            throw new IllegalStateException("Enable command blocks in server.properties (Minecraft 1.21.1) before starting construction.");
         // No multi-million-block snapshot on the server tick! Save affected
         // ORIGINAL states lazily, exactly before each excavation/placement.
         // A previously AIR cell is represented by absence from originals.
@@ -161,7 +181,26 @@ public final class ConstructionProject {
                 if(PaneNormalizer.normalize(world,pos))normalizedPanes++;
                 normalizeIndex++;
             }
-            if(normalizeIndex>=order.size())phase=Phase.COMPLETE;
+            if(normalizeIndex>=order.size())phase=commandCount()>0?Phase.COMMISSION:Phase.COMPLETE;
+            return;
+        }
+        if(phase==Phase.COMMISSION){
+            if(!commandsApproved||!world.getServer().areCommandBlocksEnabled())
+                throw new IllegalStateException("Command installation not authorized or disabled in server settings");
+            int work=0;
+            List<CommandBlockPlan.Entry> programs=blueprint.commands();
+            while(programmingIndex<programs.size()&&work++<12){
+                CommandBlockPlan.Entry e=programs.get(programmingIndex++);
+                CommandBlockInstaller.program(world,origin.add(e.x(),e.y(),e.z()),e);
+            }
+            // Do not arm ANY blocks until all command text has been installed.
+            if(programmingIndex<programs.size())return;
+            work=0;
+            while(armingIndex<programs.size()&&work++<12){
+                CommandBlockPlan.Entry e=programs.get(armingIndex++);
+                CommandBlockInstaller.arm(world,origin.add(e.x(),e.y(),e.z()),e);
+            }
+            if(armingIndex>=programs.size())phase=Phase.COMPLETE;
             return;
         }
         if(phase==Phase.CLEANUP){
@@ -232,7 +271,11 @@ public final class ConstructionProject {
             if(!world.isChunkLoaded(pos))return;
             String stateText=effective(local);
             BlockState target=BlockStates.parse(stateText);
-            if(!creative && !blueprint.secondHalf(stateText)) {
+            // Command blocks cannot be crafted or bought in Survival.
+            // Administrative map machinery is placed under explicit op-4
+            // approval, not charged as an unobtainable player supply item.
+            if(!creative && !CommandBlockPlan.isCommandBlock(stateText)
+                && !blueprint.secondHalf(stateText)) {
                 Item item=target.getBlock().asItem();
                 if(item==Items.AIR) {phase=Phase.WAITING_SUPPLIES;return;}
                 if(!consume(item)) {phase=Phase.WAITING_SUPPLIES;return;}
@@ -308,6 +351,7 @@ public final class ConstructionProject {
             case WAITING_SUPPLIES->"Waiting for supply chests to receive materials";
             case CLEANUP->"Removing temporary construction supports";
             case NORMALIZE->"Connecting glass panes, fences, walls and iron bars";
+            case COMMISSION->"Installing approved 1.21.1 command-block logic after physical construction";
             case COMPLETE->"Construction complete";
             case PAUSED_ERROR->"Construction paused due to a safety issue";
             case CANCELLED->"Project cancelled";
@@ -320,7 +364,8 @@ public final class ConstructionProject {
         Map<String,Integer> result=new TreeMap<>();
         for(BlockPos local:order){
             String value=effective(local);
-            if(!blueprint.secondHalf(value))result.merge(Blueprint.id(value),1,Integer::sum);
+            if(!blueprint.secondHalf(value) && !CommandBlockPlan.isCommandBlock(value))
+                result.merge(Blueprint.id(value),1,Integer::sum);
         }
         return result;
     }

@@ -39,11 +39,26 @@ public final class SchematicWriter {
         blocks.putInt("PaletteMax",indices.size());
         blocks.put("Palette",palette);
         blocks.putByteArray("Data",encoded.toByteArray());
-        blocks.put("BlockEntities",new NbtList());
+        // Sponge v3 sign block entities. Text content is strictly literal.
+        NbtList blockEntities=new NbtList();
+        for(SignTextPlan.Entry e:blueprint.signs()){
+            NbtCompound sign=new NbtCompound();
+            String id=Blueprint.id(blueprint.get(e.x(),e.y(),e.z()));
+            sign.putString("Id",id.contains("hanging")?
+                "minecraft:hanging_sign":"minecraft:sign");
+            sign.putIntArray("Pos",new int[]{e.x(),e.y(),e.z()});
+            sign.put("front_text",signFace(e.front()));
+            sign.put("back_text",signFace(e.back()));
+            sign.putBoolean("is_waxed",false);
+            blockEntities.add(sign);
+        }
+        blocks.put("BlockEntities",blockEntities);
         schematic.put("Blocks",blocks);
         // Safe, non-executable BuildAI metadata. Do NOT export live Command
         // block-entity NBT to be automatically executed by unrelated importers.
         // Importing this tag still requires operator approval on our server.
+        if(!blueprint.signs().isEmpty())
+            schematic.putString("BuildAISignPlan",SignTextPlan.encode(blueprint.signs()).toString());
         if(!blueprint.commands().isEmpty())
             schematic.putString("BuildAICommandPlan",
                 CommandBlockPlan.encode(blueprint.commands()).toString());
@@ -60,5 +75,18 @@ public final class SchematicWriter {
         if(output.getParent()!=null)Files.createDirectories(output.getParent());
         NbtIo.writeCompressed(root,output);
         return output;
+    }
+    private static NbtCompound signFace(List<String> lines){
+        NbtCompound face=new NbtCompound();
+        NbtList messages=new NbtList();
+        for(String line:lines){
+            com.google.gson.JsonObject literal=new com.google.gson.JsonObject();
+            literal.addProperty("text",line);
+            messages.add(NbtString.of(literal.toString()));
+        }
+        face.put("messages",messages);
+        face.putString("color","black");
+        face.putBoolean("has_glowing_text",false);
+        return face;
     }
 }

@@ -38,7 +38,9 @@ public final class BuildAIMod implements ModInitializer {
             ServerPlayNetworking.send(player,new ClearPreviewPayload());
     }
     private static int stageAtCrosshair(ServerPlayerEntity player,String command){
-        if(!player.hasPermissionLevel(4)){reply(player,"OP4 required for command configuration.");return 0;}
+        if(!CommandAuthorization.canApprove(player,player.getUuid())){
+            reply(player,CommandAuthorization.explanation(player));return 0;
+        }
         HitResult target=player.raycast(8.0,0.0f,false);
         if(!(target instanceof BlockHitResult hit)||target.getType()!=HitResult.Type.BLOCK){
             reply(player,"Look directly at an existing command block within 8 blocks, then retry.");return 0;
@@ -299,11 +301,11 @@ public final class BuildAIMod implements ModInitializer {
                     return 1;
                 }))
                 .then(literal("commands").requires(src->src.hasPermissionLevel(2))
-                    .then(literal("set").requires(src->src.hasPermissionLevel(4))
+                    .then(literal("set").requires(src->src.hasPermissionLevel(2))
                         .then(argument("command",StringArgumentType.greedyString()).executes(c->
                             stageAtCrosshair(c.getSource().getPlayerOrThrow(),
                                 StringArgumentType.getString(c,"command")))))
-                    .then(literal("preset").requires(src->src.hasPermissionLevel(4))
+                    .then(literal("preset").requires(src->src.hasPermissionLevel(2))
                         .then(argument("choice",StringArgumentType.word()).executes(c->{
                             ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                             try{return stageAtCrosshair(player,
@@ -380,7 +382,7 @@ public final class BuildAIMod implements ModInitializer {
                                     " : "+block.command());
                                 return 1;
                             })))
-                    .then(literal("approve").requires(src->src.hasPermissionLevel(4))
+                    .then(literal("approve").requires(src->src.hasPermissionLevel(2))
                         .executes(c->{
                             reply(c.getSource().getPlayerOrThrow(),"Specify 'approve all' or "+
                                 "'approve 1,2,4' after the physical map finishes.");return 0;
@@ -392,7 +394,7 @@ public final class BuildAIMod implements ModInitializer {
                                 StringArgumentType.getString(c,"indices")))))
                     // Short form: /buildai commands 1, 2, 4, 7
                     .then(argument("selection",StringArgumentType.greedyString())
-                        .requires(src->src.hasPermissionLevel(4)).executes(c->
+                        .requires(src->src.hasPermissionLevel(2)).executes(c->
                             approveSelected(c.getSource().getPlayerOrThrow(),
                                 StringArgumentType.getString(c,"selection")))))
                 .then(literal("confirm").requires(s->s.hasPermissionLevel(2)).executes(c->{

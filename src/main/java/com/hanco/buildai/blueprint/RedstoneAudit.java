@@ -43,7 +43,8 @@ public final class RedstoneAudit {
         "minecraft:chain_command_block");
 
     public static List<String> inspect(Blueprint blueprint,String playerRequest,String specification) {
-        boolean requested=RedstoneKnowledge.isRedstoneRequest(playerRequest,null);
+        boolean requested=RedstoneKnowledge.isRedstoneRequest(playerRequest,specification);
+        if(!requested)return List.of(); // No costly 4M-cell scan for unrelated architecture.
         boolean hasCircuit=false,hasInput=false,hasOutput=false;
         int wires=0,unsupportedWires=0,unspecifiedFacing=0;
         for(int y=0;y<blueprint.height;y++)

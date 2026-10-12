@@ -99,7 +99,7 @@ public final class FarmFunctionAudit {
         }
         if((roots>0||cane>0)&&hoppers==0){
             // Staged floor could lead to a later shared downward collector.
-            if(json!=null&&json.contains("BUILDAI STAGED GENERATION")){
+            if(prompt!=null&&prompt.startsWith("BUILDAI STAGED GENERATION")){
                 cautions.add("No local collection hopper yet; ensure the final shared "+
                     "integration stage installs a physical transport/collection path.");
             }else{

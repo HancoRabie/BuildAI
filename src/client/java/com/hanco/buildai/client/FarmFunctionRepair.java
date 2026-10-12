@@ -28,10 +28,12 @@ final class FarmFunctionRepair {
                 "limit. Blueprint preserved; request a targeted manual revision.");
             return original;
         }
+        // The ORIGINAL player/stage prompt is submitted unchanged. Repair
+        // findings are additional developer guidance, not appended to the
+        // 4K player input limit or substituted for its constraints.
         StringBuilder instruction=new StringBuilder();
-        instruction.append(prompt.startsWith("BUILDAI STAGED GENERATION")?
-            "BUILDAI STAGED GENERATION — FUNCTION REPAIR; keep original global XYZ and stage bounds.\n":
-            "BUILDAI FUNCTION REPAIR — existing design revision only.\n");
+        instruction.append("BUILDAI FUNCTION REPAIR — revise supplied "+
+            "design with the SAME original request and coordinate scope.\n");
         instruction.append("Return a COMPLETE corrected JSON blueprint, not a diff. "+
             "Preserve the original dimensions, crop varieties/counts, architecture, "+
             "required ports, controls, and all unrelated geometry. Fix actual "+
@@ -45,21 +47,14 @@ final class FarmFunctionRepair {
             "that redstone cannot automatically replant.\n");
         instruction.append("AUDIT FAILURES (repair each actual defect):\n");
         for(String issue:first.blockers())instruction.append("- ").append(issue).append('\n');
-        instruction.append("ORIGINAL PLAYER/STAGE REQUIREMENTS:\n").append(prompt);
-        if(instruction.length()>4000){
-            original.blueprint().warnings.addAll(first.warnings());
-            original.blueprint().warnings.add("FARM REPAIR: Correction request "+
-                "would exceed the 4,000-character prompt budget; original intact.");
-            return original;
-        }
         if(progress!=null)progress.stage("Farm function audit: attempting one repair",
             first.blockers().size()+" likely farm functionality blocker(s). "+
             "Trying one model revision; original blueprint remains protected.");
         AIArchitect.DesignResult candidate;
         try{
             candidate=AIArchitect.repairWithCachedResearch(
-                instruction.toString(),original.specification(),
-                key,connectedChat,progress,original.inspiration());
+                prompt,original.specification(),key,connectedChat,progress,
+                original.inspiration(),instruction.toString());
         }catch(Exception problem){
             if(progress!=null&&progress.cancellationRequested())throw problem;
             original.blueprint().warnings.addAll(first.warnings());

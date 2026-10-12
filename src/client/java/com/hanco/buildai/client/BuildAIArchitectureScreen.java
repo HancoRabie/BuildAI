@@ -109,7 +109,7 @@ public final class BuildAIArchitectureScreen extends Screen {
         }else{
             button("CHOOSE FILE",x,foot,half,h,b->navigate(0));
             button("OPEN BUILDAI",x+half+gap,foot,half,h,
-                b->client.setScreen(new BuildAIScreen()));
+                b->openBuilder());
         }
     }
 
@@ -176,8 +176,15 @@ public final class BuildAIArchitectureScreen extends Screen {
             // context; merely browsing an old reference must not silently
             // claim it's being used.
             BuildAIStyleMemory.activateArchitectureReference(references.get(referenceIndex).name());
-            client.setScreen(new BuildAIScreen());
+            openBuilder();
         }catch(Exception ex){status="Could not select reference: "+ex.getMessage();}
+    }
+
+    private void openBuilder(){
+        // Preserve the original BuildAIScreen instance and its in-progress
+        // text fields rather than replacing it with a new empty screen.
+        if(parent instanceof BuildAIFeedbackScreen feedback)feedback.close();
+        else if(client!=null)client.setScreen(new BuildAIScreen());
     }
 
     private void copyReport(){

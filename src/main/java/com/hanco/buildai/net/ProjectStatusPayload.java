@@ -9,6 +9,26 @@ import net.minecraft.util.math.BlockPos;
 /** Server-to-client status: server remains authoritative for material and construction counts. */
 public record ProjectStatusPayload(String title,String phase,int placed,int total,int supplied,int required,
     String materials,BlockPos chest,int inspected,int excavationCells,int removed) implements CustomPayload {
+    // PacketCodec.writeString rejects strings longer than its declared limits.
+    // AI-generated names can be arbitrarily verbose; sanitize BEFORE Netty encoding.
+    public ProjectStatusPayload {
+        title=bounded(title,120);
+        phase=bounded(phase,32);
+        materials=bounded(materials,1500);
+        if(chest==null)chest=new BlockPos(0,-9999,0);
+        placed=Math.max(0,placed);total=Math.max(0,total);
+        supplied=Math.max(0,supplied);required=Math.max(0,required);
+        inspected=Math.max(0,inspected);excavationCells=Math.max(0,excavationCells);
+        removed=Math.max(0,removed);
+    }
+    public static String bounded(String input,int limit){
+        if(input==null)return "";
+        // Java's encoder limit counts UTF-16 chars; avoid leaving a split surrogate.
+        if(input.length()<=limit)return input;
+        int end=limit-3;
+        if(end>0 && Character.isHighSurrogate(input.charAt(end-1)))end--;
+        return input.substring(0,end)+"...";
+    }
     public static final CustomPayload.Id<ProjectStatusPayload> ID=
         new CustomPayload.Id<>(Identifier.of("buildai","project_status"));
     public static final PacketCodec<RegistryByteBuf,ProjectStatusPayload> CODEC=PacketCodec.of(

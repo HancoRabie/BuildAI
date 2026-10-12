@@ -31,7 +31,7 @@ public final class BuildAIGenerationScreen extends Screen {
         int panel=panelWidth();
         int x=(width-panel)/2;
         int gap=6, half=(panel-28-gap)/2;
-        int footerY=Math.max(12,height-35);
+        int footerY=Math.max(12,height-58);
         addDrawableChild(ButtonWidget.builder(Text.literal("Back to BuildAI"),
             b->close()).dimensions(x+14,footerY,half,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Return to Game (Keep Generating)"),
@@ -40,6 +40,15 @@ public final class BuildAIGenerationScreen extends Screen {
                 if(client!=null)client.setScreen(null);
             })
             .dimensions(x+14+half+gap,footerY,half,20).build());
+        ButtonWidget cancel=ButtonWidget.builder(
+            Text.literal("CANCEL REQUEST  |  KEEP EXISTING BLUEPRINT"),
+            button->{
+                progress.requestCancellation();
+                button.active=false;
+            }).dimensions(x+14,footerY+24,panel-28,20).build();
+        cancel.active=!progress.cancellationRequested() &&
+            !progress.snapshot().finished();
+        addDrawableChild(cancel);
     }
 
     @Override public void renderBackground(DrawContext context,int mouseX,int mouseY,float delta) {
@@ -49,7 +58,7 @@ public final class BuildAIGenerationScreen extends Screen {
 
     @Override public void render(DrawContext ctx,int mouseX,int mouseY,float delta) {
         GenerationProgress.Snapshot s=progress.snapshot();
-        int panel=panelWidth(),x=(width-panel)/2,footerY=Math.max(12,height-35);
+        int panel=panelWidth(),x=(width-panel)/2,footerY=Math.max(12,height-58);
         int top=Math.max(5,Math.min(20,height/12));
         int bottom=height-6, inset=x+14, usable=panel-28;
         int unit=Math.max(11,Math.min(14,(footerY-top-12)/20));
@@ -105,7 +114,9 @@ public final class BuildAIGenerationScreen extends Screen {
             ctx.drawTextWithShadow(textRenderer,etaLines.get(i),inset,y,0xFF80E9CB);
         }
 
-        String note=s.finished()
+        String note=progress.cancellationRequested()
+            ? "Cancellation requested; closing the model stream. Your blueprint is safe."
+            : s.finished()
             ? s.failed()?"Generation stopped. Your previous blueprint is unchanged.":
                 "Blueprint complete. Opening its in-game review."
             : s.secondsSinceActivity()>=15

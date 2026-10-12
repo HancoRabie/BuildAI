@@ -31,7 +31,7 @@ final class BuildQualityReview {
         // Rewriting a fully integrated multi-stage project as one giant model
         // answer risks removing stage ports/checkpoints and defeating staged
         // generation. Do not pretend the generic review can repair that.
-        if(best.specification().contains("\\"staged_modules\\"")){
+        if(best.specification().contains("\"staged_modules\"")){
             best.blueprint().warnings.addAll(baseline.warnings());
             best.blueprint().warnings.add("QUALITY REVIEW: Multi-stage project "+
                 "has unresolved requirements. Automatic whole-project rewrite "+

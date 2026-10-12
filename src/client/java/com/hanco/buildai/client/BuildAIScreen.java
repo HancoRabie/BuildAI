@@ -141,6 +141,20 @@ public final class BuildAIScreen extends Screen {
                     }
                 });
         }else{
+            add("Safe Undo",left,row(3),half,buttonHeight,b->{
+                if(client==null||client.getNetworkHandler()==null){
+                    status="Join a world to request undo.";return;
+                }
+                client.getNetworkHandler().sendChatCommand("buildai undo");
+                status="Safe undo requested. Follow /buildai status; protected containers are not overwritten.";
+            });
+            add("Force Undo (OP4)...",left+half+gap,row(3),half,buttonHeight,b->{
+                if(client==null||client.getNetworkHandler()==null){
+                    status="Join a world to request undo.";return;
+                }
+                saveFields();
+                client.setScreen(new BuildAIUndoConfirmScreen(this));
+            });
             add("Inspect Blueprint Layers",left,row(5),half,buttonHeight,b->{
                 if(BuildAIClient.draft==null){status="Generate or import a blueprint first.";return;}
                 if(client!=null)client.setScreen(new BlueprintInspectorScreen(this,
@@ -167,7 +181,7 @@ public final class BuildAIScreen extends Screen {
                 if(BuildAIClient.draft==null){status="Create or import a blueprint first.";return;}
                 try{
                     BuildAIClient.beginUpload(BuildAIClient.draft,surfaceLayer);
-                    status="Close F8: building starts IN FRONT. Wheel moves Z; arrows rotate; G selects ground Y; ENTER locks.";
+                    status="Close F8: G freezes the ghost without targeting. Arrows change XYZ, CTRL+L/R rotates, CTRL+U/D or wheel adjusts depth; Enter locks.";
                 }catch(Exception ex){status="Upload failed: "+ex.getMessage();}
             });
             add("Preview in World (Close F8)",left,row(7),half,buttonHeight,b->{
@@ -178,11 +192,11 @@ public final class BuildAIScreen extends Screen {
             });
             add("Lock XYZ (Enter)",left+half+gap,row(7),half,buttonHeight,b->{
                 if(!BuildAIClient.selecting){
-                    status="Upload first, or press R to retry placement. G chooses ground Y, then ENTER locks XYZ.";return;
+                    status="Upload first, or press R to retry. Press G outside the GUI to freeze the ghost, then arrows/wheel to adjust.";return;
                 }
                 PlacementMode.lock();
                 status=PlacementMode.groundSelected()?"Placement lock requested; wait for server approval.":
-                    "To lock: close F8, aim at the TOP of a ground block and press G, then ENTER.";
+                    "Close F8 and press G to freeze the visible ghost (no block required), then press ENTER.";
             });
             add("Save Blueprint to Library",left,row(8),panelWidth,buttonHeight,b->exportSchematic());
             add("Hide Preview",left,row(9),half,buttonHeight,b->{
@@ -199,11 +213,11 @@ public final class BuildAIScreen extends Screen {
             add("Retry Placement",left,row(10),half,buttonHeight,b->{
                 if(BuildAIClient.draft==null){status="Load a blueprint first.";return;}
                 PlacementMode.retry();
-                status="Retry requested. Wheel: Z; LEFT/RIGHT arrows: rotate; G: ground Y; ENTER: lock XYZ.";
+                status="Retry requested. G freezes; arrows adjust, CTRL+L/R rotates, CTRL+U/D or wheel moves depth. ENTER locks.";
             });
             add("Confirm & Build",left+half+gap,row(10),half,buttonHeight,b->{
                 if(!BuildAIClient.previewLocked){
-                    status="Placement not locked: aim at ground top + press G, then ENTER. Only then confirm the build.";return;
+                    status="Placement not locked: close F8 and press G to freeze the preview; arrows adjust; Enter locks XYZ.";return;
                 }
                 if(client==null||client.getNetworkHandler()==null){
                     status="Join a world before confirming.";return;

@@ -107,6 +107,11 @@ public final class BuildAIFeedbackScreen extends Screen {
     }
 
     @Override protected void init(){
+        // Screen.init is also called after window resize. Capture input first,
+        // then detach old widgets so tabs cannot reuse a stale text field.
+        capture();
+        noteField=null;
+        pathField=null;
         layout=StudioLayout.forWindow(width,height);
         loadBuilds();
         int x=layout.x(),w=layout.width(),h=layout.buttonHeight(),gap=5;
@@ -114,7 +119,7 @@ public final class BuildAIFeedbackScreen extends Screen {
         button("MY BUILD FEEDBACK",x,layout.stepY(),half,18,b->changeMode(0));
         button("STYLE REFERENCES",x+half+gap,layout.stepY(),half,18,b->changeMode(1));
         int y=layout.bodyTop(), available=layout.bodyHeight();
-        if(available>=93){
+        if(available>=(layout.compact()?106:110)){
             if(mode==0){
                 int third=(w-16-2*gap)/3;
                 button("< PREVIOUS",x+8,y+17,third,h,b->moveProject(-1)).active=!busy;
@@ -217,7 +222,7 @@ public final class BuildAIFeedbackScreen extends Screen {
             x+8,layout.compact()?22:29,w-16,DIM,0.76f);
         ctx.fill(x,top-6,x+w,bottom+2,PANEL);
         ctx.fill(x,top-6,x+2,bottom+2,0xFF467985);
-        if(layout.bodyHeight()<93){
+        if(layout.bodyHeight()<(layout.compact()?106:110)){
             small(ctx,"Reduce Minecraft GUI Scale or enlarge the window to edit reviews.",
                 x+8,top+13,w-16,GOLD,0.83f);
         }else if(mode==0){
@@ -242,7 +247,7 @@ public final class BuildAIFeedbackScreen extends Screen {
                 x+10,top+73,w-20,DIM,0.77f);
             if(bottom>=top+113){
                 small(ctx,"Selected for labeled scan: "+(active==null?"none":active.getFileName()),
-                    x+10,top+96,w-20,AMBER(),0.75f);
+                    x+10,top+96,w-20,GOLD,0.75f);
             }
         }else{
             small(ctx,"PICK AN EXTERNAL SCHEMATIC",x+8,top+4,w-16,BLUE,0.84f);
@@ -254,7 +259,6 @@ public final class BuildAIFeedbackScreen extends Screen {
             status.toLowerCase(Locale.ROOT).contains("invalid")?RED:BLUE,0.78f);
         super.render(ctx,mx,my,dt);
     }
-    private static int AMBER(){return GOLD;}
     @Override public void close(){if(client!=null)client.setScreen(parent);}
     @Override public boolean shouldPause(){return false;}
 }

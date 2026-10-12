@@ -560,10 +560,11 @@
       "block": "minecraft:water",
       "purpose": "World-placed irrigation, flushing, canals, water flows",
       "rules": [
-        "Place minecraft:water source directly in the world; water_bucket is an item, not a block state.",
-        "No bucket needs to exist in BuildAI supply chests for static world source placement.",
-        "Finish solid retaining basin/channel/drain structures BEFORE setting fluid; avoid washing away dust and crops.",
-        "For a real dispenser that releases/picks up water, an actual bucket item in inventory is needed, unlike static source placement."
+        "minecraft:water source is a block, not minecraft:water_bucket which is an item.",
+        "Creative source placement costs nothing; NEVER block a Creative generation for water buckets.",
+        "Survival requires exactly TWO water_bucket items TOTAL per build as renewable starter water, even for many placed source cells.",
+        "Charge once during final fluid normalization, return both empty buckets to marked supply chests, then place all water sources.",
+        "Finish containment, crop channels and redstone before fluid placement. An actual fluid-handling dispenser needs its own real inventory buckets."
       ]
     },
     {
@@ -571,10 +572,11 @@
       "block": "minecraft:lava",
       "purpose": "World-placed decorative/functional lava channel or source",
       "rules": [
-        "minecraft:lava is a valid placeable source block, lava_bucket is not a block.",
-        "No bucket supply required for a direct BuildAI world placement.",
-        "Place after containment, avoid fire and cobblestone/obsidian formation and player exposure.",
-        "Actual lava-bucket dispenser mechanisms require bucket inventory NBT; do not assume automatically filled."
+        "minecraft:lava is a block, lava_bucket is an item.",
+        "Creative placement is free; Survival costs ONE lava_bucket item for EACH lava source cell.",
+        "Charge per source during final fluid normalization and return each empty bucket to marked supply chest.",
+        "Containment and fire/stone reaction safety are mandatory; never apply the renewable-water two-bucket rule to lava.",
+        "Actual dispensing of lava during game operation needs separate block-entity bucket inventory setup."
       ]
     }
   ],
@@ -591,6 +593,6 @@
   "versionSpecificCorrections": [
     "Repeater and comparator FACING denotes REAR/INPUT, not output, in Java 1.21.1; output lies opposite.",
     "Powered rails are sparse boosters, not a universal replacement for normal rails; power sources need not appear below each rail.",
-    "World water/lava sources can be placed by BuildAI directly; bucket items are only needed for actual in-inventory dispenser operations."
+    "Creative fluid source blocks cost no buckets; Survival charges two water buckets total per build, one lava bucket per lava source, and returns empties."
   ]
 }

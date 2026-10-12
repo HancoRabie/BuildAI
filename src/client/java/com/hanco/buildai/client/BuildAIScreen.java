@@ -263,6 +263,30 @@ public final class BuildAIScreen extends Screen {
             revision?source.originalPrompt():instruction.trim(),revision?source:null);
     }
 
+    /** A cancelled/refused run is never resumed. Send the revised text as
+     * a totally fresh request, with NO previous AI blueprint or response.
+     */
+    public boolean startFreshAfterClarification(String revisedPrompt){
+        if(revisedPrompt==null||revisedPrompt.isBlank()||revisedPrompt.length()>4000){
+            status="Keep the refined request between 1 and 4000 characters.";
+            return false;
+        }
+        GenerationProgress pending=BuildAIClient.currentGeneration();
+        if(pending!=null&&!pending.snapshot().finished()){
+            status="Stopping previous request. Wait for its network worker to close.";
+            return false;
+        }
+        if(busy){
+            status="Previous network request is still closing. Try again shortly.";
+            return false;
+        }
+        promptValue=revisedPrompt;
+        if(prompt!=null)prompt.setText(revisedPrompt);
+        tab=0;
+        launchAI(revisedPrompt,false,revisedPrompt,null);
+        return BuildAIClient.currentGeneration()!=null;
+    }
+
     private void launchAI(String description,boolean revise,String originalPrompt,
                           Blueprint revisionSource) {
         GenerationProgress current=BuildAIClient.currentGeneration();
@@ -291,6 +315,7 @@ public final class BuildAIScreen extends Screen {
             "Regenerating an independent NEW blueprint from the original prompt...";
         if(client!=null)client.setScreen(new BuildAIGenerationScreen(this,progress));
         CompletableFuture.supplyAsync(()->{
+            progress.bindWorker();
             try{
                 // Legacy schematics have no source JSON; build a bounded,
                 // exact geometry revision reference off the render thread.
@@ -307,9 +332,16 @@ public final class BuildAIScreen extends Screen {
                     ?AIArchitect.generateDesign(apiKey,description,progress)
                     :AIArchitect.reviseDesign(apiKey,description,previous,progress);
             }catch(Exception ex){throw new RuntimeException(ex);}
+            finally{progress.releaseWorker();}
         }).whenComplete((result,error)->MinecraftClient.getInstance().execute(()->{
             busy=false;
             BuildAIClient.endGeneration(progress);
+            if(progress.cancellationRequested()){
+                progress.cancelled();
+                status="Previous attempt cancelled. Original prompt preserved. "+
+                    "Use Refine & Start Fresh for a new independent request.";
+                return; // Never install a late blueprint from a cancelled request.
+            }
             if(error!=null){
                 String reason=message(error);
                 progress.failure(reason);

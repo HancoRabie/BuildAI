@@ -44,8 +44,17 @@ public final class ConstructionManager {
                 }
                 if(owner!=null&&project.world.getTime()%20==0&&
                     net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(owner,
-                        com.hanco.buildai.net.ProjectStatusPayload.ID))
-                    net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(owner,project.status());
+                        com.hanco.buildai.net.ProjectStatusPayload.ID)) {
+                    // HUD telemetry is strictly best effort. Serialization failure
+                    // must never change the build phase or kick someone mid-build.
+                    try{
+                        net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(
+                            owner,project.status());
+                    }catch(RuntimeException statusError){
+                        System.err.println("[BuildAI] Status update skipped (build continues): "
+                            +statusError.getMessage());
+                    }
+                }
             }catch(RuntimeException e){
                 project.stopCinematicVisuals();
                 // Unexpected failures must never turn into a material-shortage

@@ -47,6 +47,30 @@ Saved files live in the active Minecraft game directory under `buildai/blueprint
 
 **Important for existing sessions:** a BuildAI client launched *before* this feature was pulled does not have auto-save. Restarting it will lose an unsaved design. Use Upload & Preview → placement/confirm if you only need the structure in that disposable world; this is not equivalent to exporting a reimportable blueprint.
 
+## Automatic real-web architectural inspiration
+
+**F8 > Create / AI > Online Inspiration** defaults to ON. For every new
+design or revision, BuildAI first *attempts* one genuine hosted Responses
+API `web_search` operation for existing Minecraft build references. Only
+responses with a completed actual `web_search_call`, a short design brief,
+and usable HTTPS source citations are treated as successful research.
+The original text-to-voxel generator then receives this cited inspiration
+as untrusted data; the strict JSON blueprint format remains unchanged.
+
+If web search is unavailable on the connected ChatGPT model/workspace or
+developer API key, times out, or has no verifiable citations, the build
+continues without it. Progress explicitly reports unavailable research;
+BuildAI does not claim that unsourced model recollections are web research.
+Successful searches show clickable source links in Minecraft chat, also
+available from **Placement / Export > Design QA / Warnings**.
+
+Online inspiration is a separate request that may increase generation time,
+ChatGPT plan usage or API-key costs. It is **text-grounded research** rather
+than guaranteed inspection of online images, and it does not imply permission
+to copy somebody else's build. Toggle it OFF to use local style references
+without web searches. Your preference is stored client-side at
+`buildai/inspiration-settings.json`.
+
 ## Long-running ChatGPT generation and ETA
 
 The BuildAI generation monitor now reports real elapsed time, output character count and average received characters per second. It never invents a fixed percent complete or a countdown from the unobservable model output length. After **two or more completed comparable generations**, BuildAI can display an approximate **remaining-time range** calibrated from local completed durations, always labeled rough. If the request exceeds that range, the UI returns to `remaining unknown`. Until enough samples exist, the UI shows `learning` rather than presenting a misleading clock.

@@ -155,7 +155,8 @@ public final class BuildRequirementAudit {
         // Blank sign blocks do not fulfill a player's labeling requirement.
         String lower=prompt.toLowerCase(Locale.ROOT);
         boolean signageRequested=lower.matches(
-            "(?s).*(label(?:s|ed|ing)?|signs?|numbered stations|number each).*");
+            "(?s).*(\\\\blabel(?:s|ed|ing)?\\\\b|\\\\bsigns?\\\\b|"+
+            "numbered stations|number each).*");
         if(signageRequested&&b.signs().isEmpty())
             blockers.add("Requested readable station/room signs have no "+
                 "literal sign text metadata.");

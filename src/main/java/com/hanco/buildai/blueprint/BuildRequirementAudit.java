@@ -171,8 +171,13 @@ public final class BuildRequirementAudit {
                     if(label.length()>100)label=label.substring(0,100);
                     String state=entry.has("status")&&entry.get("status").isJsonPrimitive()
                         ?entry.get("status").getAsString():"unverified";
+                    // Self-declared statuses are untrusted commentary, not
+                    // independently verified blockers. Otherwise an AI could
+                    // "repair" a missing room by changing missing->implemented.
                     if("missing".equalsIgnoreCase(state))
-                        blockers.add("Design declares an unmet requirement: "+label);
+                        suggestions.add("The generated design itself marks '"+
+                            label+"' missing. Require physical proof before "+
+                            "accepting a correction.");
                     else if("implemented".equalsIgnoreCase(state)){
                         String evidence=claimedEvidence(entry,b);
                         if(!evidence.isBlank())
@@ -198,6 +203,16 @@ public final class BuildRequirementAudit {
             original.length!=candidate.length)return false;
         if(after.blockers.size()>=before.blockers.size())return false;
         if(candidate.solidCount()*10L<original.solidCount()*7L)return false;
+        // A generic structural repair must not silently delete planned
+        // growing crops or replace the map's approved executable machinery.
+        // These are preserved regardless of which building type was requested.
+        for(String id:List.of("minecraft:carrots","minecraft:potatoes",
+            "minecraft:wheat","minecraft:beetroots","minecraft:sugar_cane",
+            "minecraft:command_block","minecraft:repeating_command_block",
+            "minecraft:chain_command_block")){
+            if(after.palette().getOrDefault(id,0)<
+                before.palette().getOrDefault(id,0))return false;
+        }
         return true;
     }
 }

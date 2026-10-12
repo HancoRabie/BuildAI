@@ -55,6 +55,9 @@ public class SignTextPlanTest {
         b.setSigns(SignTextPlan.decode(JsonParser.parseString(
             "[{\"x\":1,\"y\":2,\"z\":3,\"lines\":[\"01\",\"NORTH\"]}]")
             .getAsJsonArray(),b));
+        // Native rotation parses real vanilla BlockStates and needs Minecraft
+        // bootstrap in an ordinary Gradle/JUnit JVM (outside runClient).
+        net.minecraft.Bootstrap.initialize();
         Blueprint rotated=BlueprintRotator.rotate(b,1);
         assertEquals(1,rotated.signs().size());
         SignTextPlan.Entry sign=rotated.signs().get(0);

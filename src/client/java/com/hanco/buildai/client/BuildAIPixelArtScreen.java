@@ -113,6 +113,9 @@ public final class BuildAIPixelArtScreen extends Screen {
             if(error!=null){status="File dialog unavailable; paste image path instead.";rebuild();return;}
             if(selected==null){status="Image selection cancelled.";rebuild();return;}
             value=selected.toAbsolutePath().toString();
+            // Rebuild captures live text-field values; update the field first
+            // so the freshly selected path cannot be overwritten by stale text.
+            if(pathField!=null)pathField.setText(value);
             rebuild();
             generate();
         }));

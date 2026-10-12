@@ -62,11 +62,20 @@ The newest user prompt remains authoritative.
 **Working command-block arena prototype**: an AI-generated blueprint can
 include command-block cells and a separate bounded list of actual Java 1.21.1
 commands. Command metadata survives client/server transport and local
-`.schem` exports as inert metadata. An operator must inspect the commands,
-lock the unrotated location, and explicitly approve them with
-`/buildai commands approve` before `/buildai confirm`. The server then
-installs text into the real block entities **after** normal construction,
-cleanup and connectivity normalization. Command-driven systems need the
+`.schem` exports as inert metadata. The owner first locks the unrotated
+location and starts the physical build with `/buildai confirm`. BuildAI
+**always waits after cleanup and normalization** at
+`WAITING_COMMAND_APPROVAL` for any command-bearing blueprint, regardless
+of how small or fast the build was. It opens a native Minecraft review
+showing the server's actual numbered command-to-block mapping. There is no
+timer: you can review now or later, and the command blocks remain inert.
+
+A trusted level-4 operator who owns the project chooses either
+`/buildai commands approve all`, a subset such as
+`/buildai commands approve 1,2,4,7`, or the shorthand
+`/buildai commands 1,2,4,7`. The GUI offers equivalent Approve All,
+Mark/Unmark, and Approve Marked controls. The server installs only the
+approved scripts and clears unapproved command cells. Command-driven systems need the
 server's command-block setting enabled and trusted op-4 authorization.
 
 A real functional CTF arena still requires hands-on acceptance testing of

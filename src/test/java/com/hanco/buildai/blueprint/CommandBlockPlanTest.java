@@ -72,6 +72,13 @@ public class CommandBlockPlanTest {
         assertSame(b,BlueprintRotator.rotate(b,0));
     }
 
+    @Test void aBeautifulCtfArenaWithNoCommandsIsNotReportedAsFunctional(){
+        Blueprint plain=new Blueprint("Nice Arena",15,8,15);
+        plain.set(0,0,0,"minecraft:stone");
+        var warnings=CommandGameAudit.inspect(plain,"Create a fully functional capture the flag game");
+        assertTrue(warnings.stream().anyMatch(w->w.contains("NO executable command-block plan")));
+    }
+
     @Test void ctfWarningsDoNotClaimFunctionalityFromVisualGeometry(){
         Blueprint b=sample();
         b.setCommands(List.of(new CommandBlockPlan.Entry(2,1,1,"team add blue",false,false)));

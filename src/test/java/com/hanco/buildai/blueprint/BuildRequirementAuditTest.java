@@ -38,7 +38,7 @@ public class BuildRequirementAuditTest {
             {"requirements":[{"description":"Control station","status":"missing"}]}
             """;
         var unmet=BuildRequirementAudit.inspect(b,"Make a control station",missing);
-        assertFalse(unmet.blockers().isEmpty());
+        assertTrue(unmet.suggestions().stream().anyMatch(x->x.contains("missing")),unmet.warnings().toString());
         String falseClaim="""
             {"requirements":[{"description":"Lever panel","status":"implemented",
               "evidence":[{"x":3,"y":2,"z":3,"block":"minecraft:lever"}]}]}

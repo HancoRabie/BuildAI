@@ -56,6 +56,15 @@ public final class BlueprintLibrary {
         }
     }
 
+    /** Cheap UI-only eligibility check; the delete operation performs
+     * real-path, regular-file and symlink validation again on the worker.
+     */
+    public static boolean isLocalSavedPath(Path candidate){
+        return candidate!=null && supported(candidate) &&
+            candidate.toAbsolutePath().normalize().getParent().equals(
+                directory().toAbsolutePath().normalize());
+    }
+
     public record DeletionResult(Path deleted,String warning) {}
     /** Permanent delete, only for a single file in this Minecraft
      * instance's own blueprints directory; never for imported external files.

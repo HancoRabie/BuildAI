@@ -62,9 +62,11 @@ If the raw output is truncated, malformed, or invalid, the existing
 blueprint remains untouched. The `.json.part` recovery file is retained
 locally and the error reports its location. An incomplete `.json.part` file
 is **not** a valid `.schem` and must never be pasted/placed directly.
-On successful compilation/validation and basic QA, its temporary journal
-is discarded. Explicit cancellation and watchdog expiry still stop
-requests rather than accepting them as completed.
+On a verified `response.completed` plus successful compilation and QA,
+the temporary journal is discarded. If the stream finished without the
+completion event, its output is retained even when it compiled successfully,
+so you can inspect the original text. Explicit cancellation and watchdog
+expiry still stop requests rather than accepting them as completed.
 
 The generation screen uses a slimmer (12px) indeterminate progress bar,
 with a concise history-based **ETA inside the bar**. ETA is an estimate,

@@ -263,7 +263,7 @@ public final class ConstructionProject {
     public Map<String,Integer> consumed(){return Collections.unmodifiableMap(consumed);}
     public BlockPos statusChest(){
         if(supplies.isEmpty())refreshChests();
-        return supplies.isEmpty()?new BlockPos(0,-9999,0):supplies.get(0);
+        return supplies.isEmpty()?new BlockPos(0,-2048,0):supplies.get(0);
     }
     public com.hanco.buildai.net.ProjectStatusPayload status(){
         Map<String,Integer> current=stored(),required=requirements();

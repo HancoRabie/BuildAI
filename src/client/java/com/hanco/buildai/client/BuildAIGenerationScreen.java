@@ -34,8 +34,11 @@ public final class BuildAIGenerationScreen extends Screen {
         int footerY=Math.max(12,height-35);
         addDrawableChild(ButtonWidget.builder(Text.literal("Back to BuildAI"),
             b->close()).dimensions(x+14,footerY,half,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Return to Game"),
-            b->{if(client!=null)client.setScreen(null);})
+        addDrawableChild(ButtonWidget.builder(Text.literal("Return to Game (Keep Generating)"),
+            b->{
+                BuildAIClient.minimizeGeneration(progress);
+                if(client!=null)client.setScreen(null);
+            })
             .dimensions(x+14+half+gap,footerY,half,20).build());
     }
 

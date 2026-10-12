@@ -90,12 +90,18 @@ public final class Blueprint {
     }
     public Map<String,Integer> materials() {
         Map<String,Integer> counts=new TreeMap<>();
+        int waters=0,lavas=0;
         for(int y=0;y<height;y++)for(int z=0;z<length;z++)for(int x=0;x<width;x++) {
             if(isAir(x,y,z))continue;
             String s=get(x,y,z);
-            if(!secondHalf(s) && !BuildFluidRules.isFluidSource(s))
-                counts.merge(id(s),1,Integer::sum);
+            if(BuildFluidRules.isWater(s)){waters++;continue;}
+            if(BuildFluidRules.isLava(s)){lavas++;continue;}
+            if(!secondHalf(s))counts.merge(id(s),1,Integer::sum);
         }
+        if(waters>0)counts.put("minecraft:water_bucket",
+            BuildFluidRules.requiredWaterBuckets(waters));
+        if(lavas>0)counts.put("minecraft:lava_bucket",
+            BuildFluidRules.requiredLavaBuckets(lavas));
         return counts;
     }
     public int[] layerCounts() {

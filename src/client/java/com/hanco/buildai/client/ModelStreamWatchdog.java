@@ -71,7 +71,9 @@ final class ModelStreamWatchdog implements AutoCloseable {
                         "No blueprint text yet. Auto-stop is ON; you can "+
                         "switch it OFF here to continue waiting.");
                 }
-                if(isSilentTooLong(nanos,baseline,begun.get())){
+                if(com.hanco.buildai.blueprint.StreamSilencePolicy.expired(
+                    nanos,lastText.get(),begun.get(),autoStop,
+                    progress==null?0L:progress.autoStopRearmedAtNanos())){
                     // Recheck the user's choice just before committing to
                     // closing the stream, to avoid a stale loop snapshot.
                     if(progress==null||progress.autoStopEnabled()){

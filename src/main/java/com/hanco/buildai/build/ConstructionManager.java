@@ -30,12 +30,22 @@ public final class ConstructionManager {
                 if(owner!=null){
                     ConstructionProject.Phase last=LAST_ANNOUNCED.put(project.owner,project.phase);
                     // Announce each genuine transition ONCE (not on every server tick).
+                    if(project.phase==ConstructionProject.Phase.WAITING_COMMAND_APPROVAL &&
+                        net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(
+                            owner,com.hanco.buildai.net.CommandReviewPayload.ID) &&
+                        (last!=project.phase || project.world.getTime()%100==0)){
+                        // Re-send occasionally to cover client reconnect; the
+                        // client only auto-opens one review per wait episode.
+                        net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(
+                            owner,com.hanco.buildai.net.CommandReviewPayload.of(project));
+                    }
                     if(last!=project.phase && (project.phase==ConstructionProject.Phase.EXCAVATE||
                         project.phase==ConstructionProject.Phase.CINEMATIC_PULL||
                         project.phase==ConstructionProject.Phase.BUILD||
                         project.phase==ConstructionProject.Phase.WAITING_SUPPLIES||
                         project.phase==ConstructionProject.Phase.CLEANUP||
                         project.phase==ConstructionProject.Phase.NORMALIZE||
+                        project.phase==ConstructionProject.Phase.WAITING_COMMAND_APPROVAL||
                         project.phase==ConstructionProject.Phase.COMMISSION||
                         project.phase==ConstructionProject.Phase.ROLLBACK_CHECK||
                         project.phase==ConstructionProject.Phase.ROLLBACK||

@@ -9,7 +9,10 @@
       "rules": [
         "Signal 0..15, attenuates along dust; repeater refreshes 15.",
         "Connections north/east/south/west none/side/up and power are distinct states.",
-        "Vanilla normalization cannot fill missing wire gaps."
+        "Vanilla normalization cannot fill missing wire gaps.",
+        "Analog 1..15 values are meaningful for comparator and threshold logic; dust glow fading is not just decorative.",
+        "A powered opaque block does not automatically become a dust segment; support, conduction and direction matter.",
+        "Java 1.21.1 predates the optional 1.21.2 redstone experiments; do not assume their update-order behavior."
       ]
     },
     {
@@ -20,7 +23,9 @@
         "Java 1.21.1 minecraft:repeater facing property points to its REAR/INPUT side, NOT output; output is OPPOSITE.",
         "Flow from WEST at x-1 to EAST at x+1 requires repeater[facing=west], with rear/input west and output east.",
         "Flow NORTH to SOUTH (+Z) requires repeater[facing=north]. Delay=1..4 REDSTONE ticks =2..8 game ticks.",
-        "Side-locking can preserve state and must not be mistakenly reversed in a complex circuit. Independent support block required."
+        "Side-locking can preserve state and must not be mistakenly reversed in a complex circuit. Independent support block required.",
+        "A short pulse (e.g., 1 redstone tick) may widen to the configured 4-redstone-tick delay; a repeater cannot substitute for a multi-second hold-open timer.",
+        "RIGHT unit conversion: 1 redstone tick=2 game ticks, 0.1s at nominal 20 TPS."
       ]
     },
     {
@@ -31,7 +36,9 @@
         "Java 1.21.1 minecraft:comparator facing points to REAR/INPUT, not output; front output is opposite.",
         "Flow WEST input to EAST output requires comparator[facing=west,mode=compare,powered=false].",
         "Compare rear if >= side else 0; subtract max(0,rear-side); may read tile/block-entity inventories.",
-        "Side analog readings, mode, substrate and output signal must remain correct on rotation."
+        "Side analog readings, mode, substrate and output signal must remain correct on rotation.",
+        "Compare mode outputs rear input if rear >= maximum side input, otherwise 0. Subtract outputs max(0,rear-maximum side).",
+        "Unlike a repeater, the comparator does not automatically renew any nonzero input to 15."
       ]
     },
     {
@@ -51,7 +58,9 @@
       "rules": [
         "Facing extension, max 12 movable blocks, clearance/immovable check.",
         "Java quasi-connectivity: power of block above can trigger after neighbor update.",
-        "Short pulses, QC and update order affect behavior."
+        "Short pulses, QC and update order affect behavior.",
+        "Java QC can cause activation via powered space above piston, but a neighbor update may still be required.",
+        "Do not assume Bedrock 'one tick extend / zero tick retract' descriptions describe Java piston event execution."
       ]
     },
     {
@@ -71,7 +80,9 @@
       "rules": [
         "Facing selects outgoing destination; powered hopper LOCKS transfers.",
         "Throughput/cooldown matter for sorter/clocks; needs real inventory NBT.",
-        "A hopper underneath/pointing into an inventory behaves differently."
+        "A hopper underneath/pointing into an inventory behaves differently.",
+        "Vanilla enabled hopper transfer baseline one item per 8 game ticks (0.4s) at full TPS; power locks hopper.",
+        "Zero real items means a hopper clock is not configured; avoid claiming timer works from geometry only."
       ]
     },
     {
@@ -80,7 +91,9 @@
       "purpose": "Ejects or transfers an item on pulse",
       "rules": [
         "facing points where output goes",
-        "Does not use special item behavior"
+        "Does not use special item behavior",
+        "Java QC can trigger through the space above; verify neighbor update.",
+        "Needs actual inventory; powered changes do not magically create items."
       ]
     },
     {
@@ -90,7 +103,9 @@
       "rules": [
         "facing matters",
         "Behavior depends on item",
-        "Power edge required to activate"
+        "Power edge required to activate",
+        "Java QC can trigger through power to the space above; block update may be required.",
+        "Requires real inventory to use water bucket or bone meal; BuildAI block-only blueprints do not preload."
       ]
     },
     {
@@ -118,7 +133,8 @@
       "purpose": "Temporary manually pressed signal",
       "rules": [
         "powered is transient",
-        "wall or floor/ceiling mounting"
+        "wall or floor/ceiling mounting",
+        "Java stone/polished blackstone press lasts 20 game ticks (10 redstone ticks) at normal TPS; wooden button lasts 30 game ticks (15 redstone ticks)."
       ]
     },
     {
@@ -241,7 +257,8 @@
         "New power pulse crafts one recipe, constant power does not continually craft.",
         "Comparator strength 0..9 counts occupied OR disabled slots, NOT ingredient quantities.",
         "Requires actual recipe items, disabled slots/block entity beyond basic schematic blockstates.",
-        "Output via front/facing; Java quasi-connectivity does NOT apply."
+        "Output via front/facing; Java quasi-connectivity does NOT apply.",
+        "No Java QC, unlike droppers and dispensers."
       ]
     },
     {
@@ -251,7 +268,8 @@
       "rules": [
         "Rising-edge power toggles persistent lit state; distinct from lamp.",
         "Oxidation changes emitted LIGHT (15/12/8/4), NOT TIMING. Wax to preserve light.",
-        "Comparator reads lit status 15/on or 0/off; bulb is not ordinary conductor."
+        "Comparator reads lit status 15/on or 0/off; bulb is not ordinary conductor.",
+        "The rising-edge toggling function may replace unnecessarily large T-flip-flop memories if that meets the original player's requirements."
       ]
     },
     {
@@ -594,5 +612,32 @@
     "Repeater and comparator FACING denotes REAR/INPUT, not output, in Java 1.21.1; output lies opposite.",
     "Powered rails are sparse boosters, not a universal replacement for normal rails; power sources need not appear below each rail.",
     "Creative fluid source blocks cost no buckets; Survival charges two water buckets total per build, one lava bucket per lava source, and returns empties."
-  ]
+  ],
+  "versionAudit": {
+    "target": "Minecraft Java Edition 1.21.1, without experimental rules",
+    "sources": [
+      {
+        "url": "https://www.minecraftforum.net/forums/minecraft-java-edition/redstone-discussion-and/350815-redstone-guide-v1-21",
+        "scope": "author-guide v1.21, published 2011, NOT Minecraft game v1.21",
+        "usable": "logic truth tables, latches, monostables, t flip-flops, clocks, repeater signal renewal",
+        "excluded": "obsolete universal button duration, unverified physical dust placement and powering examples"
+      },
+      {
+        "url": "https://learn.microsoft.com/en-us/minecraft/creator/documents/redstoneguide?view=minecraft-bedrock-stable",
+        "scope": "Minecraft Bedrock Edition documentation; NOT Java timing authority",
+        "usable": "basic power attenuation, comparator arithmetic, standard component roles",
+        "excluded": "Bedrock piston timing and update order, unverified pressure plate entity-strength claims"
+      },
+      {
+        "url": "https://minecraft.wiki/w/Tutorial:Quasi-connectivity",
+        "scope": "Java Edition technical reference",
+        "usable": "Java pistons/droppers/dispensers QC; crafters not QC"
+      },
+      {
+        "url": "https://feedback.minecraft.net/hc/en-us/articles/31261174284557-Minecraft-Java-Edition-1-21-2-Bundles-of-Bravery",
+        "scope": "1.21.2 later release experimental dust changes",
+        "excluded": "do not apply experimental 1.21.2 dust update order to Java 1.21.1"
+      }
+    ]
+  }
 }

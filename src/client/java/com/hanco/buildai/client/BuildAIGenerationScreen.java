@@ -17,6 +17,7 @@ public final class BuildAIGenerationScreen extends Screen {
     private final BuildAIScreen parent;
     private final GenerationProgress progress;
     private ButtonWidget autoStopButton;
+    private ButtonWidget probeButton,refineButton,returnToGameButton;
 
     private Text autoStopLabel(){
         return Text.literal(progress.autoStopEnabled()
@@ -44,22 +45,23 @@ public final class BuildAIGenerationScreen extends Screen {
         int footerY=Math.max(12,height-82);
         addDrawableChild(ButtonWidget.builder(Text.literal("Back to BuildAI"),
             b->close()).dimensions(x+14,footerY,half,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Return to Game (Keep Generating)"),
+        returnToGameButton=ButtonWidget.builder(Text.literal("Return to Game (Keep Generating)"),
             b->{
                 BuildAIClient.minimizeGeneration(progress);
                 if(client!=null)client.setScreen(null);
             })
-            .dimensions(x+14+half+gap,footerY,half,20).build());
-        ButtonWidget probe=ButtonWidget.builder(
+            .dimensions(x+14+half+gap,footerY,half,20).build();
+        addDrawableChild(returnToGameButton);
+        probeButton=ButtonWidget.builder(
             Text.literal("CHECK REQUEST (SAFE)"),
             button->BuildAIRequestHealth.check(progress))
             .dimensions(x+14,footerY+24,half,20).build();
-        probe.active=!progress.snapshot().finished();
-        addDrawableChild(probe);
+        probeButton.active=!progress.snapshot().finished();
+        addDrawableChild(probeButton);
         // Cancel is a workflow transition, not just a flag: open an editor
         // immediately, keeping the original text while the old HTTP worker
         // finishes closing. No new request can launch until it is gone.
-        ButtonWidget refine=ButtonWidget.builder(
+        refineButton=ButtonWidget.builder(
             Text.literal(progress.snapshot().finished()
                 ?"REFINE & START FRESH":"CANCEL & REFINE"),
             button->{
@@ -68,7 +70,7 @@ public final class BuildAIGenerationScreen extends Screen {
                 if(client!=null)
                     client.setScreen(new BuildAIRetryScreen(parent,progress));
             }).dimensions(x+14+half+gap,footerY+24,half,20).build();
-        addDrawableChild(refine);
+        addDrawableChild(refineButton);
 
         autoStopButton=ButtonWidget.builder(autoStopLabel(),button->{
             // This updates the watchdog observing the ALREADY OPEN stream;
@@ -96,6 +98,11 @@ public final class BuildAIGenerationScreen extends Screen {
             autoStopButton.setMessage(autoStopLabel());
             autoStopButton.active=!s.finished();
         }
+        if(probeButton!=null)probeButton.active=!s.finished();
+        if(refineButton!=null)refineButton.setMessage(Text.literal(s.finished()
+            ?"REFINE & START FRESH":"CANCEL & REFINE"));
+        if(returnToGameButton!=null)returnToGameButton.setMessage(Text.literal(
+            s.finished()?"Return to Game":"Return to Game (Keep Generating)"));
         int top=Math.max(5,Math.min(20,height/12));
         int bottom=height-6, inset=x+14, usable=panel-28;
         int unit=Math.max(11,Math.min(14,(footerY-top-12)/20));

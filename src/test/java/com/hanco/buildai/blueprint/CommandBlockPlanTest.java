@@ -79,6 +79,34 @@ public class CommandBlockPlanTest {
         assertTrue(warnings.stream().anyMatch(w->w.contains("NO executable command-block plan")));
     }
 
+    @Test void shuffledCommandInputAlwaysMapsToActualPlacementOrder(){
+        Blueprint b=sample();
+        var last=new CommandBlockPlan.Entry(2,1,3,"scoreboard objectives add captures dummy",false,false);
+        var first=new CommandBlockPlan.Entry(2,1,1,"team add red",false,false);
+        var middle=new CommandBlockPlan.Entry(2,1,2,"team add blue",false,false);
+        b.setCommands(List.of(last,first,middle)); // Deliberately scrambled AI output.
+        assertEquals(List.of(first,middle,last),b.commands(),
+            "Stable #1/#2/#3 matches actual Y/Z/X command-block build order");
+        Blueprint restored=BlueprintJson.decode(BlueprintJson.encode(b));
+        assertEquals(b.commands(),restored.commands(),
+            "A round trip must never swap commands onto other coordinates");
+        assertEquals("team add blue",restored.commands().get(1).command());
+        assertEquals(2,restored.commands().get(1).z());
+    }
+
+    @Test void directPlanAssignmentsAlsoRejectDuplicateCoordinates(){
+        Blueprint b=sample();
+        var first=new CommandBlockPlan.Entry(2,1,1,"team add red",false,false);
+        var last=new CommandBlockPlan.Entry(2,1,1,"team add blue",false,false);
+        assertThrows(IllegalArgumentException.class,()->b.setCommands(List.of(first,last)));
+    }
+
+    @Test void missingScriptsAreCountedButDoNotDestroyExpensiveGeneratedGeometry(){
+        Blueprint b=sample();
+        b.setCommands(List.of(new CommandBlockPlan.Entry(2,1,1,"team add red",false,false)));
+        assertEquals(2,CommandBlockPlan.unassignedBlocks(b));
+    }
+
     @Test void ctfWarningsDoNotClaimFunctionalityFromVisualGeometry(){
         Blueprint b=sample();
         b.setCommands(List.of(new CommandBlockPlan.Entry(2,1,1,"team add blue",false,false)));

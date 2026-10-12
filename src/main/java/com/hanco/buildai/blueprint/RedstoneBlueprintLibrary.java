@@ -23,8 +23,8 @@ public final class RedstoneBlueprintLibrary {
         BUILDAI RBL REUSABLE CIRCUIT LIBRARY — Java 1.21.1
         Syntax: 🟥 redstone block; 🔥 dust (NOT fire); ⬛ solid support;
         R1>/R2>/R3>/R4> repeater delay 1..4 REDSTONE ticks, arrow
-        points ACTUAL output. C0> compare, C1> subtract. O> observer
-        RED OUTPUT side. P> piston extension. L lever, B button, 💡 lamp.
+        points ACTUAL output. C0> compare, C1> subtract. O> observer RED OUTPUT east means Java observer facing=west
+        (the OBSERVED INPUT face is west). P> piston extension. L lever, B button, 💡 lamp.
         Physical block-state 'facing' is component-specific: for Java
         repeaters/comparators R2> is facing=west (input west, output east).
         Diagrams are layered: +X east, +Z south, +Y up; each glyph occupies
@@ -128,6 +128,16 @@ public final class RedstoneBlueprintLibrary {
         }catch(IOException e){
             throw new IllegalStateException("Cannot load built-in Java 1.21.1 RBL library",e);
         }
+    }
+
+    /** Exact example blockstate for a glyph, not the glyph's visual direction. */
+    public static String exampleState(String symbol){
+        for(JsonElement element:Cached.ROOT.getAsJsonArray("symbols")){
+            JsonObject entry=element.getAsJsonObject();
+            if(symbol.equals(entry.get("symbol").getAsString()))
+                return entry.get("exampleBlock").getAsString();
+        }
+        throw new IllegalArgumentException("Unknown RBL glyph: "+symbol);
     }
 
     public static List<String> ids(){

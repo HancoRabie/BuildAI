@@ -193,7 +193,7 @@ public final class BuildAIStyleMemory {
                 out.append("\nPLAYER-APPROVED WHOLE-BUILD ARCHITECTURAL REFERENCE from ")
                     .append(clean(ref.get("source").getAsString(),110))
                     .append(" (analysis, NOT proof of aesthetic quality): \n")
-                    .append(clean(ref.get("report").getAsString(),3800)).append('\\n');
+                    .append(clean(ref.get("report").getAsString(),3800)).append('\n');
                 used++;
             }
             JsonArray refs=data.getAsJsonArray("references");

@@ -276,7 +276,9 @@ public final class BuildAIMod implements ModInitializer {
                         reply(player,p.phase+" | "+p.blueprint.name+" | "+p.placed()+"/"+p.total()+
                             " placed | "+p.excavated()+"/"+p.cells()+" cells inspected | "+p.actuallyRemoved()+
                             " removed | "+p.collisions+" collisions | "+p.normalizedPanes()+
-                            " fence/pane/wall connections updated.");
+                            " pane/fence/wall links | "+p.normalizedRedstone()+
+                            " redstone dust links | "+p.refreshedRedstone()+
+                            " redstone components notified.");
                     }
                     return 1;
                 }))

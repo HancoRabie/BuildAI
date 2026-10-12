@@ -101,13 +101,18 @@ public final class AiBlockRepair {
      * counterpart exists, prefer a real structural block over leaving a hole.
      */
     private static String substitute(String wanted) {
+        return suggestAlternative(wanted,AiBlockRepair::exists);
+    }
+
+    /** Pure shape/material choice, injectable for unit tests outside Fabric. */
+    static String suggestAlternative(String wanted,java.util.function.Predicate<String> exists) {
         if (!wanted.startsWith("minecraft:")) return "minecraft:stone_bricks";
         String path = wanted.substring("minecraft:".length());
 
         // Invented cut-sandstone variants are common in model output.
         String withoutCut = "minecraft:" + path.replace("cut_sandstone", "sandstone")
             .replace("cut_red_sandstone", "red_sandstone");
-        if (!withoutCut.equals(wanted) && exists(withoutCut)) return withoutCut;
+        if (!withoutCut.equals(wanted) && exists.test(withoutCut)) return withoutCut;
 
         String shape = null;
         if (path.endsWith("_stairs")) {
@@ -141,14 +146,14 @@ public final class AiBlockRepair {
         } else if (path.endsWith("_sign")) {
             shape = "oak_sign";
         }
-        if (shape != null && exists("minecraft:" + shape)) return "minecraft:" + shape;
+        if (shape != null && exists.test("minecraft:" + shape)) return "minecraft:" + shape;
 
         // Fall back to the nearest existing base material, e.g. an invented
         // cut_sandstone_column -> cut_sandstone, without changing location.
         String stem = path;
         while (stem.contains("_")) {
             stem = stem.substring(0, stem.lastIndexOf('_'));
-            if (exists("minecraft:" + stem)) return "minecraft:" + stem;
+            if (exists.test("minecraft:" + stem)) return "minecraft:" + stem;
         }
         return "minecraft:stone_bricks";
     }

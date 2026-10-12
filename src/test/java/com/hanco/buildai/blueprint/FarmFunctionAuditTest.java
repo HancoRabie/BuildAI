@@ -20,7 +20,7 @@ public class FarmFunctionAuditTest {
         var report=FarmFunctionAudit.inspect(carrots(),
             "Create an automated carrot farm with harvest and collection",null);
         assertTrue(report.needsRepair());
-        assertTrue(report.warnings().stream().anyMatch(s->s.contains("Soil hydration")),report.warnings().toString());
+        assertTrue(report.warnings().stream().anyMatch(s->s.contains("Farmland hydration")),report.warnings().toString());
         assertTrue(report.warnings().stream().anyMatch(s->s.contains("bone meal")),report.warnings().toString());
         assertTrue(report.warnings().stream().anyMatch(s->s.contains("replanting")),report.warnings().toString());
     }
@@ -57,14 +57,14 @@ public class FarmFunctionAuditTest {
         b.set(6,3,3,"minecraft:sticky_piston[facing=south,extended=false]");
         var report=FarmFunctionAudit.inspect(b,"automatic carrot farm",null);
         assertTrue(report.blockers().isEmpty(),report.warnings().toString());
-        assertTrue(report.cautions().stream().anyMatch(s->s.contains("not physically simulated")));
+        assertTrue(report.cautions().stream().anyMatch(s->s.contains("NOT simulated")));
     }
     @Test void farAwayDecorativePistonDoesNotFakeWaterHarvest(){
         Blueprint b=carrots();
         b.set(0,7,0,"minecraft:piston[facing=south,extended=false]");
         b.set(1,7,0,"minecraft:water[level=0]");
         var report=FarmFunctionAudit.inspect(b,"automatic carrot farm",null);
-        assertTrue(report.blockers().stream().anyMatch(s->s.contains("water-release")));
+        assertTrue(report.blockers().stream().anyMatch(s->s.contains("crop-breaking")));
     }
     @Test void detectsHoppersFacingAwayFromEveryStorageContainer(){
         Blueprint b=carrots();

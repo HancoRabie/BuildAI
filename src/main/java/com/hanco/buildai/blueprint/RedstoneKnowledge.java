@@ -119,7 +119,20 @@ public final class RedstoneKnowledge {
         if(general)
             memo.append(section("SECTION 5: OUTPUTS",
                 "SECTION 7: ENGINEERING TEMPLATES"));
+        // Always include the compact Java 1.21.1 cross-edition guards and
+        // functional QA checks. Only attach the larger truth-table/latch
+        // patterns when the actual request needs memory, timing or logic.
         memo.append(section("SECTION 7: ENGINEERING TEMPLATES",
+            "GENERIC LOGIC/MEMORY DESIGN TEMPLATES"));
+        boolean advancedLogic=general||containsAny(combined,
+            "logic","latch","flip-flop","flip flop","timer","clock",
+            "comparator","pulse","counter","memory","sorter","sorting",
+            "crafter","binary","boolean","xor","nor","monostable",
+            "sequencer","calculator","computer");
+        if(advancedLogic)
+            memo.append(section("GENERIC LOGIC/MEMORY DESIGN TEMPLATES",
+                "JAVA-SPECIFIC POWERING AND UPDATE ORDER"));
+        memo.append(section("JAVA-SPECIFIC POWERING AND UPDATE ORDER",
             "ADDITIONAL ENGINEERING RESEARCH"));
         return memo.toString();
     }

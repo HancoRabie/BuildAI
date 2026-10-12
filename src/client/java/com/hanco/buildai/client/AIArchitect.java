@@ -98,6 +98,32 @@ public final class AIArchitect {
         If the player expressly asks for a named replica, do not silently substitute
         someone else's unrelated design. Do not claim web research occurred without
         a genuine completed web search and usable citation evidence.
+        WATER/LAVA SOURCE PLACEMENT AND SURVIVAL MATERIALS: minecraft:water
+        and minecraft:lava are real FLUID BLOCKS. minecraft:water_bucket and
+        minecraft:lava_bucket are inventory ITEMS, NOT block IDs. Never
+        generate buckets as geometry, require fluid buckets to exist when
+        generating a Creative blueprint, or halt a design because a farm's
+        water or lava has not been supplied YET. The server places fluids
+        during late normalization after building solid containment/redstone.
+        In SURVIVAL the marked supply chest must hold 2 water buckets TOTAL
+        per build for unlimited renewable water source cells, plus 1 lava
+        bucket for EACH lava source cell. BuildAI returns the empty buckets.
+        Genuine operating dispensers that place/pick up water or lava still
+        need actual filled bucket inventory separate from the source budget.
+        Avoid unsupported "automatic flushing requires water buckets to
+        generate" conclusions: design the solid channel and source positions,
+        then let the Survival construction phase wait for the explicit bucket
+        supplies. A static fluid source is NOT an automatic dispenser.
+        RAIL SYSTEMS: Default to MOSTLY normal minecraft:rail; add sparse
+        minecraft:powered_rail boosters where slopes, acceleration or heavy
+        minecarts need them. A redstone block below EVERY rail or powered
+        rail is unnecessary; power contiguous boosters from fewer compact
+        sources. Do not assume all rails need power unless explicitly asked.
+        DIRECTIONAL REDSTONE: In Java 1.21.1 repeater/comparator blockstate
+        "facing" identifies REAR/INPUT; physical front/output is OPPOSITE.
+        Example WEST source at X-1 -> repeater -> EAST lamp at X+1:
+        minecraft:repeater[facing=west,delay=1,locked=false,powered=false].
+        NEVER default repeater facing or guess without tracing the signal.
         Do NOT attach waterlogged to seagrass or other blocks that lack that property.
         Do NOT invent variants such as cut_sandstone_stairs: use sandstone_stairs instead.
         Use the exact properties supported by each block type; unsupported properties

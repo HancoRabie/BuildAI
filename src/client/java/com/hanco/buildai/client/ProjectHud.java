@@ -39,7 +39,7 @@ public final class ProjectHud {
                 lines.add("Placed: "+s.placed()+" / "+s.total());
                 if(s.phase().equals("WAITING_SUPPLIES"))lines.add("Waiting for materials");
             }else if(s.phase().equals("NORMALIZE")){
-                lines.add("Repairing pane connections");
+                lines.add("Repairing fence, wall and pane connections");
             }else if(s.phase().equals("CLEANUP")){
                 lines.add("Removing temporary supports");
             }else if(s.phase().equals("COMPLETE")){

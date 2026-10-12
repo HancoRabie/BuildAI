@@ -2,7 +2,7 @@
   "schema": "buildai-rbl-v0.1",
   "target": "minecraft-java-1.21.1",
   "purpose": "Visual shorthand with canonical voxel cells; not a replacement for JSON blueprint output, real block states, or Minecraft execution.",
-  "coordinateSystem": "x east+, y up+, z south+; each row runs west to east; rows progress north to south; layers are fixed Y values.",
+  "coordinateSystem": "x east+, y up+, z south+; each row runs west to east; rows progress north to south; layers are fixed Y values. Base sample orientation EAST is only for examples; canonical module orientation is parameterized by target output direction N/S/E/W.",
   "verificationPolicy": {
     "static": "Syntax and coordinate/voxel integrity may be checked automatically.",
     "world": "ONLY mark in_game_verified after Java 1.21.1 run with environment/inputs, observed outputs, repeats, reset, and recorded evidence.",
@@ -241,7 +241,17 @@
       "limitations": [
         "This reference geometry is not yet documented as run in a Java 1.21.1 world.",
         "Does not establish general clock behavior."
-      ]
+      ],
+      "orientation": {
+        "basis": "east_example_only",
+        "rotateWith": "RedstoneBlueprintLibrary.templateBlueprint(id, cardinalOutput)",
+        "rotates": [
+          "allCells",
+          "supportedDirectionalStates",
+          "inputAndOutputPorts"
+        ],
+        "status": "static_geometry_only"
+      }
     },
     {
       "id": "rbl.lever_repeater_lamp.1",
@@ -355,7 +365,31 @@
       ],
       "limitations": [
         "Not tested in Java 1.21.1 in-world; no verified claim allowed."
-      ]
+      ],
+      "orientation": {
+        "basis": "east_example_only",
+        "rotateWith": "RedstoneBlueprintLibrary.templateBlueprint(id, cardinalOutput)",
+        "rotates": [
+          "allCells",
+          "supportedDirectionalStates",
+          "inputAndOutputPorts"
+        ],
+        "status": "static_geometry_only"
+      }
     }
-  ]
+  ],
+  "orientationPolicy": {
+    "defaultModuleOrientation": "east_example_only",
+    "permittedCardinalOutputs": [
+      "north",
+      "south",
+      "east",
+      "west"
+    ],
+    "symbols": "R/C/O/P/SP arrows describe physical OUTPUT or extension toward the next intended block, never a hardcoded world axis.",
+    "resolution": "For a repeater/comparator or observer: facing=opposite(intendedOutput); for a piston: facing=intendedOutput. Compute from local XYZ/target port, not player camera.",
+    "expansion": "RedstoneBlueprintLibrary.templateBlueprint(id,direction) rotates XZ geometry, direction-bearing states and named ports. The no-arg method is an east-only illustrative example.",
+    "unsupported": "Never rotate rails, connected dust, complex multiblock states or untested modded blocks with naive text substitution. Reject and require component-aware transformation.",
+    "verified": "Rotated static geometry still needs in-game tick/functional checks; sample templates are not in-game verified."
+  }
 }

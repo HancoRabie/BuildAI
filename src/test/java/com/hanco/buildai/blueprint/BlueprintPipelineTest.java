@@ -190,6 +190,19 @@ public class BlueprintPipelineTest {
         }
     }
 
+    @Test void statusPayloadSanitizesLongAiNamesBeforeNetworkEncode(){
+        String title="Roller Coaster ".repeat(60);
+        String materials="long_material_line ".repeat(160);
+        var packet=new com.hanco.buildai.net.ProjectStatusPayload(
+            title,"EXCAVATE",90,200,0,300,materials,
+            new net.minecraft.util.math.BlockPos(0,-2048,0),10,200,2);
+        assertTrue(packet.title().length()<=120);
+        assertTrue(packet.materials().length()<=1500);
+        assertEquals("EXCAVATE",packet.phase());
+        assertEquals(-2048,packet.chest().getY());
+        assertEquals(90,packet.placed());
+    }
+
     @Test void invalidBlueprintDataIsRejected() {
         assertThrows(IllegalArgumentException.class,()->new Blueprint("bad",500,500,500));
         Blueprint a=DemoBlueprint.cottage();

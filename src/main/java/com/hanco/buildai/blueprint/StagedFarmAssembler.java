@@ -15,6 +15,7 @@ public final class StagedFarmAssembler {
         private final JsonArray operations=new JsonArray();
         private final JsonArray limits=new JsonArray(),commands=new JsonArray();
         private final JsonArray circuits=new JsonArray(),sections=new JsonArray();
+        private final JsonArray interfaces=new JsonArray();
         private JsonObject firstGate;
         private int received=0;
         public Assembly(StagedFarmPlan plan){
@@ -68,6 +69,36 @@ public final class StagedFarmAssembler {
                 }
                 operations.add(op.deepCopy());
             }
+            int itemOutputs=0,triggerInputs=0;
+            if(data.has("interfaces")&&data.get("interfaces").isJsonArray()){
+                for(JsonElement value:data.getAsJsonArray("interfaces")){
+                    if(interfaces.size()>=48)break;
+                    if(!value.isJsonObject())continue;
+                    JsonObject port=value.getAsJsonObject();
+                    if(!port.has("x")||!port.has("y")||!port.has("z")||
+                       !port.has("type"))continue;
+                    int px=port.get("x").getAsInt(),py=port.get("y").getAsInt(),
+                        pz=port.get("z").getAsInt();
+                    if(px<0||px>=plan.width()||py<0||py>=plan.height()||
+                       pz<0||pz>=plan.length()||
+                       (!stage.fullBounds()&&(py<stage.firstY()||
+                        py>stage.lastY())))
+                        throw new IllegalArgumentException(stage.name()+
+                            " declared an interface port outside its permitted coordinates");
+                    String type=port.get("type").getAsString();
+                    if(type.equals("item_output"))itemOutputs++;
+                    if(type.equals("trigger_input"))triggerInputs++;
+                    JsonObject normalized=port.deepCopy();
+                    normalized.addProperty("stage",stage.name());
+                    interfaces.add(normalized);
+                }
+            }
+            if(stage.name().startsWith("Floor ") &&
+               (itemOutputs==0||triggerInputs==0))
+                throw new IllegalArgumentException(stage.name()+
+                    " lacks declared global XYZ item_output and trigger_input "+
+                    "interfaces; cannot connect master control and collectors "+
+                    "by guessing. Refine this stage before final assembly.");
             if(data.has("commands")&&data.get("commands").isJsonArray())
                 for(JsonElement entry:data.getAsJsonArray("commands"))
                     commands.add(entry.deepCopy());
@@ -93,6 +124,25 @@ public final class StagedFarmAssembler {
                 combined.addProperty("name",data.get("name").getAsString());
             received++;
         }
+        /** Short, real interface metadata reused in subsequent requests;
+         * never resend entire earlier assistant geometry or huge JSON.
+         */
+        public String connectionBrief(){
+            StringBuilder text=new StringBuilder();
+            for(JsonElement entry:interfaces){
+                JsonObject port=entry.getAsJsonObject();
+                String value=port.get("stage").getAsString()+": "+
+                    port.get("type").getAsString()+" at ("+
+                    port.get("x").getAsInt()+","+
+                    port.get("y").getAsInt()+","+
+                    port.get("z").getAsInt()+") "+
+                    (port.has("facing")?"facing "+port.get("facing").getAsString():"")+
+                    "; ";
+                if(text.length()+value.length()>900)break;
+                text.append(value);
+            }
+            return text.toString();
+        }
         public int completed(){return received;}
         public int total(){return plan.stages().size();}
         public String finish(){
@@ -108,6 +158,7 @@ public final class StagedFarmAssembler {
             }
             if(firstGate!=null)combined.add("fluid_gate_plan",firstGate);
             combined.add("staged_modules",sections);
+            if(!interfaces.isEmpty())combined.add("staged_interfaces",interfaces);
             String result=combined.toString();
             if(result.length()>1_450_000)
                 throw new IllegalArgumentException("Staged specification exceeds "+

@@ -112,7 +112,7 @@ public final class BuildAIScreen extends Screen {
             }
             add("Generate New",left,row(8),half,buttonHeight,b->requestAI(false));
             add("Revise Existing",left+half+gap,row(8),half,buttonHeight,b->requestAI(true));
-            add("Import File / My Builds",left,row(9),half,buttonHeight,b->browse());
+            add("My Blueprints / Import",left,row(9),half,buttonHeight,b->browse());
             add("Load Demo Cottage",left+half+gap,row(9),half,buttonHeight,b->{
                 if(busy){status="Wait for the current operation to finish.";return;}
                 Blueprint demo=DemoBlueprint.cottage();
@@ -343,12 +343,24 @@ public final class BuildAIScreen extends Screen {
             }
         }));
     }
+    @Override public void renderBackground(DrawContext ctx,int mx,int my,float delta){
+        // Minecraft GUI scale controls logical pixels; the dark studio panel
+        // and thin color-coded rails are decorative and never cover widgets.
+        ctx.fill(left-11,Math.max(0,row(0)-12),left+panelWidth+11,
+            Math.min(height,row(13)+15),0xEB172C3A);
+        ctx.fill(left-11,Math.max(0,row(0)-12),left+panelWidth+11,
+            Math.max(2,row(0)-9),0xFF69D7BD);
+        ctx.fill(left-5,row(2)-2,left-2,row(2)+Math.max(12,lineHeight-2),0xFF69D7BD);
+        ctx.fill(left-5,row(tab==0?8:6)-2,left-2,
+            row(tab==0?8:6)+Math.max(12,lineHeight-2),0xFF87C1EA);
+    }
     @Override public void render(DrawContext ctx,int mx,int my,float delta){
         super.render(ctx,mx,my,delta);
         int x=left;
         ctx.drawCenteredTextWithShadow(textRenderer,"BuildAI | 1.21.1 | Architect",width/2,row(0),0x66ECC4);
         if(tab==0){
-            ctx.drawTextWithShadow(textRenderer,"Describe your build or a revision",x,row(2),0xF1F6FA);
+            // The prompt field already has a placeholder: do NOT overdraw the
+            // Feedback & Styles button on row 2 with a second label.
             String account=ChatGPTSignIn.connected()?"ChatGPT connected: "+ChatGPTSignIn.accountLabel():
                 "ChatGPT: Not connected | Continue with ChatGPT to generate without API key";
             ctx.drawTextWithShadow(textRenderer,textRenderer.trimToWidth(account,panelWidth),x,row(4),0xA4C7DA);
@@ -362,9 +374,10 @@ public final class BuildAIScreen extends Screen {
             ctx.drawTextWithShadow(textRenderer,level,x,row(3),0xCDD3DC);
         }
         var messages=textRenderer.wrapLines(text(status),panelWidth);
+        // Status fits in its dedicated footer, not over the buttons above.
         for(int line=0;line<Math.min(2,messages.size());line++)
             ctx.drawTextWithShadow(textRenderer,messages.get(line),
-                x,Math.min(height-10,row(12+line)),0x79EBBD);
+                x,Math.min(height-11,row(12+line)),0x79EBBD);
     }
     @Override public void close(){
         if(client!=null){

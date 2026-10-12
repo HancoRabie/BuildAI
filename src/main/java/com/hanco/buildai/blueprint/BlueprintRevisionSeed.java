@@ -61,6 +61,8 @@ public final class BlueprintRevisionSeed {
         root.add("operations",ops);
         if(!blueprint.commands().isEmpty())
             root.add("commands",CommandBlockPlan.encode(blueprint.commands()));
+        if(!blueprint.signs().isEmpty())
+            root.add("signs",SignTextPlan.encode(blueprint.signs()));
         String json=root.toString();
         if(json.length()>1_500_000)
             throw new IllegalArgumentException("The legacy blueprint's detailed geometry exceeds "+

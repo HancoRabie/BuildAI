@@ -54,9 +54,9 @@ public final class RedstoneKnowledge {
 
     /** Build-time packaged knowledge, not a claim of model training. */
     public static String instructions(String prompt,String previousSpecification) {
-        String compact=readResource("/assets/buildai/redstone_reference.json");
         if(!isRedstoneRequest(prompt,previousSpecification))
-            return "\nBUILDAI REDSTONE BASE REFERENCE (for incidental mechanisms):\n"+compact;
+            return "\nBASE REDSTONE: keep directional states, supported wiring and "+
+                "appropriate script permissions. No machine is verified by geometry alone.\n";
         String manual=readResource("/assets/buildai/redstone_master_handbook.txt");
         return "\nMANDATORY ADVANCED REDSTONE ENGINEERING REVIEW (Java 1.21.1):\n"+
             "The player requested redstone or a working circuit/contraption. "+
@@ -69,6 +69,6 @@ public final class RedstoneKnowledge {
             "reset and in-game test. Do not copy a schematic from a reference. "+
             "Do not invent filled inventories or functional command blocks. "+
             "A circuit cannot be claimed verified without an actual world test.\n"+
-            manual+"\nSUPPLEMENTAL COMPONENT REFERENCE:\n"+compact;
+            manual+"\nMachine-readable component glossary is also packaged with BuildAI.\n";
     }
 }

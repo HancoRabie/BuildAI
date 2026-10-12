@@ -10,13 +10,16 @@ import java.util.*;
 public final class CommandGameAudit {
     private CommandGameAudit(){}
     public static List<String> inspect(Blueprint blueprint,String playerPrompt) {
-        if(blueprint.commands().isEmpty())return List.of();
-        List<String> warnings=new ArrayList<>();
-        List<String> commands=blueprint.commands().stream()
-            .map(e->e.command().toLowerCase(Locale.ROOT)).toList();
         boolean ctf=playerPrompt!=null&&
             (playerPrompt.toLowerCase(Locale.ROOT).contains("capture the flag")||
              playerPrompt.toLowerCase(Locale.ROOT).contains("ctf"));
+        if(blueprint.commands().isEmpty())
+            return ctf?List.of("CTF map has NO executable command-block plan: this is terrain only, "+
+                "NOT a working capture-the-flag game. Add all scoreboard, team, "+
+                "loadout, flag, win and reset logic before use."):List.of();
+        List<String> warnings=new ArrayList<>();
+        List<String> commands=blueprint.commands().stream()
+            .map(e->e.command().toLowerCase(Locale.ROOT)).toList();
         if(!ctf)return List.of(
             "Command logic is static-checked only. Test buttons, selectors, scores, timers and reset in a disposable 1.21.1 world.");
         if(none(commands,"team add","team join","team modify"))

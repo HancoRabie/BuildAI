@@ -46,15 +46,19 @@ public final class BuildAIGenerationScreen extends Screen {
             .dimensions(x+14,footerY+24,half,20).build();
         probe.active=!progress.snapshot().finished();
         addDrawableChild(probe);
-        ButtonWidget cancel=ButtonWidget.builder(
-            Text.literal("CANCEL | KEEP PROMPT"),
+        // Cancel is a workflow transition, not just a flag: open an editor
+        // immediately, keeping the original text while the old HTTP worker
+        // finishes closing. No new request can launch until it is gone.
+        ButtonWidget refine=ButtonWidget.builder(
+            Text.literal(progress.snapshot().finished()
+                ?"REFINE & START FRESH":"CANCEL & REFINE"),
             button->{
-                progress.requestCancellation();
-                button.active=false;
+                if(!progress.snapshot().finished())
+                    progress.requestCancellation();
+                if(client!=null)
+                    client.setScreen(new BuildAIRetryScreen(parent,progress));
             }).dimensions(x+14+half+gap,footerY+24,half,20).build();
-        cancel.active=!progress.cancellationRequested() &&
-            !progress.snapshot().finished();
-        addDrawableChild(cancel);
+        addDrawableChild(refine);
     }
 
     @Override public void renderBackground(DrawContext context,int mouseX,int mouseY,float delta) {

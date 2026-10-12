@@ -220,6 +220,7 @@ public final class AIArchitect {
             net.minecraft.SharedConstants.getGameVersion().getName()+
             ". Checking connected model access.");
         String model=ChatGPTSignIn.model();
+        if(progress!=null)progress.requestSent(model);
         report(progress,"Preparing secure request","Using your authorized account and model "+model+".");
         String token=ChatGPTSignIn.token();
         InspirationResearch.Result inspiration=InspirationResearch.research(token,model,prompt,progress);
@@ -261,6 +262,7 @@ public final class AIArchitect {
                     " — check plan permission, model limits or reconnect in F8");
             }
         }
+        if(progress!=null)progress.responseAccepted();
         report(progress,"Waiting for model output","Request accepted; waiting for actual design data.");
         StringBuilder generated=new StringBuilder();
         boolean completed=false;
@@ -284,6 +286,7 @@ public final class AIArchitect {
                 try{event=JsonParser.parseString(json).getAsJsonObject();}
                 catch(RuntimeException invalidEvent){continue;}
                 String type=event.has("type")?event.get("type").getAsString():"";
+                if(progress!=null&&!type.isBlank())progress.streamEvent(type);
                 if(type.equals("response.created") || type.equals("response.in_progress")) {
                     report(progress,"AI generating design","OpenAI reports the model is processing the blueprint request.");
                 }else if(type.equals("response.output_text.delta")){
@@ -359,6 +362,7 @@ public final class AIArchitect {
         if(prompt==null||prompt.isBlank()||prompt.length()>4000)throw new IllegalArgumentException("Prompt length 1-4000 required");
         InspirationResearch.Result inspiration=InspirationResearch.research(
             key.trim(),"gpt-4.1-mini",prompt,progress);
+        if(progress!=null)progress.requestSent("gpt-4.1-mini");
         JsonObject body=new JsonObject();body.addProperty("model","gpt-4.1-mini");
         JsonObject format=new JsonObject();format.addProperty("type","json_object");
         body.add("response_format",format);
@@ -391,6 +395,7 @@ public final class AIArchitect {
         report(progress,"Connecting to OpenAI","Sending architectural instructions through the developer API.");
         HttpResponse<String> response=ChatGPTNetwork.send(request,HttpResponse.BodyHandlers.ofString(),
             "requesting a Minecraft blueprint with the developer API");
+        if(progress!=null)progress.responseAccepted();
         report(progress,"Response received","The AI response arrived; reading the design instructions.");
         if(response.statusCode()!=200)throw new IllegalStateException("OpenAI HTTP "+response.statusCode()+
             ": verify API key, model availability, and billing");

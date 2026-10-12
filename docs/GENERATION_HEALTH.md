@@ -110,6 +110,53 @@ Existing sessions launched with an older installed JAR cannot acquire the
 new controls or prompt backup retroactively. Copy their prompt manually
 before restarting, if needed.
 
+## Staged engineering for large multi-floor farms
+
+When a **fresh** request explicitly specifies three or more numbered farm
+floors (`Floor 1:`, `Floor 2:`, `Floor 3:`) and calls for automated
+harvesting/redstone, BuildAI now uses a staged engineering workflow rather
+than attempting every voxel, machine and architectural feature in one
+enormous model response:
+
+1. One architectural-shell request with full human-scale footprint, floor
+   decks, stairs, windows and utility shafts.
+2. An independent model request for **each** numbered crop floor within its
+   assigned global Y band, including preplanting and local redstone.
+3. A final integration request to connect master controls and item paths
+   into the ground-floor storage. Farming floors must declare genuine
+   `item_output` and `trigger_input` ports with global XYZ/facing.
+4. Merge stage operations in a shared global coordinate system, reject
+   out-of-band floor geometry/changed dimensions, then compile and QA the
+   entire blueprint. The world remains untouched until normal preview
+   and explicit build confirmation.
+
+**No repeated reference browsing:** the Java 1.21.1 redstone handbook is
+read from the installed JAR **once per Minecraft process**, not once per
+redstone dust piece. Model requests receive a focused technical excerpt
+based on the currently relevant mechanisms. A single optional verified
+inspiration search result is shared across the stages instead of repeating
+web research for each floor.
+
+**Checkpoints:** After each stage passes the contract checks, BuildAI
+saves its corrected JSON in
+`buildai/staged-workspaces/<request+model+rules hash>/stage-N.json`.
+A stopped or failed generation with the exact same user request, model and
+reference version can reuse completed stages; changed instructions start
+fresh. A successful project marks those checkpoints complete, so choosing
+to remake the same prompt intentionally starts a NEW independent design.
+Checkpoint files contain the generated architecture JSON, no API keys,
+tokens or model-conversation IDs. Don't delete the workspace if you
+want an incomplete run to resume.
+
+**Limitations:** This first stage system deliberately targets explicitly
+numbered, multi-floor automated farms, not every large project. It can
+make several independent model requests, so total requests and token
+consumption may rise even if each stage is easier. It does not replace
+actual Minecraft redstone, water-flow, inventory-NBT and item-transport
+tests. Shared ports and structural QA detect some omissions but do NOT
+guarantee a functioning master button or hopper chain. Revisions of an
+existing completed farm still use BuildAI's previous revision flow.
+
 ## Why a prompt can be very slow before first text
 
 The model may be spending time planning complex architecture/redstone, or

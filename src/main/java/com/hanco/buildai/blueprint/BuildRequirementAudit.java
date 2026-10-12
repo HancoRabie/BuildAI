@@ -133,7 +133,8 @@ public final class BuildRequirementAudit {
         boolean trappedProhibited=Pattern.compile(
             "(?i)\\b(?:no|without|avoid|exclude)\\s+(?:trapped|redstone)\\s+chests?\\b")
             .matcher(prompt).find();
-        if(trappedRequested && counts.getOrDefault("minecraft:trapped_chest",0)==0)
+        if(trappedRequested && !trappedProhibited &&
+           counts.getOrDefault("minecraft:trapped_chest",0)==0)
             blockers.add("Requested redstone/trapped chest is absent: "+
                 "minecraft:chest does NOT output an opening signal.");
         if(trappedProhibited && counts.getOrDefault("minecraft:trapped_chest",0)>0)
@@ -147,7 +148,7 @@ public final class BuildRequirementAudit {
             if(!includes(prompt,name))continue;
             // The word "chest" inside "trapped chest" is not a demand
             // for a separate normal chest unless the request says so.
-            if(name.equals("chest")&&trappedRequested&&!normalRequested)
+            if(name.equals("chest")&&(trappedRequested||trappedProhibited)&&!normalRequested)
                 continue;
             if(Pattern.compile("(?i)\\b(?:no|without|avoid|exclude|remove|not using)\\s+"+
                 Pattern.quote(name)+"s?\\b").matcher(prompt).find())continue;

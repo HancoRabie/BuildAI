@@ -27,6 +27,13 @@ public final class GenerationProgress {
     private int receivedCharacters=0;
     private boolean finished=false;
     private boolean failed=false;
+    private volatile boolean cancelRequested=false;
+    public void requestCancellation(){
+        cancelRequested=true;
+        stage("Cancellation requested","Stopping the active OpenAI request. "+
+            "Your existing blueprint is unchanged.");
+    }
+    public boolean cancellationRequested(){return cancelRequested;}
 
     public synchronized void stage(String name,String explanation) {
         if(finished)return;

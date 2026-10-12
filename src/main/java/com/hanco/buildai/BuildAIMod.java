@@ -213,14 +213,18 @@ public final class BuildAIMod implements ModInitializer {
                         int size=p.commandCount();
                         reply(player,"Command plan: "+size+" blocks | "+
                             (p.commandsApproved()?"approved":"NOT APPROVED")+
-                            " | Minecraft 1.21.1. Command blocks are privileged and need operator-level 4 approval.");
+                            " | stable physical build order by Y/Z/X, local XYZ -> locked world XYZ. "+
+                            "Review and approve as operator-level 4.");
                         for(int i=0;i<Math.min(10,size);i++){
                             var block=p.blueprint.commands().get(i);
-                            reply(player,"#"+i+" ["+block.x()+","+block.y()+","+block.z()+"] "+
-                                (block.auto()?"automatic":"redstone-driven")+"  "+
-                                block.command().substring(0,Math.min(110,block.command().length())));
+                            BlockPos at=p.origin.add(block.x(),block.y(),block.z());
+                            reply(player,"#"+(i+1)+" local["+block.x()+","+block.y()+","+block.z()+"]"+
+                                " world["+at.toShortString()+"] "+
+                                (block.auto()?"always-active":"redstone-driven")+"  "+
+                                block.command().substring(0,Math.min(100,block.command().length())));
                         }
-                        if(size>10)reply(player,"More commands: /buildai commands show <index> (0.."+(size-1)+")");
+                        if(size>10)reply(player,"More commands: /buildai commands show <index> (0.."+(size-1)+"). "+
+                                "Or review the paged in-game GUI in F8 > Placement / Export > Design QA.");
                         return 1;
                     }))
                     .then(literal("show")
@@ -232,8 +236,11 @@ public final class BuildAIMod implements ModInitializer {
                                 int index=com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c,"index");
                                 if(index>=p.commandCount()){reply(player,"No command at index "+index);return 0;}
                                 var block=p.blueprint.commands().get(index);
-                                reply(player,"#"+index+" ("+block.x()+","+block.y()+","+block.z()+") "+
-                                    (block.auto()?"always-active":"requires signal")+
+                                BlockPos at=p.origin.add(block.x(),block.y(),block.z());
+                                reply(player,"#"+(index+1)+" local("+block.x()+","+block.y()+","+
+                                    block.z()+") => world("+at.toShortString()+") "+
+                                    Blueprint.id(p.blueprint.get(block.x(),block.y(),block.z()))+" "+
+                                    (block.auto()?"always-active":"requires redstone")+
                                     ": "+block.command());
                                 return 1;
                             })))

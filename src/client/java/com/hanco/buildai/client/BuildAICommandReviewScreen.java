@@ -129,8 +129,15 @@ public final class BuildAICommandReviewScreen extends Screen {
         add("APPROVE ALL ("+entries().size()+")",
             x+2*(third+gap),height-61,w-2*(third+gap),20,()->approve(true))
             .active=serverReview&&!waiting&&!approved&&!entries().isEmpty();
-        add("BACK / REVIEW LATER",x,height-34,half,20,this::close);
-        add("SHOW FULL SCRIPT IN CHAT",x+half+gap,height-34,half,20,()->{
+        // Primary action: users should NEVER have to use Escape. After
+        // successful commissioning this is an obvious, full-width DONE CTA;
+        // before approval it is an explicit non-destructive exit.
+        if(approved){
+            add("DONE  >  RETURN TO MINECRAFT",x,height-34,w,21,this::returnToGame);
+        }else{
+            add(serverReview?"RETURN TO GAME  (REVIEW LATER)":"BACK TO BUILDAI",
+                x,height-34,half,20,serverReview?this::returnToGame:this::close);
+            add("SHOW FULL SCRIPT IN CHAT",x+half+gap,height-34,half,20,()->{
             var item=focus();
             if(item!=null&&client!=null&&client.player!=null){
                 client.player.sendMessage(Text.literal("[BuildAI] #"+item.number()+
@@ -138,7 +145,11 @@ public final class BuildAICommandReviewScreen extends Screen {
                     " | "+item.command()),false);
                 status="Full command #"+item.number()+" posted to Minecraft chat for inspection.";
             }
-        }).active=!entries().isEmpty();
+            }).active=!entries().isEmpty();
+        }
+    }
+    private void returnToGame(){
+        if(client!=null)client.setScreen(null);
     }
     @Override public boolean mouseScrolled(double mx,double my,double dx,double dy){
         if(height<245)return super.mouseScrolled(mx,my,dx,dy);
@@ -238,6 +249,12 @@ public final class BuildAICommandReviewScreen extends Screen {
         ctx.fill(x-8,top(),x+w+8,height-4,DARK);
         ctx.fill(x-8,top(),x+w+8,top()+3,TEAL);
         ctx.fill(x+3,42,x+w-3,43,0xFF406276);
+        if(approved&&height>=245){
+            // Emerald accent around the completion action; buttons stay native
+            // to Minecraft for focus, hover, scaling and accessibility.
+            ctx.fill(x+7,height-37,x+w-7,height-11,0xCC15665A);
+            ctx.drawBorder(x+6,height-38,w-12,28,TEAL);
+        }
     }
     @Override public void render(DrawContext ctx,int mx,int my,float delta){
         super.render(ctx,mx,my,delta);

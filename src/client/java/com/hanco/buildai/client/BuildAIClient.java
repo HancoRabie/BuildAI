@@ -80,7 +80,11 @@ public final class BuildAIClient implements ClientModInitializer {
 
     public static synchronized boolean beginGeneration(GenerationProgress progress){
         if(activeGeneration!=null && !activeGeneration.snapshot().finished())return false;
-        activeGeneration=progress;minimizedProgress=null;return true;
+        activeGeneration=progress;minimizedProgress=null;
+        // Persist BEFORE sending any model request, so timeout, cancellation,
+        // switching builds and even a Minecraft crash cannot erase the prompt.
+        GenerationPromptJournal.save(progress.originalPrompt());
+        return true;
     }
     public static GenerationProgress currentGeneration(){return activeGeneration;}
     public static synchronized void endGeneration(GenerationProgress progress){

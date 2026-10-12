@@ -262,6 +262,9 @@ public final class ConstructionProject {
                 if(approvedCommandIndices.contains(programmingIndex))
                     CommandBlockInstaller.program(world,origin.add(e.x(),e.y(),e.z()),e,
                         blueprint.get(e.x(),e.y(),e.z()));
+                else
+                    CommandBlockInstaller.keepInert(world,origin.add(e.x(),e.y(),e.z()),
+                        blueprint.get(e.x(),e.y(),e.z()));
                 programmingIndex++;
             }
             // Do not arm ANY blocks until all command text has been installed.

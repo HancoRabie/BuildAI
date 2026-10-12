@@ -35,7 +35,6 @@ final class StagedFarmArchitect {
             InspirationResearch.research(token,model,original,progress);
         StagedFarmAssembler.Assembly merged=new StagedFarmAssembler.Assembly(plan);
         java.util.List<String> acceptedSpecifications=new java.util.ArrayList<>();
-        java.util.List<String> functionalNotes=new java.util.ArrayList<>();
         StagedFarmCheckpoints checkpoint=new StagedFarmCheckpoints(
             net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir()
                 .resolve("buildai/staged-workspaces"),
@@ -72,40 +71,12 @@ final class StagedFarmArchitect {
             AIArchitect.DesignResult piece=connectedChat
                 ?AIArchitect.generateStageWithChatGPT(stagePrompt,progress,inspiration)
                 :AIArchitect.generateStageWithApi(apiKey,stagePrompt,progress,inspiration);
-            // Attempt ONE corrective model revision, then preflight it
-            // against ALL already verified stages before risking the merge.
-            // An unsafe revision must not corrupt the current assembly.
-            AIArchitect.DesignResult initial=piece;
-            AIArchitect.DesignResult proposed=FarmFunctionRepair.review(
-                stagePrompt,piece,apiKey,connectedChat,progress);
-            if(proposed!=initial){
-                try{
-                    StagedFarmAssembler.Assembly trial=
-                        new StagedFarmAssembler.Assembly(plan);
-                    for(int p=0;p<acceptedSpecifications.size();p++)
-                        trial.add(plan.stages().get(p),acceptedSpecifications.get(p));
-                    trial.add(stage,proposed.specification());
-                    piece=proposed;
-                }catch(RuntimeException unsafe){
-                    initial.blueprint().warnings.add(
-                        "FARM REPAIR: Revision broke staged floor/interface "+
-                        "contracts; discarded correction and preserved original.");
-                    piece=initial;
-                }
-            }
+            // Each independently engineered stage is validated and checkpointed.
+            // Broad prompt acceptance/optimization runs ONCE over the final
+            // assembled building, not on partial floors/rooms that cannot
+            // satisfy the complete request individually.
             merged.add(stage,piece.specification());
             acceptedSpecifications.add(piece.specification());
-            // Preserve meaningful stage-level notes in the final QA panel.
-            for(String issue:piece.blueprint().warnings){
-                boolean engineeringIssue=issue.startsWith("FARM FUNCTION")||
-                    issue.startsWith("FARM REPAIR")||
-                    (issue.startsWith("FLOODGATE QA")&&
-                        !issue.contains("STATIC schematic cannot verify"))||
-                    (issue.startsWith("REDSTONE QA")&&
-                        !issue.contains("NOT functional simulation"));
-                if(engineeringIssue && functionalNotes.size()<48)
-                    functionalNotes.add(stage.name()+": "+issue);
-            }
             checkpoint.save(i,piece.specification());
             if(progress!=null)progress.stage(
                 "Stage "+(i+1)+"/"+plan.stages().size()+" validated",
@@ -134,14 +105,12 @@ final class StagedFarmArchitect {
             blueprint.warnings.addAll(FluidGateAudit.inspect(
                 blueprint,original,compiled.correctedSpecification()));
             blueprint.warnings.addAll(ChainGapAudit.inspect(blueprint));
-            blueprint.warnings.addAll(FarmFunctionAudit.inspect(
-                blueprint,original,compiled.correctedSpecification()).warnings());
+
         }catch(RuntimeException qaError){
             blueprint.warnings.add("Some nonessential staged Design QA "+
                 "checks failed; inspect cross-floor control, hopper and "+
                 "water connections manually before using this farm.");
         }
-        blueprint.warnings.addAll(functionalNotes);
         blueprint.warnings.add("STAGED DESIGN: "+merged.total()+
             " independently designed modules share one global coordinate "+
             "system. Physical integration is not proof that any redstone "+
@@ -152,7 +121,8 @@ final class StagedFarmArchitect {
             merged.total()+" real engineering modules were combined into "+
             "one "+plan.width()+"x"+plan.height()+"x"+plan.length()+
             " blueprint; ready to inspect and preview.");
-        return new AIArchitect.DesignResult(
-            blueprint,compiled.correctedSpecification(),inspiration);
+        return BuildQualityReview.review(original,new AIArchitect.DesignResult(
+            blueprint,compiled.correctedSpecification(),inspiration),
+            apiKey,connectedChat,progress);
     }
 }

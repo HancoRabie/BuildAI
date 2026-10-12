@@ -38,6 +38,15 @@ public final class AIArchitect {
         on both sides, and choose open=false unless a deliberately open door is requested.
         Don't invent a door to decorate a solid wall or block the walkway.
         COMMAND BLOCK / FUNCTIONAL SERVER SYSTEMS (Minecraft Java 1.21.1):
+        When the player requests any working command block mechanism (including
+        one button to change time or weather), include both the physical block and
+        a matching executable command entry. It is NEVER sufficient to leave blank
+        command blocks in the world or say "manual configuration required" if
+        the user asked BuildAI to set them up. Do not silently claim the build
+        is functional when "commands" is empty or missing.
+        For a button requesting sunshine use weather clear, for daytime use
+        time set day; for nighttime use time set night. One block and one valid
+        command array entry per independent action.
         When the player requests working minigame logic, include real command blocks
         in the standard geometry operations using minecraft:command_block,
         minecraft:chain_command_block, or minecraft:repeating_command_block.
@@ -48,7 +57,10 @@ public final class AIArchitect {
         Never place commands as block state properties, sign text, or pretend the AI can
         set executable NBT solely by placing a command block.
         Permitted roots: scoreboard, team, tag, effect, give, clear, tp, teleport,
-        title, tellraw, playsound, particle, execute, spawnpoint. For "execute ... run"
+        title, tellraw, playsound, particle, execute, spawnpoint.
+        Also allow time set day/night/noon/midnight/<ticks>, weather clear/rain/thunder
+        and gamerule doDaylightCycle/doWeatherCycle true/false, for functional
+        daylight and weather control panels. For "execute ... run"
         the nested command must also use this safe set. Do NOT emit function, data,
         summon, fill, setblock, gamerule, op, deop, stop, reload, schedule, or arbitrary
         admin commands. Keep every command at most 768 characters and avoid absolute

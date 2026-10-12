@@ -306,6 +306,10 @@ public final class AIArchitect {
                 }else if(type.equals("response.completed")){
                     completed=true;
                     report(progress,"Response completed","Received the final response; preparing to compile the structure.");
+                    // response.completed is the authoritative final SSE event.
+                    // Don't wait for an optional trailing [DONE] marker that
+                    // may never arrive on a proxy or intermediary connection.
+                    break;
                 }
                 }
             }catch(java.io.IOException failure){

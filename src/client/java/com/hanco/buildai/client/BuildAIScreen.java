@@ -389,7 +389,9 @@ public final class BuildAIScreen extends Screen {
             if(error!=null){
                 String reason=message(error);
                 progress.failure(reason);
-                status="Generation failed: "+reason;
+                status="Generation failed: "+progress.failureSummary()+
+                    " Use COPY FAILURE REPORT on the generation screen "+
+                    "for the actual stream and validation details.";
                 BuildAIClient.message(status);
                 return;
             }
@@ -413,9 +415,22 @@ public final class BuildAIScreen extends Screen {
         }));
     }
     private static String message(Throwable throwable){
-        Throwable t=throwable;
-        while(t.getCause()!=null)t=t.getCause();
-        return t.getMessage()==null?t.toString():t.getMessage();
+        // CompletableFuture wraps IOException in CompletionException and
+        // RuntimeException. The old version returned ONLY the deepest cause
+        // and discarded the important "missing response.completed", HTTP,
+        // recovery-path, and validation context from the intermediate error.
+        java.util.LinkedHashSet<String> distinct=new java.util.LinkedHashSet<>();
+        Throwable t=throwable;int depth=0;
+        while(t!=null&&depth++<7){
+            String message=t.getMessage();
+            if(message!=null&&!message.isBlank()&&
+                !(message.equals(t.getClass().getName())))
+                distinct.add(message.trim());
+            t=t.getCause();
+        }
+        String combined=String.join(" | Caused by: ",distinct);
+        return combined.isBlank()?throwable.toString():
+            combined.substring(0,Math.min(combined.length(),3000));
     }
     /**
      * Swing file pickers must be created and shown on Swing's event thread,

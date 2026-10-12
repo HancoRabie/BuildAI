@@ -98,6 +98,10 @@ public final class StagedFarmPlan {
     }
 
     public String stagePrompt(String original,Stage stage,int index){
+        return stagePrompt(original,stage,index,"");
+    }
+    public String stagePrompt(String original,Stage stage,int index,
+                              String knownInterfaces){
         String discipline="""
             BUILDAI STAGED GENERATION — NEW INDEPENDENT MODEL REQUEST:
             Your assigned engineering subsystem is ONE part of a multi-floor
@@ -111,6 +115,16 @@ public final class StagedFarmPlan {
             the geometry operations required by this stage, with actual
             component faces, states and engineering plans. Other stages
             handle the rest. Do not erase the shell or another crop floor.
+            Additionally return "interfaces":[{"type":"item_output",
+            "x":1,"y":10,"z":1,"facing":"east","purpose":"example"},
+            {"type":"trigger_input","x":2,"y":10,"z":1,
+            "facing":"west","purpose":"example"}] with REAL local-global
+            XYZ from your geometry; NEVER use these example coordinates.
+            Each farming floor needs a genuine trigger_input and item_output.
+            The shell should reserve an accessible shared vertical shaft.
+            The final integrator MUST wire actual previously defined
+            interfaces, not merely claim that stages are connected.
+            Previously designed interface ports: %s
             Floors have 9-block story bands, ground=Y0..8, floor1=Y9..17,
             floor2=Y18..26, floor3=Y27..35, etc. The shell adds stairs.
             %s
@@ -122,7 +136,9 @@ public final class StagedFarmPlan {
                     "previous stage work and pre-existing corridors.":
                     "ONLY modify cells in global Y="+stage.firstY()+".."+
                     stage.lastY()+" inclusive. Do not spill into other floors.",
-                original);
+                knownInterfaces==null||knownInterfaces.isBlank()?
+                    "No previous interface points yet.":
+                    knownInterfaces,original);
         if(discipline.length()>4000)
             throw new IllegalArgumentException("Player's request plus scoped "+
                 "staged instructions exceed the 4000-character model limit. "+

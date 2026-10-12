@@ -54,7 +54,11 @@ public final class BuildAIGenerationScreen extends Screen {
         addDrawableChild(returnToGameButton);
         probeButton=ButtonWidget.builder(
             Text.literal("CHECK REQUEST (SAFE)"),
-            button->BuildAIRequestHealth.check(progress))
+            button->{
+                if(progress.snapshot().failed()){
+                    if(client!=null)client.keyboard.setClipboard(progress.failureReport());
+                }else BuildAIRequestHealth.check(progress);
+            })
             .dimensions(x+14,footerY+24,half,20).build();
         probeButton.active=!progress.snapshot().finished();
         addDrawableChild(probeButton);
@@ -98,7 +102,16 @@ public final class BuildAIGenerationScreen extends Screen {
             autoStopButton.setMessage(autoStopLabel());
             autoStopButton.active=!s.finished();
         }
-        if(probeButton!=null)probeButton.active=!s.finished();
+        if(probeButton!=null){
+            probeButton.active=!s.finished()||s.failed();
+            probeButton.setMessage(Text.literal(s.failed()?
+                "COPY FAILURE REPORT":"CHECK REQUEST (SAFE)"));
+            probeButton.setTooltip(s.failed()
+                ?net.minecraft.client.gui.tooltip.Tooltip.of(Text.literal(
+                    "Copy model event, HTTP status, output count, elapsed time, "+
+                    "diagnosis and saved recovery path."))
+                :null);
+        }
         if(refineButton!=null)refineButton.setMessage(Text.literal(s.finished()
             ?"REFINE & START FRESH":"CANCEL & REFINE"));
         if(returnToGameButton!=null)returnToGameButton.setMessage(Text.literal(
@@ -126,8 +139,8 @@ public final class BuildAIGenerationScreen extends Screen {
             width/2,top+unit*3,s.failed()?0xFFA99B:0xFFF0F7F7);
 
         // Diagnostics are shown in the VISIBLE top area even at high GUI scale.
-        String readableDetail=progress.checkStatus().isBlank()
-            ?s.detail():progress.briefCheckStatus();
+        String readableDetail=s.failed()?progress.failureSummary():
+            progress.checkStatus().isBlank()?s.detail():progress.briefCheckStatus();
         List<OrderedText> detailLines=textRenderer.wrapLines(Text.literal(readableDetail),usable-8);
         for(int i=0;i<Math.min(3,detailLines.size());i++) {
             int y=top+unit*4+i*11;
@@ -175,7 +188,8 @@ public final class BuildAIGenerationScreen extends Screen {
             progress.cancellationRequested()
             ? "Cancellation requested; closing the model stream. Your blueprint is safe."
             : s.finished()
-            ? s.failed()?"Generation stopped. Your previous blueprint is unchanged.":
+            ? s.failed()?"Evidence: "+progress.lastStreamSummary()+
+                ". Copy Failure Report for exact reason, recovery path and next steps.":
                 "Blueprint complete. Opening its in-game review."
             : s.secondsSinceActivity()>=15
                 ? "No new design data for "+s.secondsSinceActivity()+

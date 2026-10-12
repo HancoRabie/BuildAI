@@ -22,6 +22,12 @@ public final class BuildAIQualityScreen extends Screen {
     @Override protected void init(){
         int w=Math.min(510,Math.max(140,width-20)),x=(width-w)/2,gap=5;
         int footer=Math.max(25,height-36);
+        if(BuildAIClient.lastResearch().verified()){
+            addDrawableChild(ButtonWidget.builder(
+                Text.literal("View Cited Web Inspiration Sources"),
+                button->BuildAIClient.showInspirationLinks())
+                .dimensions(x+5,55,w-10,18).build());
+        }
         int third=(w-gap*2)/3;
         addDrawableChild(ButtonWidget.builder(Text.literal("Previous"),b->{
             offset=Math.max(0,offset-4);
@@ -42,7 +48,7 @@ public final class BuildAIQualityScreen extends Screen {
             width/2,27,0xD8E5EE);
         ctx.drawTextWithShadow(textRenderer,findings.size()+" potential issue(s). "+
             "Heuristic warnings; inspect in-game.",x+5,43,0xE6CA91);
-        int y=60;
+        int y=BuildAIClient.lastResearch().verified()?84:60;
         if(findings.isEmpty()){
             ctx.drawTextWithShadow(textRenderer,"No automated warnings recorded.",x+5,y,0xA3F1C9);
             ctx.drawTextWithShadow(textRenderer,"This is not proof that rooms and stairs are walkable.",

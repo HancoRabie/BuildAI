@@ -193,7 +193,7 @@ public final class AIArchitect {
         String rules=INSTRUCTIONS+"\nRUNTIME_MINECRAFT_VERSION: "+
             net.minecraft.SharedConstants.getGameVersion().getName()+
             " (generate commands strictly for this version).\n"+
-            REDSTONE+"\n"+loadReference()+"\n"+loadArchitectureGuide();
+            REDSTONE+"\n"+RedstoneKnowledge.instructions(prompt,previous)+"\n"+loadArchitectureGuide();
         if(previous!=null)rules+="\nRevise the existing blueprint. Return COMPLETE replacement JSON, not a diff. "+
             "Keep existing geometry unless the player explicitly asks for changes.";
         system.addProperty("content",rules);
@@ -294,7 +294,7 @@ public final class AIArchitect {
         String systemInstructions=INSTRUCTIONS+"\nRUNTIME_MINECRAFT_VERSION: "+
             net.minecraft.SharedConstants.getGameVersion().getName()+
             " (generate commands strictly for this version).\n"+
-            REDSTONE+"\n"+loadReference()+"\n"+loadArchitectureGuide();
+            REDSTONE+"\n"+RedstoneKnowledge.instructions(prompt,previous)+"\n"+loadArchitectureGuide();
         if(previous!=null)
             systemInstructions+="\nYou are REVISING an existing project, not designing from scratch. "+
                 "Preserve dimensions, details and architecture unless the user requests changes. "+

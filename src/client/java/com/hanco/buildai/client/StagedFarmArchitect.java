@@ -39,7 +39,8 @@ final class StagedFarmArchitect {
                 throw new java.util.concurrent.CancellationException(
                     "Stopped before stage "+(i+1));
             StagedFarmPlan.Stage stage=plan.stages().get(i);
-            String stagePrompt=plan.stagePrompt(original,stage,i);
+            String stagePrompt=plan.stagePrompt(original,stage,i,
+                merged.connectionBrief());
             if(progress!=null)progress.stage(
                 "Stage "+(i+1)+"/"+plan.stages().size()+": "+stage.name(),
                 "Requesting just this subsystem, not the full farm. "+

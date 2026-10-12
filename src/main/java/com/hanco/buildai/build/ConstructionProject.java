@@ -432,7 +432,22 @@ public final class ConstructionProject {
             }
         return map;
     }
+    /** Fail-closed: don't leave partially commissioned minigame loops running. */
+    public void disarmCommands(){
+        if(!commandsApproved)return;
+        for(CommandBlockPlan.Entry entry:blueprint.commands()){
+            BlockPos pos=origin.add(entry.x(),entry.y(),entry.z());
+            if(!world.isChunkLoaded(pos))continue;
+            if(world.getBlockEntity(pos) instanceof CommandBlockBlockEntity tile &&
+                tile.getCommandExecutor().getCommand().equals(entry.command())){
+                tile.setAuto(false);
+                tile.markDirty();
+            }
+        }
+    }
+
     public void cancel(boolean undo) {
+        disarmCommands();
         excavationCue(com.hanco.buildai.net.CinematicExcavationPayload.STOP,0);
         // Temporary staging never survives a cancellation.
         for(BlockPos p:new ArrayList<>(supports)){

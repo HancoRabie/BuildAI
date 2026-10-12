@@ -84,9 +84,10 @@ public final class ArchitecturalStyleAnalyzer {
         result.append("Most occupied Y layer: ").append(fullest)
             .append(" (").append(perLayer[fullest]).append(" blocks); top occupied Y: ")
             .append(highest).append(".\n");
-        result.append("EXACT DETAIL EXCERPTS. Coordinates are relative to each sample center; preserve the");
-        result.append(" block states and arrangement when adapting an applicable motif,");
-        result.append(" but do not assume each crop is a standalone object.\n");
+        result.append("DETAIL TECHNIQUE SAMPLES (relative block-state excerpts for ANALYSIS ONLY).");
+        result.append(" Study construction roles, material contrast, block transitions and depth;");
+        result.append(" adapt those principles into NEW geometry driven by the player's prompt.");
+        result.append(" Do not reuse a reference's exact arrangement, recognizable silhouette or layout.\n");
         List<Feature> candidates=new ArrayList<>();
         for(Feature f:examples)if(f!=null)candidates.add(f);
         candidates.sort(Comparator.comparingInt(Feature::score).reversed());

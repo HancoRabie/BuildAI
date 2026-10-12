@@ -37,6 +37,41 @@ public final class BuildAIMod implements ModInitializer {
         if(ServerPlayNetworking.canSend(player,ClearPreviewPayload.ID))
             ServerPlayNetworking.send(player,new ClearPreviewPayload());
     }
+    private static int recoverSavedCommands(ServerPlayerEntity player,String fileName) {
+        if(!CommandAuthorization.canApprove(player,player.getUuid())){
+            reply(player,CommandAuthorization.explanation(player));return 0;
+        }
+        try{
+            String name=fileName.trim();
+            if(name.length()<6||name.length()>220||
+                !name.matches("[a-zA-Z0-9_.-]+\\.schem")||
+                name.contains(".."))
+                throw new IllegalArgumentException(
+                    "Select one saved .schem filename from F8 > My Blueprints (no folder paths)");
+            HitResult target=player.raycast(9.0,0.0f,false);
+            if(!(target instanceof BlockHitResult hit)||
+                target.getType()!=HitResult.Type.BLOCK)
+                throw new IllegalArgumentException(
+                    "Look directly at ANY placed command block from the saved build");
+            java.nio.file.Path library=net.fabricmc.loader.api.FabricLoader.getInstance()
+                .getGameDir().resolve("buildai").resolve("blueprints").toAbsolutePath().normalize();
+            java.nio.file.Path saved=library.resolve(name).normalize();
+            if(!saved.getParent().equals(library)||!java.nio.file.Files.isRegularFile(saved))
+                throw new IllegalArgumentException(
+                    "Saved schematic not found in this server's buildai/blueprints folder. "+
+                    "Dedicated servers must have the file on the server.");
+            Blueprint blueprint=SchematicReader.read(saved);
+            int staged=StandaloneCommandReview.stageBlueprint(player,blueprint,hit.getBlockPos());
+            reply(player,"RECOVERED "+staged+" command scripts from "+name+
+                " and matched EVERY command-block position/facing in the existing world. "+
+                "No blocks were changed. Review before approval.");
+            if(ServerPlayNetworking.canSend(player,CommandReviewPayload.ID))
+                ServerPlayNetworking.send(player,StandaloneCommandReview.snapshot(player));
+            return staged;
+        }catch(Exception ex){
+            reply(player,"Command plan recovery rejected: "+ex.getMessage());return 0;
+        }
+    }
     private static int stageAtCrosshair(ServerPlayerEntity player,String command){
         if(!CommandAuthorization.canApprove(player,player.getUuid())){
             reply(player,CommandAuthorization.explanation(player));return 0;
@@ -320,6 +355,10 @@ public final class BuildAIMod implements ModInitializer {
                     return 1;
                 }))
                 .then(literal("commands").requires(src->src.hasPermissionLevel(2))
+                    .then(literal("recover").then(
+                        argument("filename",StringArgumentType.greedyString()).executes(c->
+                            recoverSavedCommands(c.getSource().getPlayerOrThrow(),
+                                StringArgumentType.getString(c,"filename")))))
                     .then(literal("set").requires(src->src.hasPermissionLevel(2))
                         .then(argument("command",StringArgumentType.greedyString()).executes(c->
                             stageAtCrosshair(c.getSource().getPlayerOrThrow(),

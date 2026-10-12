@@ -28,6 +28,8 @@ public final class ConstructionProject {
     public BlockPos origin=BlockPos.ORIGIN;
     private List<BlockPos> order;
     private int excavationIndex=0,removedCount=0,constructionIndex=0,normalizeIndex=0,normalizedPanes=0;
+    private int normalizePass=0,normalizedRedstone=0,refreshedRedstone=0;
+    private boolean manualNormalize=false;
     private final Map<BlockPos,BlockState> originals=new LinkedHashMap<>();
     private final Set<BlockPos> modified=new HashSet<>();
     private final Set<BlockPos> supports=new LinkedHashSet<>();
@@ -227,15 +229,28 @@ public final class ConstructionProject {
         if(!modified.add(key))return;
         if(!previous.isAir())originals.put(key,previous);
     }
-    /** Re-run normalization against the already-built project footprint, without excavation. */
-    public boolean requestPaneRepair() {
-        if (phase != Phase.COMPLETE) return false;
+    private void beginNormalization(boolean manualRepair) {
         normalizeIndex=0;
+        normalizePass=0;
         normalizedPanes=0;
+        normalizedRedstone=0;
+        refreshedRedstone=0;
+        manualNormalize=manualRepair;
         phase=Phase.NORMALIZE;
+    }
+
+    /** Re-run cosmetic and redstone normalization on the finished footprint.
+     * Crucially, repairing an already commissioned project must NOT reopen
+     * command approval or silently clear its approved command set.
+     */
+    public boolean requestPaneRepair() {
+        if(phase!=Phase.COMPLETE)return false;
+        beginNormalization(true);
         return true;
     }
     public int normalizedPanes() { return normalizedPanes; }
+    public int normalizedRedstone() { return normalizedRedstone; }
+    public int refreshedRedstone() { return refreshedRedstone; }
     public void tick() {
         if(phase==Phase.ROLLBACK_CHECK){
             int scanned=0;
@@ -275,14 +290,39 @@ public final class ConstructionProject {
         }
         if(phase==Phase.NORMALIZE) {
             int scanned=0;
+            // Three ordered, bounded passes. First stabilize all decorative
+            // neighbors, next repair dust geometry, THEN propagate redstone
+            // signals. No command scripts are installed at this point.
             while(normalizeIndex<order.size() && scanned++<256) {
                 BlockPos pos=origin.add(order.get(normalizeIndex));
                 if(!world.isChunkLoaded(pos))return;
-                if(PaneNormalizer.normalize(world,pos))normalizedPanes++;
+                if(normalizePass==0) {
+                    if(PaneNormalizer.normalize(world,pos))normalizedPanes++;
+                }else{
+                    BlockState state=world.getBlockState(pos);
+                    boolean relevant=normalizePass==1
+                        ?RedstoneNormalizer.isDust(state)
+                        :RedstoneNormalizer.isSignalDevice(state);
+                    // Never mark a component repaired while a neighboring
+                    // chunk is unloaded. Resume next tick instead.
+                    if(relevant && !RedstoneNormalizer.neighborsLoaded(world,pos))return;
+                    if(normalizePass==1){
+                        if(relevant && RedstoneNormalizer.normalizeDust(world,pos))
+                            normalizedRedstone++;
+                    }else if(relevant && RedstoneNormalizer.refreshSignal(world,pos))
+                        refreshedRedstone++;
+                }
                 normalizeIndex++;
             }
-            if(normalizeIndex>=order.size())phase=commandCount()>0?
-                Phase.WAITING_COMMAND_APPROVAL:Phase.COMPLETE;
+            if(normalizeIndex>=order.size()){
+                normalizeIndex=0;
+                normalizePass++;
+                if(normalizePass>=3){
+                    phase=manualNormalize?Phase.COMPLETE:
+                        (commandCount()>0?Phase.WAITING_COMMAND_APPROVAL:Phase.COMPLETE);
+                    manualNormalize=false;
+                }
+            }
             return;
         }
         if(phase==Phase.WAITING_COMMAND_APPROVAL){
@@ -329,9 +369,7 @@ public final class ConstructionProject {
                 cleanupIterator.remove();
             }
             if(!cleanupIterator.hasNext()){
-                normalizeIndex=0;
-                normalizedPanes=0;
-                phase=Phase.NORMALIZE;
+                beginNormalization(false);
             }
             return;
         }
@@ -465,7 +503,14 @@ public final class ConstructionProject {
             case BUILD->"Building blueprint in progressive layers";
             case WAITING_SUPPLIES->"Waiting for supply chests to receive materials";
             case CLEANUP->"Removing temporary construction supports";
-            case NORMALIZE->"Connecting glass panes, fences, walls and iron bars";
+            case NORMALIZE->switch(normalizePass){
+                case 0->"Normalizing glass panes, fences, walls and iron bars ("+
+                    normalizeIndex+"/"+order.size()+")";
+                case 1->"Connecting redstone dust using vanilla 1.21.1 wire shapes ("+
+                    normalizeIndex+"/"+order.size()+", repaired "+normalizedRedstone+")";
+                default->"Refreshing redstone signal neighbors after wiring is complete ("+
+                    normalizeIndex+"/"+order.size()+", devices "+refreshedRedstone+")";
+            };
             case WAITING_COMMAND_APPROVAL->"Build physically complete. COMMAND REVIEW REQUIRED: "+
                 commandCount()+" scripts remain inactive. Review in the in-game BuildAI screen. "+
                 "Then /buildai commands approve all OR /buildai commands approve 1,2,4 (OP4). "+

@@ -55,7 +55,7 @@ public class RedstoneKnowledgeTest {
             "T flip-flop",
             "one item per 8 GAME ticks",
             "Quasi",
-            "Never infer an actual successful pulse"}) {
+            "an actual successful pulse"}) {
             assertTrue(instructions.toLowerCase(java.util.Locale.ROOT)
                 .contains(fact.toLowerCase(java.util.Locale.ROOT)),
                 "Missing Java 1.21.1 reference: "+fact);

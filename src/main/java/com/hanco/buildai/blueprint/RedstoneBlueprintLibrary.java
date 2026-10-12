@@ -152,8 +152,32 @@ public final class RedstoneBlueprintLibrary {
         }
     }
 
-    /** Exact example blockstate for a glyph, not the glyph's visual direction. */
+    private static final Pattern DIRECTIONAL_GLYPH=Pattern.compile(
+        "(R[1-4]|C[01]|O|P|SP)([<>^v])");
+
+    private static String directionOfArrow(String arrow){
+        return switch(arrow){
+            case ">"->"east";
+            case "<"->"west";
+            case "^"->"north";
+            case "v"->"south";
+            default->throw new IllegalArgumentException("Unknown RBL arrow: "+arrow);
+        };
+    }
+
+    /**
+     * Read any valid N/S/E/W repeater/comparator/observer/piston glyph.
+     * Catalog definitions provide exact examples only, not the set of legal
+     * directions. Outputs follow the ARROW; blockstate facing follows Java.
+     */
     public static String exampleState(String symbol){
+        Matcher notation=DIRECTIONAL_GLYPH.matcher(symbol);
+        if(notation.matches())
+            return orientedState(symbol,directionOfArrow(notation.group(2)));
+        return rawExampleState(symbol);
+    }
+
+    private static String rawExampleState(String symbol){
         for(JsonElement element:Cached.ROOT.getAsJsonArray("symbols")){
             JsonObject entry=element.getAsJsonObject();
             if(symbol.equals(entry.get("symbol").getAsString()))
@@ -170,7 +194,9 @@ public final class RedstoneBlueprintLibrary {
      */
     public static String orientedState(String symbol,String outputDirection){
         String target=cardinal(outputDirection);
-        String state=exampleState(symbol);
+        Matcher notation=DIRECTIONAL_GLYPH.matcher(symbol);
+        String key=notation.matches()?notation.group(1)+">":symbol;
+        String state=rawExampleState(key);
         String block=Blueprint.id(state);
         if(block.equals("minecraft:repeater")||block.equals("minecraft:comparator")||
            block.equals("minecraft:observer"))
@@ -305,8 +331,8 @@ public final class RedstoneBlueprintLibrary {
             result.set(coords[0],c.get("y").getAsInt(),coords[1],
                 rotateState(c.get("block").getAsString(),turns));
         }
-        result.warnings.add("RBL reference only: Java 1.21.1 gameplay "+
-            "unverified; rotated "+cardinal(outputDirection)+"; test actual behavior.");
+        result.warnings.add("RBL reference module — NOT VERIFIED in Minecraft "+
+            "Java 1.21.1; rotated "+cardinal(outputDirection)+"; test actual behavior.");
         return result;
     }
 

@@ -116,13 +116,15 @@ final class StagedFarmArchitect {
             "system. Physical integration is not proof that any redstone "+
             "circuit works. Test EACH floor, master button, item transport "+
             "and timed water/piston resets in a disposable world.");
-        checkpoint.complete();
         if(progress!=null)progress.stage("Staged farm assembled",
             merged.total()+" real engineering modules were combined into "+
             "one "+plan.width()+"x"+plan.height()+"x"+plan.length()+
-            " blueprint; ready to inspect and preview.");
-        return BuildQualityReview.review(original,new AIArchitect.DesignResult(
-            blueprint,compiled.correctedSpecification(),inspiration),
+            " blueprint; checking all requirements before preview.");
+        AIArchitect.DesignResult result=BuildQualityReview.review(
+            original,new AIArchitect.DesignResult(
+                blueprint,compiled.correctedSpecification(),inspiration),
             apiKey,connectedChat,progress);
+        checkpoint.complete();
+        return result;
     }
 }

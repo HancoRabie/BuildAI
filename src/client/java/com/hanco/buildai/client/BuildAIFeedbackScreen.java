@@ -230,6 +230,9 @@ public final class BuildAIFeedbackScreen extends Screen {
                 x+8,top+3,w-16,BLUE,0.8f);
             small(ctx,active==null?"NO BUILD SELECTED":active.getFileName().toString(),
                 x+9,top+42,w-18,active==null?GOLD:LIGHT,0.85f);
+            if(active!=null)
+                small(ctx,"SOURCE: "+active.toAbsolutePath().normalize(),
+                    x+9,top+52,w-18,DIM,0.67f);
             if(bottom>=top+137){
                 String last=saved==null?"NOT YET REVIEWED":
                     "PREVIOUSLY SAVED  /  "+saved.rating()+"/5"+

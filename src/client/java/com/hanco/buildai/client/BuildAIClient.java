@@ -266,6 +266,14 @@ public final class BuildAIClient implements ClientModInitializer {
                 waitingCommandReview=payload;
                 openQueuedCommandReview(context.client());
             }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+            com.hanco.buildai.net.CommandApprovalFeedbackPayload.ID,
+            (payload,context)->context.client().execute(()->{
+                if(context.client().currentScreen instanceof BuildAICommandReviewScreen review)
+                    review.approvalFeedback(payload.accepted(),payload.message());
+                else
+                    BuildAIClient.message(payload.message());
+            }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
             (handler,client)->{
                 ProjectHud.latest=null;chatMode=false;clearPreview();

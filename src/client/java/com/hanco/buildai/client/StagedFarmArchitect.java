@@ -97,9 +97,14 @@ final class StagedFarmArchitect {
             acceptedSpecifications.add(piece.specification());
             // Preserve meaningful stage-level notes in the final QA panel.
             for(String issue:piece.blueprint().warnings){
-                if(issue.startsWith("FARM FUNCTION")||issue.startsWith("FARM REPAIR"))
-                    if(functionalNotes.size()<32)
-                        functionalNotes.add(stage.name()+": "+issue);
+                boolean engineeringIssue=issue.startsWith("FARM FUNCTION")||
+                    issue.startsWith("FARM REPAIR")||
+                    (issue.startsWith("FLOODGATE QA")&&
+                        !issue.contains("STATIC schematic cannot verify"))||
+                    (issue.startsWith("REDSTONE QA")&&
+                        !issue.contains("NOT functional simulation"));
+                if(engineeringIssue && functionalNotes.size()<48)
+                    functionalNotes.add(stage.name()+": "+issue);
             }
             checkpoint.save(i,piece.specification());
             if(progress!=null)progress.stage(

@@ -21,6 +21,18 @@ final class BuildQualityReview {
         AIArchitect.DesignResult best=initial;
         BuildRequirementAudit.Report baseline=BuildRequirementAudit.inspect(
             best.blueprint(),originalRequest,best.specification());
+        // A compilable early-EOF stream is an UNVERIFIED DRAFT, not a
+        // certified completed model answer. Keep the recovered geometry
+        // and the incomplete-stream warning instead of silently starting
+        // another long AI rewrite that could replace the only salvage.
+        if(best.blueprint().warnings.stream().anyMatch(w->
+                w.startsWith("UNVERIFIED INTERRUPTED STREAM:"))){
+            best.blueprint().warnings.addAll(baseline.warnings());
+            best.blueprint().warnings.add(
+                "QUALITY REVIEW: Automatic rewrites disabled for recovered "+
+                "incomplete streams. Verify all requested structures manually.");
+            return best;
+        }
         if(baseline.blockers().isEmpty()){
             best.blueprint().warnings.addAll(baseline.warnings());
             best.blueprint().warnings.add(

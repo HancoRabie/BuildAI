@@ -77,13 +77,15 @@ public final class BuildAIMod implements ModInitializer {
                 try {
                     // Placement always uses the normal player camera; the server is authoritative
                     // for reach, world limits and protected-block validation.
-                    double cx=candidate.getX()+p.blueprint.width/2.0;
+                    int turn=payload.quarterTurns();
+                    if(turn<0||turn>3)throw new IllegalArgumentException("Invalid blueprint rotation");
+                    double cx=candidate.getX()+BlueprintRotator.width(p.blueprint,turn)/2.0;
                     double cy=candidate.getY()+p.blueprint.height/2.0;
-                    double cz=candidate.getZ()+p.blueprint.length/2.0;
+                    double cz=candidate.getZ()+BlueprintRotator.length(p.blueprint,turn)/2.0;
                     if(player.squaredDistanceTo(cx,cy,cz)>100*100)
                         throw new IllegalArgumentException("Move the proposal closer to your real character (100 block limit)");
-                    p.selectOrigin(candidate);
-                    String msg="Placement locked at "+candidate.toShortString()+"; "+p.collisions+
+                    p.selectOrigin(candidate,turn);
+                    String msg="Placement locked at "+candidate.toShortString()+" (rotation "+(turn*90)+"°); "+p.collisions+
                         " existing blocks overlap. Inspect normally, /buildai retry, or /buildai confirm.";
                     if(ServerPlayNetworking.canSend(player,PlacementReplyPayload.ID))
                         ServerPlayNetworking.send(player,new PlacementReplyPayload(true,true,msg,p.origin));

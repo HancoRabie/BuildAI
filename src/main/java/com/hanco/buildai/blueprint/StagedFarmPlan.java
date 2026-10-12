@@ -45,7 +45,7 @@ public final class StagedFarmPlan {
             throw new IllegalArgumentException("This isn't an explicitly "+
                 "multistory automated farm; use the normal architect.");
         Matcher m=FLOOR.matcher(prompt);
-        Map<Integer,String> floors=new TreeMap<>();
+        NavigableMap<Integer,String> floors=new TreeMap<>();
         while(m.find())floors.put(Integer.parseInt(m.group(1)),m.group(2)
             .replace("**","").trim());
         if(floors.size()>8||floors.lastKey()>8)

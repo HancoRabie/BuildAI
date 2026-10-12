@@ -86,8 +86,30 @@ public final class FarmFunctionAudit {
             }
             if(id.equals("minecraft:farmland"))farmland++;
         }
+        // For a staged blueprint, the original multi-floor prompt mentions
+        // every crop. Only enforce the species requested in THIS crop stage;
+        // the shell and final item-bus stages intentionally have no plants.
+        String expected=prompt==null?"":prompt.toLowerCase(Locale.ROOT);
+        if(expected.startsWith("buildai staged generation")){
+            boolean cropStage=expected.matches(
+                "(?s).*stage \\d+ of \\d+: floor \\d+ engineering.*");
+            if(!cropStage)expected="";
+            else {
+                int from=expected.indexOf("scope:");
+                int to=from<0?-1:expected.indexOf(
+                    "the full player request below",from);
+                if(from>=0&&to>from)expected=expected.substring(from,to);
+            }
+        }
+        List<String> blockers=new ArrayList<>(),cautions=new ArrayList<>();
+        if(expected.contains("carrot")&&crops.getOrDefault("minecraft:carrots",0)==0)
+            blockers.add("Requested carrot field has no actual planted carrot blocks.");
+        if(expected.contains("potato")&&crops.getOrDefault("minecraft:potatoes",0)==0)
+            blockers.add("Requested potato field has no actual planted potato blocks.");
+        if(expected.contains("sugar cane")&&crops.getOrDefault("minecraft:sugar_cane",0)==0)
+            blockers.add("Requested sugar cane field has no planted stalks.");
         if(roots==0&&cane==0&&farmland==0)
-            return new Report(List.of(),List.of(),Map.copyOf(crops),b.solidCount());
+            return new Report(List.copyOf(blockers),List.of(),Map.copyOf(crops),b.solidCount());
         // Crop-level water must be NEAR the field, with an actual nearby piston.
         // A decoration on another floor cannot count as a harvest water gate.
         boolean plausibleWaterRelease=false;
@@ -102,7 +124,6 @@ public final class FarmFunctionAudit {
             }
         }
 
-        List<String> blockers=new ArrayList<>(),cautions=new ArrayList<>();
         if(roots>0){
             if(!plausibleWaterRelease){
                 blockers.add("Root crops ("+roots+" carrots/potatoes/wheat/beetroot plants) lack "+

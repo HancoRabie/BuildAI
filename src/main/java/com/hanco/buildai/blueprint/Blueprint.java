@@ -12,6 +12,15 @@ public final class Blueprint {
     public final int width, height, length;
     private final String[] states;
     public final List<String> warnings = new ArrayList<>();
+    /** Explicitly reviewed executable logic, not serialized blockstate text. */
+    private List<CommandBlockPlan.Entry> commands=List.of();
+    public List<CommandBlockPlan.Entry> commands(){return commands;}
+    public void setCommands(List<CommandBlockPlan.Entry> entries){
+        if(entries==null||entries.size()>CommandBlockPlan.MAX_COMMANDS)
+            throw new IllegalArgumentException("Too many command blocks");
+        for(CommandBlockPlan.Entry e:entries)CommandBlockPlan.validate(this,e);
+        commands=List.copyOf(entries);
+    }
 
     public Blueprint(String name, int width, int height, int length) {
         long volume = (long)width * height * length;

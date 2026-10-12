@@ -39,6 +39,38 @@ In private **Chat Mode** enabled from F8, ordinary chat messages create a new de
 
 **Continue with ChatGPT** now has a client-only browser OAuth implementation. It's not yet proven against a real ChatGPT login or response; validate in a test world. An optional separately billed developer API key remains the fallback. See [docs/OPEN_SOURCE_AND_CHATGPT.md](docs/OPEN_SOURCE_AND_CHATGPT.md).
 
+## Resilient streaming and generation monitor
+
+The ChatGPT-connected stream is **not** treated as complete unless
+`response.completed` arrives. A completed response is compiled and checked
+normally. BuildAI also journals each incoming blueprint text delta into a
+local recovery file at `<Minecraft game directory>/buildai/recovery/`,
+flushing incrementally so an unexpected connection exit doesn't erase all
+model output. This file contains only raw streamed design text, not OAuth
+access tokens or credentials. Do **not** upload/share a recovery file without
+checking its content.
+
+If the stream ends **without** `response.completed`, BuildAI attempts to
+compile the collected data into a normal blueprint. **Only** a parseable,
+valid Minecraft blueprint can appear in BuildAI review, and it is marked
+`UNVERIFIED INTERRUPTED STREAM`: it may be missing requested structures,
+even when JSON and blockstate validation pass. No blocks are placed
+automatically. Generic AI auto-repairs are intentionally disabled for such
+drafts to prevent losing the recovered text in another long request.
+
+If the raw output is truncated, malformed, or invalid, the existing
+blueprint remains untouched. The `.json.part` recovery file is retained
+locally and the error reports its location. An incomplete `.json.part` file
+is **not** a valid `.schem` and must never be pasted/placed directly.
+On successful compilation/validation and basic QA, its temporary journal
+is discarded. Explicit cancellation and watchdog expiry still stop
+requests rather than accepting them as completed.
+
+The generation screen uses a slimmer (12px) indeterminate progress bar,
+with a concise history-based **ETA inside the bar**. ETA is an estimate,
+not model-certified percent complete; it can become uncertain during
+large designs. The former oversized under-statistics ETA rectangle is gone.
+
 ## Image upload → offline pixel art
 
 Use **F8 → Create / AI → Upload Image > Pixel Art** to turn a local PNG,

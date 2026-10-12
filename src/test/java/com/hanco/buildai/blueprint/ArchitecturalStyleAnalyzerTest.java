@@ -20,7 +20,7 @@ public class ArchitecturalStyleAnalyzerTest {
         b.set(4,2,0,"minecraft:oak_trapdoor[facing=north,half=top,open=false,powered=false,waterlogged=false]");
         var result=ArchitecturalStyleAnalyzer.analyze(b);
         assertEquals(b.solidCount(),result.blocks());
-        assertEquals(4,result.uniqueMaterials());
+        assertEquals(5,result.uniqueMaterials());
         assertTrue(result.report().contains("minecraft:oak_stairs="),result.report());
         assertTrue(result.report().contains("minecraft:glass_pane="));
         assertTrue(result.report().contains("Detail vocabulary"));

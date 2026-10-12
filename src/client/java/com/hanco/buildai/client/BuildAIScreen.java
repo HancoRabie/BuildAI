@@ -83,6 +83,12 @@ public final class BuildAIScreen extends Screen {
                 saveFields();showApiKey=!showApiKey;switchTab(0);
                 status=showApiKey?"API key field opened (separate OpenAI billing).":"API key field hidden.";
             });
+            GenerationProgress running=BuildAIClient.currentGeneration();
+            if(running!=null&&!running.snapshot().finished()){
+                add("View Running Generation | Return to Game Does Not Cancel",left,row(6),
+                    panelWidth,buttonHeight,b->client.setScreen(
+                        new BuildAIGenerationScreen(this,running)));
+            }
             if(showApiKey){
                 key=new TextFieldWidget(textRenderer,left,row(7),panelWidth,buttonHeight,text("OpenAI developer API key"));
                 key.setMaxLength(500);key.setText(keyValue.isBlank()?BuildAIClient.getKey():keyValue);

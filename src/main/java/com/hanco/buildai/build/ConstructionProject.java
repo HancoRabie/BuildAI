@@ -190,15 +190,20 @@ public final class ConstructionProject {
             int work=0;
             List<CommandBlockPlan.Entry> programs=blueprint.commands();
             while(programmingIndex<programs.size()&&work++<12){
-                CommandBlockPlan.Entry e=programs.get(programmingIndex++);
-                CommandBlockInstaller.program(world,origin.add(e.x(),e.y(),e.z()),e);
+                CommandBlockPlan.Entry e=programs.get(programmingIndex);
+                // The immutable local XYZ -> world XYZ translation, and block
+                // type/facing, are rechecked before programming each ordinal.
+                CommandBlockInstaller.program(world,origin.add(e.x(),e.y(),e.z()),e,
+                    blueprint.get(e.x(),e.y(),e.z()));
+                programmingIndex++;
             }
             // Do not arm ANY blocks until all command text has been installed.
             if(programmingIndex<programs.size())return;
             work=0;
             while(armingIndex<programs.size()&&work++<12){
-                CommandBlockPlan.Entry e=programs.get(armingIndex++);
+                CommandBlockPlan.Entry e=programs.get(armingIndex);
                 CommandBlockInstaller.arm(world,origin.add(e.x(),e.y(),e.z()),e);
+                armingIndex++;
             }
             if(armingIndex>=programs.size())phase=Phase.COMPLETE;
             return;

@@ -57,6 +57,7 @@ public final class ConstructionManager {
                     }
                 }
             }catch(RuntimeException e){
+                project.disarmCommands();
                 project.stopCinematicVisuals();
                 // Unexpected failures must never turn into a material-shortage
                 // resume, which could skip unfinished excavation and corrupt the build.

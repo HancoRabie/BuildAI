@@ -39,6 +39,23 @@ In private **Chat Mode** enabled from F8, ordinary chat messages create a new de
 
 **Continue with ChatGPT** now has a client-only browser OAuth implementation. It's not yet proven against a real ChatGPT login or response; validate in a test world. An optional separately billed developer API key remains the fallback. See [docs/OPEN_SOURCE_AND_CHATGPT.md](docs/OPEN_SOURCE_AND_CHATGPT.md).
 
+## Image upload → offline pixel art
+
+Use **F8 → Create / AI → Upload Image > Pixel Art** to turn a local PNG,
+JPG or JPEG into a vertical Minecraft block-art blueprint, without a
+model request or API credits. Choose a maximum width from 16–128 blocks,
+**Concrete** or **Wool**, smooth/photo or sharp/pixel resizing, and whether
+transparent PNG pixels become air. The source image stays on your computer.
+
+Click **Generate Preview**, review the approximate 16-color Minecraft
+mosaic, then **Use Blueprint**. It enters the ordinary BuildAI
+Placement / Export review flow and is autosaved as a new `.schem` file.
+Choose **Browse Image** for a native desktop file picker; if the desktop
+does not provide one, paste the local image file path in the input.
+Both dimensions are capped at 128 blocks, preserving aspect ratio.
+Pixel-art images are one block thick and can be very material intensive.
+Read [the full guide](docs/IMAGE_TO_PIXEL_ART.md) before placing large art.
+
 ## Saving and loading builds (works in headless Minecraft)
 
 **No Java Swing file dialog is used.** Minecraft's Fabric development JVM may be headless and cannot open `JFileChooser`, even on Windows. BuildAI now saves a unique `.schem` file **automatically whenever AI generation finishes successfully**. You can also press F8 → Placement / Export → **Save Blueprint to Library** to explicitly save an imported or generated structure.

@@ -77,6 +77,49 @@ Reference notes for AI machine design; not a substitute for function tests.
 
 The initial BuildAI code is not a Tier 4 redstone simulator. Validation must never be misrepresented as proof machinery works.
 
+## Mechanical redstone + fluid interactions: piston floodgates
+
+The bundled [Redstone Master Handbook](../src/main/resources/assets/buildai/redstone_master_handbook.txt)
+now includes a dedicated advanced section on piston-controlled water gates,
+crop flushing, fluid tick propagation and automation timing, based on
+established technical documentation. This information is **compiled into
+BuildAI**: it does not need to browse an external website or solve CAPTCHA
+challenges while generating.
+
+An **extended piston head is a physical barrier**, never a pipe. A functional
+harvest gate must define BOTH states: **CLOSED** (head/plug occupies channel
+throat, source contained upstream) and **OPEN** (head retracted, physically
+open cell between the retained source and the irrigated/harvested channel).
+A sticky piston may retract one movable plug, while an ordinary piston
+only withdraws its head. If idle should be closed, an inverted/latching
+control can hold a piston extended until harvest is triggered.
+
+Water in the Overworld flows about **one horizontal block per 5 game ticks**.
+A button pulse and a repeater's 2–8-game-tick propagation delay cannot be
+assumed to produce a long enough flood by themselves. Design an explicit
+**hold-open timer** (pulse extender, configured hopper timer, latch/clock,
+or manual lever) plus a reset after downstream drops have reached collection.
+The AI is required to produce an inert `fluid_gate_plan` with:
+`source`, `gate`, `closedState`, `openState`, `path`,
+`holdOpenTicks`, `reset`, `collection`, `testing`.
+
+BuildAI's conservative **FluidGateAudit** flags impossible water-source
+cells directly in a piston's extension path, absent open/closed state plans,
+and very short hold-open times. It never silently rotates a piston or claims
+that the resulting machine passed actual in-game fluid simulation.
+
+### High-value technical source links
+
+- [Minecraft Wiki — Water gate tutorial](https://minecraft.wiki/w/Tutorial:Water_gate)
+- [Minecraft Wiki — Crop farming and piston water harvest](https://minecraft.wiki/w/Tutorial:Crop_farming)
+- [Minecraft Wiki — Redstone troubleshooting and timing](https://minecraft.wiki/w/Tutorial:Redstone_tips)
+- [Minecraft Wiki — Water flow mechanics](https://minecraft.wiki/w/Water)
+- [Technical Minecraft Wiki — Piston lifecycle and movement](https://techmcdocs.github.io/pages/Blocks/Piston/)
+- [Technical Minecraft advanced mechanics reference](https://www.techmc.wiki/en)
+
+These are research references for maintainers, not sources BuildAI must access
+during generation. Keep the requested building original; adapt principles.
+
 ## Fluid accounting and normalization (Creative vs Survival)
 
 World-placeable `minecraft:water` and `minecraft:lava` are *fluid source

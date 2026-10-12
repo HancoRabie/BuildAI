@@ -265,10 +265,18 @@ public final class AIArchitect {
         StringBuilder generated=new StringBuilder();
         boolean completed=false;
         boolean startedReceiving=false;
-        try(var reader=new java.io.BufferedReader(new java.io.InputStreamReader(response.body(),
+        try(var input=response.body();
+            var watchdog=new ModelStreamWatchdog(input,progress);
+            var reader=new java.io.BufferedReader(new java.io.InputStreamReader(input,
                 StandardCharsets.UTF_8))){
             String line;
-            while((line=reader.readLine())!=null) {
+            try{
+                while((line=reader.readLine())!=null) {
+                    if(progress!=null&&progress.cancellationRequested())
+                        throw new java.io.IOException(
+                            "Generation cancelled; your previous blueprint is unchanged.");
+                    if(watchdog.expired())
+                        throw new java.io.IOException(watchdog.reason());
                 if(!line.startsWith("data: "))continue;
                 String json=line.substring(6);
                 if(json.equals("[DONE]"))break;
@@ -287,6 +295,7 @@ public final class AIArchitect {
                             startedReceiving=true;
                         }
                         generated.append(delta);
+                        watchdog.textArrived();
                         if(progress!=null)progress.receivedCharacters(delta.length());
                         if(generated.length()>1_500_000)
                             throw new java.io.IOException("AI response exceeded the single-request output budget. The design was NOT resized; section-based generation is required.");
@@ -298,10 +307,26 @@ public final class AIArchitect {
                     completed=true;
                     report(progress,"Response completed","Received the final response; preparing to compile the structure.");
                 }
+                }
+            }catch(java.io.IOException failure){
+                if(progress!=null&&progress.cancellationRequested())
+                    throw new java.io.IOException(
+                        "Generation cancelled; previous blueprint unchanged.",failure);
+                if(watchdog.expired())
+                    throw new java.io.IOException(watchdog.reason(),failure);
+                throw failure;
             }
+            if(progress!=null&&progress.cancellationRequested())
+                throw new java.io.IOException(
+                    "Generation cancelled; previous blueprint unchanged.");
+            if(watchdog.expired())
+                throw new java.io.IOException(watchdog.reason());
         }
         if(!completed)throw new java.io.IOException("ChatGPT stream ended without response.completed; no blueprint was applied");
         String spec=generated.toString().trim();
+        if(spec.isEmpty())throw new java.io.IOException(
+            "OpenAI completed without generating any blueprint data. "+
+            "Existing blueprint unchanged; retry without restarting your world.");
         report(progress,"Compiling 3D blueprint","Converting AI design operations into exact block positions.");
         ProceduralGenerator.Compilation compilation=ProceduralGenerator.compileDesign(spec);
         Blueprint compiled=compilation.blueprint();

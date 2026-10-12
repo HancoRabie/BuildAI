@@ -40,12 +40,18 @@ public final class BuildAIGenerationScreen extends Screen {
                 if(client!=null)client.setScreen(null);
             })
             .dimensions(x+14+half+gap,footerY,half,20).build());
+        ButtonWidget probe=ButtonWidget.builder(
+            Text.literal("CHECK REQUEST (SAFE)"),
+            button->BuildAIRequestHealth.check(progress))
+            .dimensions(x+14,footerY+24,half,20).build();
+        probe.active=!progress.snapshot().finished();
+        addDrawableChild(probe);
         ButtonWidget cancel=ButtonWidget.builder(
-            Text.literal("CANCEL REQUEST  |  KEEP EXISTING BLUEPRINT"),
+            Text.literal("CANCEL | KEEP PROMPT"),
             button->{
                 progress.requestCancellation();
                 button.active=false;
-            }).dimensions(x+14,footerY+24,panel-28,20).build();
+            }).dimensions(x+14+half+gap,footerY+24,half,20).build();
         cancel.active=!progress.cancellationRequested() &&
             !progress.snapshot().finished();
         addDrawableChild(cancel);
@@ -114,7 +120,9 @@ public final class BuildAIGenerationScreen extends Screen {
             ctx.drawTextWithShadow(textRenderer,etaLines.get(i),inset,y,0xFF80E9CB);
         }
 
-        String note=progress.cancellationRequested()
+        String check=progress.checkStatus();
+        String note=!check.isBlank()?check:
+            progress.cancellationRequested()
             ? "Cancellation requested; closing the model stream. Your blueprint is safe."
             : s.finished()
             ? s.failed()?"Generation stopped. Your previous blueprint is unchanged.":
@@ -125,16 +133,16 @@ public final class BuildAIGenerationScreen extends Screen {
                 : "Live updates represent real model, network and validation events.";
         List<OrderedText> notes=textRenderer.wrapLines(Text.literal(note),usable);
         int noteY=top+unit*16;
-        for(int i=0;i<Math.min(2,notes.size());i++) {
+        for(int i=0;i<Math.min(check.isBlank()?2:7,notes.size());i++) {
             int y=noteY+i*11;
-            if(y+11>=footerY)break;
+            if(y+11>=footerY-10)break;
             ctx.drawTextWithShadow(textRenderer,notes.get(i),inset,y,0xE6C990);
         }
 
         // Milestones now live INSIDE the same dark panel. Show the most recent
         // events that fit above the footer; never draw a list beyond the card.
         int historyTop=top+unit*19;
-        if(historyTop+13<footerY) {
+        if(check.isBlank()&&historyTop+13<footerY) {
             ctx.fill(inset,historyTop-6,inset+usable,historyTop-5,0xFF405D68);
             drawIfFits(ctx,"RECENT ACTIVITY",inset,historyTop,usable,footerY,0xFF83E5C9);
             int y=historyTop+14;

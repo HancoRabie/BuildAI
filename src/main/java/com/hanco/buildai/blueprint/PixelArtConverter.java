@@ -156,15 +156,41 @@ public final class PixelArtConverter {
         // perceptual errors with deep colors compared in naive sRGB.
         double r=linear((rgb>>>16)&255),g=linear((rgb>>>8)&255),
             b=linear(rgb&255);
+        double sourceHue=hue(rgb),sourceSaturation=saturation(rgb);
         double best=Double.POSITIVE_INFINITY;int index=0;
         for(int i=0;i<swatches.size();i++){
             int c=swatches.get(i).rgb();
             double dr=r-linear((c>>>16)&255),
                    dg=g-linear((c>>>8)&255),db=b-linear(c&255);
-            double delta=.26*dr*dr+.67*dg*dg+.07*db*db;
+            // Hue matters for highly saturated logos: otherwise pure red
+            // can incorrectly map to bright orange just because darker red
+            // concrete has a lower luminance than the input pixel.
+            double hueDiff=Math.abs(sourceHue-hue(c));
+            hueDiff=Math.min(hueDiff,1d-hueDiff);
+            double saturationWeight=Math.min(sourceSaturation,saturation(c));
+            double huePenalty=.22*Math.pow(hueDiff/.07,2)*saturationWeight;
+            double delta=.26*dr*dr+.67*dg*dg+.07*db*db+huePenalty;
             if(delta<best){best=delta;index=i;}
         }
         return index;
+    }
+    private static double saturation(int color){
+        int r=(color>>>16)&255,g=(color>>>8)&255,b=color&255;
+        int hi=Math.max(r,Math.max(g,b)),lo=Math.min(r,Math.min(g,b));
+        return hi==0?0d:(double)(hi-lo)/hi;
+    }
+    private static double hue(int color){
+        double r=((color>>>16)&255)/255d,
+            g=((color>>>8)&255)/255d,b=(color&255)/255d;
+        double max=Math.max(r,Math.max(g,b)),min=Math.min(r,Math.min(g,b));
+        double diff=max-min;
+        if(diff==0)return 0d;
+        double value;
+        if(max==r)value=((g-b)/diff)%6d;
+        else if(max==g)value=(b-r)/diff+2d;
+        else value=(r-g)/diff+4d;
+        value/=6d;
+        return value<0?value+1d:value;
     }
     private static double linear(int component){
         double c=component/255d;

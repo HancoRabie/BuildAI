@@ -42,6 +42,21 @@ final class GenerationPromptJournal {
                 e.getClass().getSimpleName());
         }
     }
+    /** Explicit user action only. A cleared prompt must NOT be restored
+     * from the previous generated run on the next F8 screen initialization.
+     */
+    static boolean clear(){
+        Path file=path();
+        try{
+            Files.deleteIfExists(file);
+            Files.deleteIfExists(file.resolveSibling("last-generation-prompt.tmp"));
+            return true;
+        }catch(IOException error){
+            BuildAIClient.message("Could not remove the saved prompt: "+
+                error.getClass().getSimpleName());
+            return false;
+        }
+    }
     static String load(){
         Path file=path();
         try{

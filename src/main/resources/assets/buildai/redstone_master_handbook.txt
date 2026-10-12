@@ -1,4 +1,4 @@
-BUILDAI REDSTONE MASTER HANDBOOK v2.0 | MINECRAFT JAVA 1.21.1 ONLY
+BUILDAI REDSTONE MASTER HANDBOOK v2.1 | MINECRAFT JAVA 1.21.1 ONLY
 STATUS: Engineering reference and design-review rules. NOT a physics simulator, proof of operation, or tested schematic.
 DELIVERY VERSUS TESTING — A CRITICAL DISTINCTION:
 BuildAI MUST produce the strongest actual 3D geometry and implementable
@@ -108,7 +108,7 @@ SURVIVAL/CREATIVE FLUID ECONOMY (BUILDAI JAVA 1.21.1):
   behavior, so flag Nether-specific mechanics rather than claiming a water
   farm works there.
 
-WATER FLOW + PISTON FLOODGATES — JAVA 1.21.1 (MANDATORY FOR FARMS)
+WATER FLOW + PISTON FLOODGATES — JAVA 1.21.1 (ONLY WHEN REQUESTED OR MECHANICALLY RELEVANT)
 The solid extended PISTON HEAD occupies the target voxel. Water cannot pass
 through piston head/arm/base, through normal solid blocks or through a solid
 retracted gate plug. In Java, pistons are not magically waterlogged hoses.
@@ -143,7 +143,9 @@ operator close. Decide whether the machine should auto-close or
 require a manual reset. Estimate a hold-open BUDGET from water path length
 and delivery/collection, then bench-test with real water and at target TPS.
 RESET: piston extends and seals water path, source persists on upstream
-side, remaining water recedes, crops re-grow, collection remains reachable.
+side, remaining water recedes, collection remains reachable. Root crops
+(carrot, potato, wheat, beetroot) require replanting after destructive
+flushing; do not claim they re-grow without being replanted.
 Avoid accidental infinite water-source creation inside harvesting beds.
 
 IMPLEMENTABLE THREE-DIMENSIONAL TOPOLOGY:
@@ -332,6 +334,112 @@ CHECK APPROVAL: command block scripts attached to correct XYZ only; physical com
 CHECK MAINTENANCE: add physical access, labelled testing ports, override/reset buttons, troubleshooting indicators and non-destructive failure.
 CHECK TEST CASES: at minimum idle/off, intended trigger, repeated trigger, rapid pulses, conflicting simultaneous inputs, depleted inventory/invalid item, interrupted power, pause/reload and reset. A beautiful wire layout is NOT evidence of correct functionality.
 CHECK RELEASE: Return a redstone_plan per engineered machine with name/input/signalPath/output/timing/reset/test, plus honest caveats for mechanics not verifiable from voxels alone. Draw all support blocks, dust runs and exact directional blockstates in complete blueprint operations. Never silently erase player architecture to solve a circuit.
+
+JAVA 1.21.1 CROSS-EDITION / HISTORICAL SOURCE AUDIT — ENGINEERING RULES
+The 2011 Minecraft Forum "Redstone Guide v1.21" names the AUTHOR'S GUIDE
+revision, NOT Minecraft game version 1.21. The Microsoft Learn redstone guide
+is for BEDROCK Edition. Neither overrides JAVA EDITION 1.21.1 mechanics.
+Use their timeless electrical/logic concepts only after Java validation.
+Do not copy edition-specific piston timing, power/update order, item/entity
+pressure-plate claims, dust support rules or fluid behavior.
+
+TIMING AND SIGNAL PRECISION:
+- 20 GAME ticks/s; 1 REDSTONE tick = 2 game ticks = 0.1 s at full TPS.
+  Java stone/polished blackstone button lasts 10 REDSTONE ticks (20 game
+  ticks); wooden buttons last 15 redstone ticks (30 game ticks).
+  The old Forum guide's universal 0.9-second button statement is not valid.
+- A torch/repeater propagates scheduled transitions, but repeater delay=1..4
+  means 2,4,6,8 GAME ticks. To turn a button press into a multi-second hold,
+  use an engineered comparator-feedback extender, item-filled hopper timer,
+  latch plus delayed reset, or manually held lever. A repeater is NOT itself
+  an arbitrarily adjustable long-duration timer.
+- A repeater can FILTER short glitches and widen input pulses shorter than its
+  selected delay; for instance 1-redstone-tick input through delay=4 may
+  emerge as a 4-redstone-tick pulse. This is bounded pulse conditioning, NOT
+  4 redstone ticks of extra hold added to every long button press. Independently
+  calculate rise and fall edges; long pulses must not be assumed shortened.
+- Dust strength 15 down to 1 is NOT merely decorative color! Comparators,
+  hoppers' comparator feedback, analog decoders and other threshold systems
+  distinguish strengths. Binary devices commonly treat any nonzero power
+  as on, but design analog systems with actual numeric strength at each cell.
+- Avoid Bedrock-only "pistons extend 1 tick / retract 0 ticks" shorthand:
+  Java pistons have scheduled updates, moving-block events and QC; a
+  successful powered-state estimate does not simulate those transitions.
+
+GENERIC LOGIC/MEMORY DESIGN TEMPLATES (truth tables must be correct):
+- OR: input 00->0; 01->1; 10->1; 11->1. Isolate parallel input wires
+  with correctly oriented repeaters where cross-feedback would be harmful.
+- NOR: 00->1; 01->0; 10->0; 11->0.
+- AND: 00->0; 01->0; 10->0; 11->1.
+- NAND: 00->1; 01->1; 10->1; 11->0.
+- XOR: 00->0; 01->1; 10->1; 11->0.
+- XNOR: 00->1; 01->0; 10->0; 11->1.
+- RS (set-reset) latch: SET must hold an output state after the source
+  pulse ends; RESET must clear it. Specify which input wins, or mark both
+  asserted simultaneously as an unsupported/invalid state; do not
+  silently assume deterministic contention behavior for cross-coupled torches.
+- Monostable / one-shot: one trigger produces ONE bounded output pulse,
+  auto-resets and is retriggerable only as requested. A delayed RESET of
+  an RS latch is one design, but the delayed path must actually reach
+  RESET and remain active long enough to work.
+- T flip-flop: one COMPLETE press/pulse toggles a bit exactly ONCE, and
+  the next toggles it OFF. Prefer a Minecraft Java 1.21.1 copper bulb
+  rising-edge toggle when it meets the player's purpose; don't create
+  a massive torch latch without need. Multiple observer updates from one
+  event can accidentally double-toggle a badly conditioned T-flip-flop.
+- Clock/pulser: specify ON duration, OFF duration, period, start/stop
+  input, power-loss state and expected reload behavior. Rapid torch
+  toggling can burn out torches; simple un-gated repeater rings can stop
+  oscillating or permanently tick when not wanted. Choose a clock only
+  when continuous pulses are required, not a one-time harvest/door action.
+- Vertical torch towers: alternate inverter states at every level,
+  include each torch's delay and physical support, and verify end parity.
+  An even/odd tower stage change may invert the final output.
+- Comparator analog: comparison mode outputs REAR if REAR>=max(SIDE),
+  else 0; subtract mode outputs max(0,REAR-max(SIDE)). Unlike repeaters,
+  comparators preserve analog strength where applicable. Reading container
+  fullness requires real slot/item configuration; an EMPTY inventory gives
+  no automatic useful counter/timer state.
+- Hopper timer: hopper transfers are paced and INVENTORY-dependent. Java
+  vanilla baseline is one item per 8 GAME ticks (0.4 s) when transfer is
+  enabled. A hopper clock containing 0 items is inert, not a timed build.
+  Stop/restart/lock and chunk-loading rules must be designed explicitly.
+
+JAVA-SPECIFIC POWERING AND UPDATE ORDER:
+- Distinguish POWERING a block, SIGNAL TRANSFER to dust, and ACTIVATING a
+  mechanism. One opaque powered block is not a limitless replacement for
+  dust; direction, strong vs weak power and conductivity determine results.
+  Redstone torches turn off when their attachment blocks receive power,
+  making a NOT gate; ordinary on-torches do not power their own support.
+- Direct adjacent power differs from Java QUASI-CONNECTIVITY (QC).
+  Pistons, dispensers and droppers can activate through the space
+  ABOVE them, sometimes only AFTER another neighbor update. Crafters
+  do NOT use QC. A source above a piston can accidentally hold it on.
+- Do not import 1.21.2+ optional experimental redstone dust update
+  reordering into Java 1.21.1. Existing update sequences can depend on
+  geometry, location, rotation and neighbor notifications. Never infer
+  an actual successful pulse from disconnected STATIC blockstate flags.
+- A clock, latch, dispenser or hopper system requiring inventories,
+  book pages or a supported entity must explicitly disclose the setup.
+  NEVER introduce a villager, modded worker or unsupported replanter
+  merely to claim full automation; preserve player constraints.
+
+POST-DESIGN QUALITY GATE (ALL BUILDS, NOT JUST FARMS):
+1. Trace INPUT -> physical conductor/path -> logic/timing -> actuator ->
+   actual requested OUTCOME -> safe RESET with LOCAL XYZ evidence.
+2. Check support, directional fronts/rears, analog strength, signal loss,
+   inverter parity, crosstalk, rail/door state, QC and clock start/stop.
+3. For item movement, check physical path into real hopper/container
+   plus actual inventory supply; presence of a hopper alone is not enough.
+4. Derive tests from the player's prompt (e.g. gate opens then recloses,
+   exact-one dispense, both-lever interlock, no false triggered alarm).
+   Evaluate true/false combinations and repeated/rapid input changes.
+5. Optimization may remove redundant repeaters, torches, dispensers,
+   dust or clocks ONLY if preserved requirements and behavioral tests
+   support it. Treat an AI model's claim as a PROPOSAL, not simulation.
+6. Real Minecraft server ticks, piston movement, item entities, fluids,
+   reload and lag must be tested in an isolated world for proof. Static
+   geometry and manifests cannot truthfully certify these outcomes.
 
 ADDITIONAL ENGINEERING RESEARCH (AVAILABLE OFFLINE ABOVE; DO NOT CRAWL
 SITES DURING LIVE GENERATION OR GET STUCK ON CAPTCHA):

@@ -45,12 +45,13 @@ public final class BuildAIHelpScreen extends Screen {
         {
             "Choose the blueprint surface Y layer with the +/- controls. This indicates which level of the design meets the ground.",
             "Upload and Preview sends the design to the server. Once accepted, close F8 and move normally in your own player view; Creative flight works as usual.",
-            "The initial blueprint outline follows your real player. In Survival, walk to the site; in Creative, fly as usual. Use your normal mouse and hotbar controls.",
-            "Aim directly at the chosen ground block, then press G. BuildAI centers the structure on the block and aligns the selected blueprint surface layer to its top. The preview stays fixed as you move to inspect it.",
+            "The preview starts completely IN FRONT of the player, with the building facade facing the player. In Survival, walk to the site; in Creative, fly as usual.",
+            "Scroll the mouse wheel to move the building along WORLD Z. Press LEFT/RIGHT arrow keys to rotate it 90 degrees. Only while positioning does BuildAI intercept wheel scrolling; normal hotbar scrolling returns after placement.",
+            "Aim at the TOP of a ground block, then press G to align the selected schematic surface layer to that ground height. This sets Y WITHOUT re-centering the building over your body. You can still use the wheel and arrows before locking.",
             "The project remains in review until you explicitly confirm it."
         },
         {
-            "After G, press Enter to lock the full XYZ for review. R or /buildai retry lets you choose another ground block. F8 > Confirm & Build (or /buildai confirm) starts excavation only after successful validation.",
+            "After G, PRESS ENTER to lock the rotated blueprint at its proposed XYZ. R or /buildai retry lets you choose a different site. F8 > Confirm & Build (or /buildai confirm) starts excavation only after successful validation.",
             "Anything in the approved construction volume can be excavated when you run /buildai confirm, including where the finished design contains air.",
             "BuildAI reports collisions; it blocks existing block entities and bedrock in its initial prototype.",
             "Excavation creates no collectible blocks. Test only on disposable terrain: a basic blockstate undo does not guarantee recovery of containers or player changes."

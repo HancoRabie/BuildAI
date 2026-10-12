@@ -126,9 +126,17 @@ public final class BuildAIMod implements ModInitializer {
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project. Open BuildAI GUI to generate/import.");return 1;}
-                    reply(player,p.phase+" | "+p.blueprint.name+" | "+p.placed()+"/"+p.total()+
-                        " placed | "+p.excavated()+"/"+p.cells()+" cells inspected | "+p.actuallyRemoved()+
-                        " removed | "+p.collisions+" collisions | "+p.normalizedPanes()+" fence/pane/wall connections updated.");
+                    if(p.phase==ConstructionProject.Phase.ROLLBACK_CHECK||
+                        p.phase==ConstructionProject.Phase.ROLLBACK){
+                        reply(player,p.blueprint.name+" | "+p.phaseDescription()+
+                            ". The operation remains on the server until completed. "+
+                            "Missing loaded chunks may pause progress.");
+                    }else{
+                        reply(player,p.phase+" | "+p.blueprint.name+" | "+p.placed()+"/"+p.total()+
+                            " placed | "+p.excavated()+"/"+p.cells()+" cells inspected | "+p.actuallyRemoved()+
+                            " removed | "+p.collisions+" collisions | "+p.normalizedPanes()+
+                            " fence/pane/wall connections updated.");
+                    }
                     return 1;
                 }))
                 .then(literal("materials").executes(c->{

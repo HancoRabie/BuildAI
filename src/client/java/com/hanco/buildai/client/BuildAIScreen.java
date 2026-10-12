@@ -338,7 +338,10 @@ public final class BuildAIScreen extends Screen {
         }
         busy=true;
         status=revise?"Creating revised COPY from the selected blueprint...":
-            "Regenerating an independent NEW blueprint from the original prompt...";
+            StagedFarmPlan.applies(description)?
+                "Starting staged multi-floor engineering: architecture, "+
+                "crop systems, then shared controls...":
+                "Generating an independent NEW blueprint from the original prompt...";
         if(client!=null)client.setScreen(new BuildAIGenerationScreen(this,progress));
         CompletableFuture.supplyAsync(()->{
             progress.bindWorker();
@@ -352,6 +355,9 @@ public final class BuildAIScreen extends Screen {
                 if(revise&&(previous==null||previous.isBlank()))
                     throw new IllegalArgumentException("No design to revise. "+
                         "Use My Blueprints > Remake / Revise.");
+                if(!revise && StagedFarmPlan.applies(description))
+                    return StagedFarmArchitect.generate(description,apiKey,
+                        ChatGPTSignIn.connected(),progress);
                 if(ChatGPTSignIn.connected())
                     return AIArchitect.generateWithChatGPT(description,previous,progress);
                 return previous==null

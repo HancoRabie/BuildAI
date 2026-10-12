@@ -55,8 +55,8 @@ public final class BlueprintDeliveryPolicy {
             That is NOT a reason to return {"error":...}. BuildAI generates
             engineering candidates in Minecraft; the player tests them.
             DO NOT claim any circuit has already been tested. Return a
-            COMPLETE JSON blueprint with actual valid operations and full
-            requested geometry and scale. Design the highest-quality
+            COMPLETE JSON blueprint at the same scale with actual valid
+            operations and full requested geometry. Design the highest-quality
             realizable mechanism using the redstone technical handbook.
             Include the requested irrigation, gates, manual controls,
             collection conduits/chests and real pre-planted mature crops

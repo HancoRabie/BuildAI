@@ -98,6 +98,22 @@ public final class BlueprintLibraryScreen extends Screen {
         }).active=!loading;
         control("BACK TO BUILDAI",x+2*(third+gap),navY+53,
             panel-2*(third+gap),20,this::close);
+        control("ATTACH COMMAND PLAN TO EXISTING WORLD BUILD (look at any command block)",
+            x,navY+78,panel,20,()->{
+                if(selected==null){
+                    status="Select the saved schematic for your already-built structure.";
+                    return;
+                }
+                if(client==null||client.getNetworkHandler()==null){
+                    status="Join your world before attaching scripts.";return;
+                }
+                // Server finds a UNIQUE full-world match; no blocks are touched.
+                // This also works after Minecraft restart cleared project memory.
+                client.getNetworkHandler().sendChatCommand(
+                    "buildai commands recover "+selected.getFileName());
+                status="Recovery requested. Server verifies ALL command-block XYZs. "+
+                    "Close this menu to see the automatic approval review.";
+            }).active=selected!=null&&!loading;
     }
     private void load(Path file){
         if(loading){status="Import already running.";return;}
@@ -141,7 +157,7 @@ public final class BlueprintLibraryScreen extends Screen {
             (saved.isEmpty()?"Empty library":"Viewing "+
                 (offset+1)+"-"+Math.min(saved.size(),offset+visible))+
             "  |  Minecraft local instance",x+5,30,panel-10,BLUE);
-        drawLine(ctx,"Select a project, then Import Selected. Files are not modified.",
+        drawLine(ctx,"Select to import, or aim at an old placed command block and attach scripts.",
             x+5,47,panel-10,DIM);
         if(visible==0){
             drawLine(ctx,"Lower Minecraft GUI Scale or enlarge the window.",

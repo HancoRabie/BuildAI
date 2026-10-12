@@ -11,7 +11,7 @@ import java.util.List;
 public final class BuildAIHelpScreen extends Screen {
     private static final String[] TITLES = {
         "Welcome to BuildAI", "ChatGPT and API access", "Generate and revise",
-        "Import and export", "Choose your placement", "Ground level and excavation",
+        "Import and export", "Feedback & reference schematics", "Choose your placement", "Ground level and excavation",
         "Survival material chests", "Construction controls", "Safety and known limitations"
     };
     private static final String[][] CONTENT = {
@@ -43,6 +43,13 @@ public final class BuildAIHelpScreen extends Screen {
             "Save Blueprint to Library creates a unique .schem without a Windows file dialog. Reload it any time using F8 > Import File / My Builds."
         },
         {
+            "F8 > Feedback & Styles opens your local learning library. Select a past saved blueprint, choose a rating from 1 to 5, add detailed likes/dislikes, and click Save Feedback. Only user-saved feedback guides future prompts.",
+            "You can also choose a local .schem or .nbt decoration pack. Place a sign immediately in front of each example. Write [BuildAI] on its first line and Chair, Table, Fountain, etc on its second line.",
+            "Click Learn Labeled Decorations. BuildAI scans a small bounded cluster of real blocks around each sign, stores it locally, and includes selected examples as style references in future ChatGPT requests. It does not execute schematic NBT or transmit the whole file.",
+            "Saved preferences live in the client game directory at buildai/style-memory.json. They are not included in GitHub and are not machine-learning model training.",
+            "This prototype supports sign scanning on .schem and vanilla .nbt files. Sign metadata must survive schematic export. The crop is a simple nearby example, not yet an automatic precise object boundary or full 3D style simulator."
+        },
+        {
             "Choose the blueprint surface Y layer with the +/- controls. This indicates which level of the design meets the ground.",
             "Upload and Preview sends the design to the server. Once accepted, close F8 and move normally in your own player view; Creative flight works as usual.",
             "The preview starts completely IN FRONT of the player, with the building facade facing the player. In Survival, walk to the site; in Creative, fly as usual.",
@@ -69,7 +76,7 @@ public final class BuildAIHelpScreen extends Screen {
             "/buildai substitute <original> <replacement> - allow compatible material substitutions before construction.",
             "/buildai cinematic - conceal chunk-safe excavation behind a void shroud, then show blocks spiraling into the central black hole. Construction starts afterward.",
             "/buildai fast - skip the cinematic wait and use faster construction. Large excavations are still batched to protect server performance.",
-            "/buildai normalize - repair glass pane and iron bar connections, including older completed builds near you.",
+            "/buildai normalize - repair fence, wall, glass pane and iron bar connections, including older completed builds near you.",
             "/buildai hide - dismiss the visual placement grid without modifying the real building.",
             "/buildai confirm - after inspection, excavate and start construction.",
             "/buildai cancel - stop and keep already placed blocks.",

@@ -250,12 +250,16 @@ public final class BuildAIScreen extends Screen {
             status=(revise?"Revised: ":"Created: ")+result.blueprint().name+
                 " ("+result.blueprint().solidCount()+" blocks, "+
                 result.blueprint().warnings.size()+" design QA warnings). Inspect layers or Design QA before placement.";
-            switchTab(1);
-            MinecraftClient mc=MinecraftClient.getInstance();
-            if(mc.currentScreen==null || mc.currentScreen instanceof BuildAIGenerationScreen ||
-                mc.currentScreen==this)
-                mc.setScreen(this);
-            else BuildAIClient.message("Your blueprint is ready. Open F8 → Placement / Export.");
+            // Preserve player control when the monitor was minimized.
+            // Background completions should never force a menu over active play.
+            tab=1;
+            if(client!=null && (client.currentScreen instanceof BuildAIGenerationScreen ||
+                client.currentScreen==this)){
+                switchTab(1);
+                client.setScreen(this);
+            }else {
+                BuildAIClient.message("Blueprint ready and auto-saving. Press F8 to review and place.");
+            }
         }));
     }
     private static String message(Throwable throwable){

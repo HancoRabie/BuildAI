@@ -41,7 +41,7 @@ public final class BuildAIClient implements ClientModInitializer {
     }
     private static volatile boolean uploadPending=false;
     private static String apiKey="";
-    private static KeyBinding open, lockPlacement, retryPlacement, snapGround;
+    private static KeyBinding open, lockPlacement, retryPlacement, snapGround, rotateLeft, rotateRight;
     /** Hide the visual-only ghost without erasing a saved blueprint or built terrain. */
     public static void clearPreview() {
         PlacementMode.stop();
@@ -211,12 +211,18 @@ public final class BuildAIClient implements ClientModInitializer {
             InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_R,"category.buildai"));
         snapGround=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.buildai.snap_ground",
             InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_G,"category.buildai"));
+        rotateLeft=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.buildai.rotate_left",
+            InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_LEFT,"category.buildai"));
+        rotateRight=KeyBindingHelper.registerKeyBinding(new KeyBinding("key.buildai.rotate_right",
+            InputUtil.Type.KEYSYM,GLFW.GLFW_KEY_RIGHT,"category.buildai"));
         ClientTickEvents.END_CLIENT_TICK.register(client->{
             if(client.player==null)return;
             while(open.wasPressed())client.setScreen(new BuildAIScreen());
             if(client.currentScreen==null){
                 while(lockPlacement.wasPressed())PlacementMode.lock();
                 while(snapGround.wasPressed())PlacementMode.snapGround();
+                while(rotateLeft.wasPressed())PlacementMode.rotate(-1);
+                while(rotateRight.wasPressed())PlacementMode.rotate(1);
                 while(retryPlacement.wasPressed()){
                     if(selecting||previewLocked||PlacementMode.active())PlacementMode.retry();
                 }

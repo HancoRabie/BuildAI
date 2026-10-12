@@ -1,6 +1,7 @@
 package com.hanco.buildai.blueprint;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.*;
@@ -37,7 +38,15 @@ public final class SavedBlueprintDeletionTest {
         Path folder=Files.createDirectories(temp.resolve("buildai/blueprints"));
         Path valuable=Files.writeString(temp.resolve("valuable.schem"),"keep");
         Path link=folder.resolve("fake.schem");
-        Files.createSymbolicLink(link,valuable);
+        try {
+            Files.createSymbolicLink(link,valuable);
+        } catch (FileSystemException | UnsupportedOperationException ex) {
+            // Windows without Developer Mode/admin privileges cannot create the
+            // fixture. Skip ONLY this test when symlinks are unavailable;
+            // other deletion safety tests still run unchanged.
+            Assumptions.assumeTrue(false,
+                "This filesystem cannot create a test symlink: "+ex.getMessage());
+        }
         assertThrows(IOException.class,()->SavedBlueprintDeletion.delete(folder,link));
         assertTrue(Files.exists(valuable));
         assertTrue(Files.isSymbolicLink(link));

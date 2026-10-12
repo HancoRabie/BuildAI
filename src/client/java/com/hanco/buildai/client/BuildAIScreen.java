@@ -141,21 +141,22 @@ public final class BuildAIScreen extends Screen {
                 if(BuildAIClient.draft==null){status="Create or import a blueprint first.";return;}
                 try{
                     BuildAIClient.beginUpload(BuildAIClient.draft,surfaceLayer);
-                    status="Sending blueprint. Close F8 to select ground using your NORMAL player view (G).";
+                    status="Close F8: building starts IN FRONT. Wheel moves Z; arrows rotate; G selects ground Y; ENTER locks.";
                 }catch(Exception ex){status="Upload failed: "+ex.getMessage();}
             });
             add("Preview in World (Close F8)",left,row(7),half,buttonHeight,b->{
                 if(BuildAIClient.draft==null||(!BuildAIClient.selecting&&!BuildAIClient.previewLocked)){
-                    status="Upload the blueprint and wait for server approval first.";return;
+                    status="First click Upload & Preview and wait for server acceptance.";return;
                 }
                 close();
             });
             add("Lock XYZ (Enter)",left+half+gap,row(7),half,buttonHeight,b->{
                 if(!BuildAIClient.selecting){
-                    status="Upload your design or press R to choose a new placement.";return;
+                    status="Upload first, or press R to retry placement. G chooses ground Y, then ENTER locks XYZ.";return;
                 }
                 PlacementMode.lock();
-                status="Lock requested. First aim at the intended ground block and press G in the world.";
+                status=PlacementMode.groundSelected()?"Placement lock requested; wait for server approval.":
+                    "To lock: close F8, aim at the TOP of a ground block and press G, then ENTER.";
             });
             add("Save Blueprint to Library",left,row(8),panelWidth,buttonHeight,b->exportSchematic());
             add("Hide Preview",left,row(9),half,buttonHeight,b->{
@@ -172,11 +173,11 @@ public final class BuildAIScreen extends Screen {
             add("Retry Placement",left,row(10),half,buttonHeight,b->{
                 if(BuildAIClient.draft==null){status="Load a blueprint first.";return;}
                 PlacementMode.retry();
-                status="Retry requested: no excavation will begin.";
+                status="Retry requested. Wheel: Z; LEFT/RIGHT arrows: rotate; G: ground Y; ENTER: lock XYZ.";
             });
             add("Confirm & Build",left+half+gap,row(10),half,buttonHeight,b->{
                 if(!BuildAIClient.previewLocked){
-                    status="Aim at ground and press G, then Enter to lock XYZ before building.";return;
+                    status="Placement not locked: aim at ground top + press G, then ENTER. Only then confirm the build.";return;
                 }
                 if(client==null||client.getNetworkHandler()==null){
                     status="Join a world before confirming.";return;

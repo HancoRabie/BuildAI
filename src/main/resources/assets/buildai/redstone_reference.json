@@ -340,8 +340,10 @@
       "block": "minecraft:trapped_chest",
       "purpose": "Power when a player opens it",
       "rules": [
-        "Normal chest lacks opening power",
-        "Comparator separately reads contents"
+        "Distinct from minecraft:chest; a trapped chest emits redstone signal when a player opens it (one per player up to strength 15). Ordinary chest never emits this opening signal.",
+        "Trapped chest retains normal chest storage functionality; its comparator inventory-fullness output is separate from the opening-event signal.",
+        "Do not replace ordinary storage chests with trapped chests unless explicitly requested or the opener-trigger signal is required.",
+        "Opening-power is NOT equivalent to comparator-fullness power. Verify which source the player asked for."
       ]
     },
     {
@@ -595,6 +597,14 @@
         "Charge per source during final fluid normalization and return each empty bucket to marked supply chest.",
         "Containment and fire/stone reaction safety are mandatory; never apply the renewable-water two-bucket rule to lava.",
         "Actual dispensing of lava during game operation needs separate block-entity bucket inventory setup."
+      ]
+    },
+    {
+      "block": "minecraft:chest",
+      "rules": [
+        "Ordinary chest is storage only; no redstone power is emitted by opening or closing it.",
+        "Comparator pointing into a regular chest outputs analog strength reflecting inventory fullness (0..15), not the chest lid state.",
+        "Default for generic storage, normal/simple/plain/regular chest requests. Do not substitute trapped_chest merely because redstone exists nearby."
       ]
     }
   ],

@@ -37,6 +37,34 @@ public final class AIArchitect {
         two-block high passage. Position the hinge against a wall jamb, ensure a walkable landing
         on both sides, and choose open=false unless a deliberately open door is requested.
         Don't invent a door to decorate a solid wall or block the walkway.
+        COMMAND BLOCK / FUNCTIONAL SERVER SYSTEMS (Minecraft Java 1.21.1):
+        When the player requests working minigame logic, include real command blocks
+        in the standard geometry operations using minecraft:command_block,
+        minecraft:chain_command_block, or minecraft:repeating_command_block.
+        Add a SEPARATE root JSON array called "commands", with at most 128 entries:
+        {"x":4,"y":2,"z":8,"command":"team add red","auto":false,"trackOutput":false}.
+        Every command entry must correspond to a real command-block cell at EXACT x,y,z,
+        and its command is Minecraft's 1.21.1 Java command syntax WITHOUT an initial slash.
+        Never place commands as block state properties, sign text, or pretend the AI can
+        set executable NBT solely by placing a command block.
+        Permitted roots: scoreboard, team, tag, effect, give, clear, tp, teleport,
+        title, tellraw, playsound, particle, execute, spawnpoint. For "execute ... run"
+        the nested command must also use this safe set. Do NOT emit function, data,
+        summon, fill, setblock, gamerule, op, deop, stop, reload, schedule, or arbitrary
+        admin commands. Keep every command at most 768 characters and avoid absolute
+        world coordinates; anchor spatial logic to each command block with relative
+        positions and selectors. Command-driven projects currently cannot rotate
+        after generation, so make player-facing geometry oriented deliberately.
+        Operator level 4 must review and approve scripts AFTER locking map placement;
+        scripts remain inert until the final post-normalization commissioning phase.
+        On a CTF/arena request PLAN THE WHOLE FUNCTIONAL GAME: both team selection rooms,
+        an explicit lobby/start trigger, loadout grants, game-state objectives, flag
+        detection/capture/return, score updates, win announcement, respawn, and reset.
+        Use correctly oriented chain/impulse/repeating command blocks and redstone
+        connections, minimize always-active ticking, avoid unconditional repeating
+        score changes. Do not claim a working CTF game merely because blocks were
+        placed; annotate unsupported/untested subsystems in the design QA warnings.
+        Keep game system logic compatible with the actual client's MC version.
         X is width, Y height, Z depth. All coordinates zero-based and within dimensions.
         Operations execute in order, and later operations override earlier ones.
         Minecraft air can carve voids, windows and doorways.
@@ -136,7 +164,9 @@ public final class AIArchitect {
             throw new IllegalArgumentException("Describe your building in 1-4000 characters");
         if(previous!=null&&previous.length()>1_500_000)
             throw new IllegalArgumentException("Revision history exceeds current single-request budget; use section-based generation.");
-        report(progress,"Checking account access","Looking up the models available to your connected ChatGPT account.");
+        report(progress,"Checking account access","BuildAI is running on Minecraft "+
+            net.minecraft.SharedConstants.getGameVersion().getName()+
+            ". Checking connected model access.");
         String model=ChatGPTSignIn.model();
         report(progress,"Preparing secure request","Using your authorized account and model "+model+".");
         String token=ChatGPTSignIn.token();
@@ -148,7 +178,10 @@ public final class AIArchitect {
         JsonArray input=new JsonArray();
         JsonObject system=new JsonObject();
         system.addProperty("role","developer");
-        String rules=INSTRUCTIONS+"\n"+REDSTONE+"\n"+loadReference()+"\n"+loadArchitectureGuide();
+        String rules=INSTRUCTIONS+"\nRUNTIME_MINECRAFT_VERSION: "+
+            net.minecraft.SharedConstants.getGameVersion().getName()+
+            " (generate commands strictly for this version).\n"+
+            REDSTONE+"\n"+loadReference()+"\n"+loadArchitectureGuide();
         if(previous!=null)rules+="\nRevise the existing blueprint. Return COMPLETE replacement JSON, not a diff. "+
             "Keep existing geometry unless the player explicitly asks for changes.";
         system.addProperty("content",rules);
@@ -226,6 +259,7 @@ public final class AIArchitect {
         report(progress,"Architectural QA","Checking stairs, floor openings, room declarations and interior access warnings.");
         try{
             compiled.warnings.addAll(ArchitectureAudit.inspect(compiled,prompt,spec));
+            compiled.warnings.addAll(CommandGameAudit.inspect(compiled,prompt));
         }catch(RuntimeException auditError){
             // Never discard a successfully generated multi-minute blueprint
             // merely because a *non-essential* quality heuristic misbehaves.
@@ -244,7 +278,10 @@ public final class AIArchitect {
         JsonObject format=new JsonObject();format.addProperty("type","json_object");
         body.add("response_format",format);
         JsonArray messages=new JsonArray();
-        String systemInstructions=INSTRUCTIONS+"\n"+REDSTONE+"\n"+loadReference()+"\n"+loadArchitectureGuide();
+        String systemInstructions=INSTRUCTIONS+"\nRUNTIME_MINECRAFT_VERSION: "+
+            net.minecraft.SharedConstants.getGameVersion().getName()+
+            " (generate commands strictly for this version).\n"+
+            REDSTONE+"\n"+loadReference()+"\n"+loadArchitectureGuide();
         if(previous!=null)
             systemInstructions+="\nYou are REVISING an existing project, not designing from scratch. "+
                 "Preserve dimensions, details and architecture unless the user requests changes. "+
@@ -285,6 +322,7 @@ public final class AIArchitect {
         report(progress,"Architectural QA","Checking stairs, floor openings, room declarations and interior access warnings.");
         try{
             compiled.warnings.addAll(ArchitectureAudit.inspect(compiled,prompt,json));
+            compiled.warnings.addAll(CommandGameAudit.inspect(compiled,prompt));
         }catch(RuntimeException auditError){
             // Never discard a successfully generated multi-minute blueprint
             // merely because a *non-essential* quality heuristic misbehaves.

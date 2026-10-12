@@ -24,6 +24,21 @@ really supports it. For multi-crop sorting prefer distinct collection
 channels per crop when filter-hopper item templates are not preloaded.
 
 Player's functional request ALWAYS takes precedence over decorative references. Use valid 1.21.1 registry IDs/properties.
+DIRECTIONAL REDSTONE DESIGN RULE (RBL + ALL GENERATED BUILDS):
+Use the block the component is INTENDED TO DRIVE or SENSE, not a hardcoded
+template heading, to choose its direction. All four cardinal directions
+are equally valid: +X east, -X west, -Z north, +Z south.
+Repeater/comparator rear/input = blockstate 'facing'; physical OUTPUT is
+opposite. Observer 'facing' = observed INPUT; its red OUTPUT is opposite.
+Pistons extend IN blockstate 'facing'. Never copy an east/west example
+state into a north/south branch without rotating actual geometry, supports,
+connection ports and relevant direction-bearing states. Repeaters and
+comparators are horizontal devices: target up/down by routed wiring or
+another mechanism, not invalid facing=up/down. BuildAI's Redstone Blueprint
+Language examples are relative; R2^ means 2 redstone ticks toward NORTH
+(blockstate facing=south), R2v means toward SOUTH (facing=north).
+A source and destination must share a well-defined conductor path; target
+direction alone cannot magically bridge a gap or guarantee power.
 AUTHORING RULE: Treat redstone as an engineered system: define INPUT -> POWER PATH -> LOGIC/MEMORY/TIMING -> OUTPUT -> RESET/SAFE FAILURE before drawing any block. Trace all six sides and vertical wiring. Deliver functioning circuit geometry, not ornaments or just names.
 When relevant, include top-level redstone_plan: {"circuits":[{"name":"...","input":"...","signalPath":"...","output":"...","timing":"...","reset":"...","test":"..."}]}. This is an audit manifest, NOT executable redstone. Return valid JSON as required by BuildAI's normal output contract. Avoid unverified claims.
 

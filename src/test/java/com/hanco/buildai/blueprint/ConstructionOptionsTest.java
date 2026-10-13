@@ -44,6 +44,87 @@ public class ConstructionOptionsTest {
         assertThrows(IllegalArgumentException.class,
             ()->ConstructionOptions.parse("hollow:yes hollow:no"));
     }
+    @Test void parsesExplicitFoundationMaterialFallbacksWithoutRelaxingModes(){
+        var flags=ConstructionOptions.parse(
+            "hollow:yes foundation:no:bedrock,stonebrick,grass_block,dirt");
+        assertTrue(flags.hollow());
+        assertFalse(flags.foundation());
+        assertFalse(flags.excavate());
+        assertEquals(Set.of("minecraft:bedrock","minecraft:stone_bricks",
+            "minecraft:grass_block","minecraft:dirt"),flags.foundationMaterials());
+        assertEquals(Set.of("minecraft:stone_bricks","minecraft:grass_block"),
+            ConstructionOptions.parse(
+                "foundation:no:minecraft:stone_bricks,minecraft:grass_block excavate:no")
+            .foundationMaterials());
+        for(String bad:new String[]{
+            "foundation:yes:dirt","foundation:no:","foundation:no:air",
+            "foundation:no:stone_bricks,","foundation:no:dirt:what",
+            "excavate:no:dirt","hollow:yes:stone","foundation:no:stonebrick foundation:no:dirt"
+        })assertThrows(IllegalArgumentException.class,
+            ()->ConstructionOptions.parse(bad),bad);
+    }
+
+    @Test void stripsAllMixedDirtAndGrassFoundationLayersIncludingTop(){
+        // The screenshot defect: a full dirt platform capped in grass,
+        // while the actual building occupies only a small central area.
+        Blueprint b=new Blueprint("Hillside house",25,14,25);
+        for(int y=0;y<=5;y++)
+            for(int z=2;z<=22;z++)for(int x=2;x<=22;x++)
+                b.set(x,y,z,(y==5&&(x+z)%7!=0)
+                    ?"minecraft:grass_block":"minecraft:dirt");
+        // House walls (including dirt-and-stone finish) must survive even
+        // though its footprint is substantially narrower than the base.
+        for(int y=6;y<=11;y++)for(int z=8;z<=16;z++)
+            for(int x=8;x<=16;x++)
+                if(x==8||x==16||z==8||z==16)
+                    b.set(x,y,z,"minecraft:stone_bricks");
+        b.set(12,9,8,"minecraft:chiseled_stone_bricks");
+        var skip=ConstructionOptions.identifiedFoundation(b);
+        assertEquals(6*21*21,skip.size(),
+            "Entire 6-layer platform including mixed grass cap must be omitted");
+        assertTrue(skip.contains(b.index(6,5,7)),"Top grass layer omitted");
+        assertTrue(skip.contains(b.index(3,5,9)),"Top dirt patch omitted");
+        assertFalse(skip.contains(b.index(8,9,8)),"Wall remains");
+        assertFalse(skip.contains(b.index(12,9,8)),"Chiseled decoration remains");
+        assertFalse(skip.contains(b.index(11,9,16)),"Other wall remains");
+    }
+
+    @Test void detectsFoundationFootprintInsideOversizedSchematic(){
+        Blueprint b=new Blueprint("Oversized design including detached banner",48,12,40);
+        for(int y=0;y<=2;y++)
+            for(int z=9;z<=30;z++)for(int x=10;x<=31;x++)
+                b.set(x,y,z,y==2?"minecraft:grass_block":"minecraft:dirt");
+        b.set(45,7,35,"minecraft:gold_block"); // not part of the base
+        var skip=ConstructionOptions.identifiedFoundation(b);
+        assertEquals(22*22*3,skip.size(),
+            "Use local foundation footprint, not entire blueprint bounding box");
+        assertFalse(skip.contains(b.index(45,7,35)));
+    }
+
+    @Test void fallbackMaterialStillMustFormLargeDenseContiguousBase(){
+        Blueprint b=new Blueprint("Custom foundation",12,8,12);
+        for(int z=1;z<=10;z++)for(int x=1;x<=10;x++)
+            b.set(x,0,z,"minecraft:glowstone");
+        b.set(3,4,3,"minecraft:glowstone"); // unrelated interior decoration
+        assertTrue(ConstructionOptions.identifiedFoundation(b).isEmpty(),
+            "Non-standard base needs a material hint");
+        var materials=ConstructionOptions.parse(
+            "foundation:no:glowstone excavate:no").foundationMaterials();
+        var skip=ConstructionOptions.identifiedFoundation(b,materials);
+        assertEquals(100,skip.size());
+        assertFalse(skip.contains(b.index(3,4,3)),
+            "Extra hint may not delete arbitrary matching blocks elsewhere");
+    }
+
+    @Test void noUniformBaseMeansNoGlobalDirtErasure(){
+        Blueprint b=new Blueprint("Organic hillside art",18,12,18);
+        for(int y=0;y<=8;y++)for(int x=3;x<=14;x++)for(int z=2;z<=15;z++)
+            if((x+y+z)%5==0)
+                b.set(x,y,z,"minecraft:grass_block");
+        assertTrue(ConstructionOptions.identifiedFoundation(b).isEmpty(),
+            "No dense footprint-wide platform; keep all terrain features");
+    }
+
     @Test void identifiesMultipleBaseLayersIncludingAirPadding(){
         Blueprint b=new Blueprint("Tall mountain house",8,9,8);
         for(int y=1;y<=3;y++)for(int x=0;x<8;x++)for(int z=0;z<8;z++)

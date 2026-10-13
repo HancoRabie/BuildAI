@@ -8,8 +8,8 @@ assignees: []
 
 ## Submission checklist
 
-- [ ] I used BuildAI **F8 → Feedback & Styles → Community Share** to create the ZIP, and I have inspected its contents before posting.
-- [ ] I attached the **redstone-feedback-....zip** file to this issue. **Drag and drop it into this text area, then wait for GitHub's attachment link to appear.**
+- [ ] I used BuildAI **F8 → Feedback & Styles → Community Share → Redstone Insight** to create the **schema-v2** ZIP, and I have inspected its contents before posting.
+- [ ] I attached the **redstone-insight-....zip** file to this issue. **Drag and drop it into this text area, then wait for GitHub's attachment link to appear.**
 - [ ] I am the owner or have permission to redistribute both schematics and evidence under **CC BY 4.0**, including reuse in open datasets, evaluation and AI training.
 - [ ] The included schematics were built/tested in Minecraft **Java 1.21.1**, or I clearly state the alternative version below.
 - [ ] I understand that this issue and file are **PUBLIC**. GitHub links the contribution to my GitHub profile.
@@ -22,6 +22,10 @@ assignees: []
 
 Pillar or redstone subsystem:
 
+Benchmark ID / benchmark revision (if applicable):
+
+Exporter BuildAI version / Minecraft version / Fabric Loader version (from report.json):
+
 Minecraft / Fabric / BuildAI version (if known):
 
 Describe steps to reproduce the observed failure:
@@ -30,8 +34,11 @@ Exact input sequence and observed output:
 
 If providing corrected.schem, how was it verified? (all truth-table cases, repeated cycles, chunk reload, etc.)
 
-## Maintainer review
+## Maintainer review — NOT AUTOMATICALLY ACCEPTED
 
+- Every ZIP starts `review_status=quarantined`, `trust_level=unverified`, and `eligible_for_shared_learning=false`, regardless of contributor ratings or "Corrected and tested" checkboxes.
+- Maintainers must run the offline ZIP integrity/schema validator, confirm rights and source version, test corrected geometry in Minecraft, document input/output evidence, and explicitly approve a SEPARATE signed-off review record. Nothing auto-feeds BuildAI or any model.
+- Duplicate, unsafe, low-evidence, functionally incorrect, or irrelevant submissions may be rejected. A corrected circuit is not necessarily a correct circuit.
 - No attached files will be automatically executed in Minecraft.
 - A contributor-reported PASS is not a verified solution until reproduced.
 - Maintainers may annotate geometry, circuit component facing, input/output ports, and measured outcomes.

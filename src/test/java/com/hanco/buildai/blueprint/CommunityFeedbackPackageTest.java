@@ -1,5 +1,6 @@
 package com.hanco.buildai.blueprint;
 
+import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.io.*;
@@ -55,12 +56,13 @@ public class CommunityFeedbackPackageTest {
         }
         assertEquals(Set.of("report.json","README.txt","generated.schem",
             "corrected.schem"),names);
-        assertTrue(json.contains("buildai-community-example-v2"));
-        assertTrue(json.contains("\\"schema_version\\":2"));
-        assertTrue(json.contains("\\"namespace\\":\\"redstone_insights\\""));
-        assertTrue(json.contains("\\"review_status\\":\\"quarantined\\""));
-        assertTrue(json.contains("\\"eligible_for_shared_learning\\":false"));
-        assertTrue(json.contains("\\"contains_verified_solution\\":false"));
+        var reportJson=JsonParser.parseString(json).getAsJsonObject();
+        assertEquals("buildai-community-example-v2",reportJson.get("schema").getAsString());
+        assertEquals(2,reportJson.get("schema_version").getAsInt());
+        assertEquals("redstone_insights",reportJson.get("namespace").getAsString());
+        assertEquals("quarantined",reportJson.get("review_status").getAsString());
+        assertFalse(reportJson.get("eligible_for_shared_learning").getAsBoolean());
+        assertFalse(reportJson.get("contains_verified_solution").getAsBoolean());
         assertTrue(json.contains("Corrected and tested"));
         assertFalse(json.contains(dir.toString()));
         assertFalse(json.contains("projectPath"));
@@ -118,14 +120,15 @@ public class CommunityFeedbackPackageTest {
                     json=new String(in.readAllBytes(),StandardCharsets.UTF_8);
             }
         }
-        assertTrue(json.contains("\\"category\\":\\"build_preference\\""),json);
-        assertTrue(json.contains("\\"namespace\\":\\"build_preferences\\""),json);
-        assertTrue(json.contains("\\"contributor_claim\\":\\"Subjective preference\\""));
-        assertTrue(json.contains("\\"example_role\\":\\"subjective_style_example\\""));
-        assertTrue(json.contains("\\"exporter_buildai_version\\":\\"0.2.7\\""));
-        assertTrue(json.contains("\\"benchmark_revision\\":\\"r3\\""));
-        assertTrue(json.contains("\\"eligible_for_shared_learning\\":false"));
-        assertFalse(json.contains("\\"contains_verified_solution\\":true"));
+        var reportJson=JsonParser.parseString(json).getAsJsonObject();
+        assertEquals("build_preference",reportJson.get("category").getAsString());
+        assertEquals("build_preferences",reportJson.get("namespace").getAsString());
+        assertEquals("Subjective preference",reportJson.get("contributor_claim").getAsString());
+        assertEquals("subjective_style_example",reportJson.get("example_role").getAsString());
+        assertEquals("0.2.7",reportJson.get("exporter_buildai_version").getAsString());
+        assertEquals("r3",reportJson.get("benchmark_revision").getAsString());
+        assertFalse(reportJson.get("eligible_for_shared_learning").getAsBoolean());
+        assertFalse(reportJson.get("contains_verified_solution").getAsBoolean());
         assertEquals(CommunityFeedbackPackage.PREFERENCE_SUBMISSION_URL,
             CommunityFeedbackPackage.submissionUrl(CommunityFeedbackPackage.PREFERENCE));
     }
@@ -147,12 +150,13 @@ public class CommunityFeedbackPackageTest {
                 if(e.getName().equals("report.json"))
                     json=new String(in.readAllBytes(),StandardCharsets.UTF_8);
         }
-        assertTrue(json.contains("\\"review_status\\":\\"quarantined\\""));
-        assertTrue(json.contains("\\"reviewer_verified\\":false"));
-        assertTrue(json.contains("\\"contains_contributor_claimed_correction\\":true"));
-        assertTrue(json.contains("\\"contains_verified_solution\\":false"));
-        assertTrue(json.contains("\\"benchmark_id\\":\\"BENCHY-P2\\""));
-        assertTrue(json.contains("\\"benchmark_revision\\":\\"v1\\""));
+        var reportJson=JsonParser.parseString(json).getAsJsonObject();
+        assertEquals("quarantined",reportJson.get("review_status").getAsString());
+        assertFalse(reportJson.get("reviewer_verified").getAsBoolean());
+        assertTrue(reportJson.get("contains_contributor_claimed_correction").getAsBoolean());
+        assertFalse(reportJson.get("contains_verified_solution").getAsBoolean());
+        assertEquals("BENCHY-P2",reportJson.get("benchmark_id").getAsString());
+        assertEquals("v1",reportJson.get("benchmark_revision").getAsString());
     }
 
 }

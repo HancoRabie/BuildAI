@@ -62,10 +62,9 @@ public final class NativeFileAccess {
         return files;
     }
 
-    /** Open the ACTUAL BuildAI batch-scan directory, not an arbitrary path. */
-    public static void openStyleReferenceFolder() throws IOException {
-        Path directory=BuildAIStyleMemory.architectureDirectory()
-            .toAbsolutePath().normalize();
+    /** Open an app-owned output directory through the OS file manager. */
+    public static void openDirectory(Path folder) throws IOException {
+        Path directory=folder.toAbsolutePath().normalize();
         Files.createDirectories(directory);
         String os=System.getProperty("os.name","").toLowerCase(Locale.ROOT);
         List<List<String>> commands=os.contains("win")
@@ -84,5 +83,9 @@ public final class NativeFileAccess {
         }
         throw new IOException("Could not open the file manager for "+directory+
             (last==null?"":": "+last.getMessage()),last);
+    }
+    /** Keep existing Analyze Folder behavior and exact destination. */
+    public static void openStyleReferenceFolder() throws IOException {
+        openDirectory(BuildAIStyleMemory.architectureDirectory());
     }
 }

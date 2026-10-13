@@ -99,9 +99,14 @@ public final class CommunityFeedbackPackage {
                 Versions.unspecified(),rightsConfirmed);
         }
     }
-    private static String clean(String s,int limit){
-        if(s==null)return "";
-        String val=s.strip().replaceAll("[\\\\u0000-\\\\u0008\\\\u000B\\\\u000C\\\\u000E-\\\\u001F]"," ");
+    private static String clean(String text,int limit){
+        if(text==null)return "";
+        StringBuilder clean=new StringBuilder(text.length());
+        for(int i=0;i<text.length();i++){
+            char c=text.charAt(i);
+            clean.append(Character.isISOControl(c)?' ':c);
+        }
+        String val=clean.toString().strip();
         if(val.length()>limit)
             throw new IllegalArgumentException("Feedback exceeds "+limit+" characters");
         return val;

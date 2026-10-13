@@ -29,7 +29,7 @@ public final class FoundationPlan {
         "blackstone","polished_blackstone","polished_blackstone_bricks",
         "basalt","smooth_basalt","bedrock","obsidian",
         "quartz_block","smooth_quartz","iron_block");
-    // More than 60%, not >= 60%. Count against the ANCHORED rectangular
+    // At least 51%, not 50%. Count against the ANCHORED rectangular
     // footprint area rather than only against blocks that happen to exist.
     private static final int MIN_PERCENT=51;
     private static final int MIN_AREA=16,MIN_SIDE=4;
@@ -74,7 +74,7 @@ public final class FoundationPlan {
      * e.g. a separate sign/advertisement, so never use full volume bounds.
      *
      * Importantly, the footprint can contain basement holes and other
-     * architectural blocks. The connected cluster needs to occupy >60% of
+     * architectural blocks. The connected cluster needs to occupy >=51% of
      * its rectangular envelope, not 100%.
      */
     private static Footprint firstFootprint(Blueprint b,int y,Set<String> materials){

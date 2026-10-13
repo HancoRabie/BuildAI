@@ -24,10 +24,10 @@ public final class BuildAICommunityFeedbackScreen extends Screen {
     private final Path original;
     private Path corrected,exported;
     private StudioLayout.View layout;
-    private TextFieldWidget expectedField,observedField,explanationField;
-    private int page=0,pillar=1,verification=0,rating=4;
+    private TextFieldWidget expectedField,observedField,explanationField,benchmarkField;
+    private int page=0,pillar=1,verification=0,rating=4,category=0;
     private boolean consent=false,busy=false;
-    private String expected="",observed="",explanation="",status=
+    private String expected="",observed="",explanation="",benchmarkRef="",status=
         "Local package only. Nothing gets uploaded without your action.";
     private static final String[] PILLARS={
         "Power & transmission","Boolean logic","Pulse engineering",
@@ -47,12 +47,14 @@ public final class BuildAICommunityFeedbackScreen extends Screen {
         this.parent=parent;
         this.original=original;
         this.rating=Math.max(1,Math.min(5,rating));
-        this.explanation=previousNote==null?"":previousNote;
+        // Never pre-fill a PUBLIC contribution from a PRIVATE local review.
+        // Users must choose and enter what they intend to publish.
     }
     private void capture(){
         if(expectedField!=null)expected=expectedField.getText();
         if(observedField!=null)observed=observedField.getText();
         if(explanationField!=null)explanation=explanationField.getText();
+        if(benchmarkField!=null)benchmarkRef=benchmarkField.getText();
     }
     private void move(int step){
         capture();page=step;clearChildren();init();
@@ -67,41 +69,58 @@ public final class BuildAICommunityFeedbackScreen extends Screen {
     }
     @Override protected void init(){
         capture();
-        expectedField=null;observedField=null;explanationField=null;
+        expectedField=null;observedField=null;explanationField=null;benchmarkField=null;
         layout=StudioLayout.forWindow(width,height);
         int x=layout.x(),w=layout.width(),h=layout.buttonHeight();
         int top=layout.bodyTop(),gap=6,half=(w-gap)/2;
         if(page==0){
-            if(layout.bodyHeight()>=114){
-                button("SELECT CORRECTED .SCHEM (OPTIONAL)",x+8,top+23,
-                    w-16,h,b->selectCorrection()).active=!busy;
-                button("PILLAR: "+PILLARS[pillar],x+8,top+49,half-10,h,
-                    b->{pillar=(pillar+1)%PILLARS.length;move(0);}).active=!busy;
-                button("RATING "+rating+"/5",x+half+gap,top+49,half-8,h,
+            if(layout.bodyHeight()>=123){
+                button("TYPE: "+(category==0?"REDSTONE INSIGHT":"BUILD PREFERENCE"),
+                    x+8,top+16,w-16,h,b->{
+                        category=1-category;consent=false;move(0);
+                    }).active=!busy;
+                button(category==0?"CHOOSE CORRECTED CIRCUIT (OPTIONAL)":
+                    "CHOOSE PREFERRED DESIGN (OPTIONAL)",
+                    x+8,top+43,w-16,h,b->selectCorrection()).active=!busy;
+                button(category==0?"PILLAR: "+PILLARS[pillar]:"SUBJECTIVE STYLE EXAMPLE",
+                    x+8,top+70,half-10,h,
+                    b->{if(category==0){pillar=(pillar+1)%PILLARS.length;move(0);}}
+                ).active=!busy&&category==0;
+                button("RATING "+rating+"/5",x+half+gap,top+70,half-8,h,
                     b->{rating=rating%5+1;move(0);}).active=!busy;
-                button("RESULT: "+VERIFICATION[verification],x+8,top+76,
-                    w-16,h,b->{
+                button(category==0?"CLAIM: "+VERIFICATION[verification]:
+                    "CLAIM: PERSONAL PREFERENCE ONLY",x+8,top+97,w-16,h,
+                    b->{if(category==0){
                         verification=(verification+1)%VERIFICATION.length;
                         move(0);
-                    }).active=!busy;
+                    }}).active=!busy&&category==0;
             }
             button("CANCEL",x,layout.footerY(),half,h,b->close());
-            button("NEXT: TEST EVIDENCE",x+half+gap,layout.footerY(),half,h,
+            button("NEXT: EVIDENCE",x+half+gap,layout.footerY(),half,h,
                 b->{if(original==null)status="Select a saved build first.";
-                    else move(1);}).active=original!=null&&!busy;
+                    else move(1);}).active=original!=null&&!busy&&
+                    layout.bodyHeight()>=123;
         }else if(page==1){
-            if(layout.bodyHeight()>=105){
-                expectedField=field("Expected behavior",expected,x+8,top+17,w-16,h,1100);
-                observedField=field("Observed behavior",observed,x+8,top+43,w-16,h,1100);
-                explanationField=field("What changed? Test details",explanation,
+            if(layout.bodyHeight()>=150){
+                expectedField=field(category==0?"Expected circuit behavior":
+                    "Preferred visual or design result",expected,
+                    x+8,top+17,w-16,h,1100);
+                observedField=field(category==0?"Actual observed behavior":
+                    "Existing design and disliked outcome",observed,
+                    x+8,top+43,w-16,h,1100);
+                explanationField=field(category==0?"Reproduction and fix details":
+                    "Style reasons and context",explanation,
                     x+8,top+69,w-16,h,2200);
-                button(consent?"PERMISSION CONFIRMED [YES]":
-                    "I OWN THIS WORK & AGREE TO SHARE [NO]",x+8,top+96,w-16,h,
+                benchmarkField=field("Benchmark ID@revision (optional)",
+                    benchmarkRef,x+8,top+95,w-16,h,114);
+                button(consent?"PUBLIC CC BY 4.0 PERMISSION: YES":
+                    "I OWN THIS WORK & AGREE TO PUBLIC CC BY 4.0: NO",
+                    x+8,top+122,w-16,h,
                     b->{capture();consent=!consent;move(1);});
             }
             button("BACK",x,layout.footerY(),half,h,b->move(0));
             button("PREPARE LOCAL ZIP",x+half+gap,layout.footerY(),half,h,
-                b->prepare()).active=!busy&&consent&&layout.bodyHeight()>=116;
+                b->prepare()).active=!busy&&consent&&layout.bodyHeight()>=150;
         }else{
             if(layout.bodyHeight()>=75){
                 button("OPEN ZIP FOLDER",x+8,top+19,half-10,h,b->openFolder());
@@ -142,10 +161,12 @@ public final class BuildAICommunityFeedbackScreen extends Screen {
         if(busy||original==null)return;
         capture();
         try{
+            String type=category==0?CommunityFeedbackPackage.REDSTONE:
+                CommunityFeedbackPackage.PREFERENCE;
             CommunityFeedbackPackage.Report report=new CommunityFeedbackPackage.Report(
-                PILLARS[pillar],VERIFICATION[verification],rating,
-                observed,expected,explanation,consent);
-            if(!verificationEqualsFailure()&&corrected==null){
+                type,PILLARS[pillar],VERIFICATION[verification],rating,
+                observed,expected,explanation,currentVersions(),consent);
+            if(category==0&&!verificationEqualsFailure()&&corrected==null){
                 status="Select a corrected schematic for this verification status.";
                 return;
             }
@@ -166,6 +187,27 @@ public final class BuildAICommunityFeedbackScreen extends Screen {
             }));
         }catch(Exception ex){status="Please complete consent and test evidence: "+reason(ex);}
     }
+    private CommunityFeedbackPackage.Versions currentVersions(){
+        var loader=net.fabricmc.loader.api.FabricLoader.getInstance();
+        String mod=loader.getModContainer("buildai")
+            .map(m->m.getMetadata().getVersion().getFriendlyString())
+            .orElse("unspecified");
+        String mc=loader.getModContainer("minecraft")
+            .map(m->m.getMetadata().getVersion().getFriendlyString())
+            .orElse("unspecified");
+        String fabric=loader.getModContainer("fabricloader")
+            .map(m->m.getMetadata().getVersion().getFriendlyString())
+            .orElse("unspecified");
+        String id="",rev="";
+        String bench=benchmarkRef.trim();
+        if(!bench.isEmpty()){
+            int at=bench.lastIndexOf('@');
+            id=at<0?bench:bench.substring(0,at);
+            rev=at<0?"unspecified":bench.substring(at+1);
+        }
+        return new CommunityFeedbackPackage.Versions(mod,mc,fabric,id,rev);
+    }
+
     private boolean verificationEqualsFailure(){
         return verification==0;
     }
@@ -181,7 +223,9 @@ public final class BuildAICommunityFeedbackScreen extends Screen {
     }
     private void openSubmit(){
         if(exported==null){status="Prepare your ZIP before opening submission.";return;}
-        if(!BrowserLauncher.openBuildAICommunityFeedback()){
+        if(!BrowserLauncher.openBuildAICommunityFeedback(
+            category==0?CommunityFeedbackPackage.REDSTONE:
+                CommunityFeedbackPackage.PREFERENCE)){
             status="Couldn't launch browser. Open "+
                 CommunityFeedbackPackage.SUBMISSION_URL+" manually.";
             return;
@@ -218,17 +262,17 @@ public final class BuildAICommunityFeedbackScreen extends Screen {
         if(page==0){
             label(context,"SOURCE  /  "+(original==null?"SELECT A SAVED BUILD":
                 original.getFileName()),x+8,top+4,w-16,BODY,0.82f);
-            if(layout.bodyHeight()>=118)
-                label(context,"CORRECTED  /  "+(corrected==null?"NONE — FAILURE REPORT ONLY":
-                    corrected.getFileName()),x+8,top+101,w-16,AMBER,0.73f);
+            if(layout.bodyHeight()>=148)
+                label(context,"EXAMPLE  /  "+(corrected==null?"NO COMPARISON FILE":
+                    corrected.getFileName()),x+8,top+124,w-16,AMBER,0.73f);
         }else if(page==1){
             label(context,"TEST EVIDENCE  /  expected, observed, reproduction notes",
                 x+8,top+3,w-16,BODY,0.75f);
-            if(layout.bodyHeight()>=139){
-                label(context,"PUBLIC GitHub issue. Content licensed CC BY 4.0.",
-                    x+8,top+123,w-16,AMBER,0.75f);
-                label(context,"No prompts, credentials, sign text or source paths in ZIP.",
-                    x+8,top+134,w-16,DIM,0.72f);
+            if(layout.bodyHeight()>=173){
+                label(context,"Community files remain QUARANTINED until maintainer review.",
+                    x+8,top+149,w-16,AMBER,0.75f);
+                label(context,"Version and schema metadata recorded; no auto-learning.",
+                    x+8,top+160,w-16,DIM,0.72f);
             }
         }else{
             label(context,"EXPORTED ZIP  /  "+(exported==null?"none":
@@ -240,9 +284,9 @@ public final class BuildAICommunityFeedbackScreen extends Screen {
                     x+8,top+96,w-16,DIM,0.75f);
             }
         }
-        if(layout.bodyHeight()<115&&page!=2)
-            label(context,"Enlarge window or lower GUI Scale to see all fields.",
-                x+8,top+90,w-16,AMBER,0.76f);
+        if(layout.bodyHeight()<(page==0?123:150)&&page!=2)
+            label(context,"Enlarge window or lower GUI Scale to access the form.",
+                x+8,top+5,w-16,AMBER,0.76f);
         label(context,status,x+5,layout.statusY()+3,w-10,
             status.startsWith("Could")||status.startsWith("Please")?RED:DIM,0.76f);
         super.render(context,mx,my,delta);

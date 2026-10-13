@@ -226,4 +226,16 @@ public class InteriorHollowPlanTest {
             "Exterior remains outside the wall");
     }
 
+    @Test void thickPlatformAloneIsNotARoomOrHallway(){
+        // A three-layer podium has exposed OUTWARD sides but no inward
+        // standing wall faces. Hollow mode must never excavate the space
+        // above the pad merely because a footprint has a perimeter.
+        Blueprint b=new Blueprint("Three-layer stone podium",18,9,18);
+        for(int x=2;x<=15;x++)for(int z=2;z<=15;z++)
+            for(int y=0;y<=2;y++)
+                b.set(x,y,z,"minecraft:stone_bricks");
+        assertTrue(InteriorHollowPlan.enclosedAir(b).isEmpty(),
+            "Thick podium exterior must not become a fake enclosed interior");
+    }
+
 }

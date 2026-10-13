@@ -180,7 +180,8 @@ public final class BuildAIMod implements ModInitializer {
                         : "Overlay: blueprint-AIR terrain is preserved; "+
                           "planned blocks still replace overlapping terrain. ")+
                 (!options.foundation()
-                    ? "Identified foundation blocks omitted: "+p.omittedFoundationBlocks()+". "
+                    ? "Identified foundation blocks omitted: "+p.omittedFoundationBlocks()+
+                      " ("+p.foundationOmissionSummary()+"). "
                     : "")+
                 "Protected blocks and inventories are never overwritten. /buildai status");
             if(!options.foundation()&&p.omittedFoundationBlocks()==0)

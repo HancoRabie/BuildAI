@@ -5,18 +5,20 @@ import java.util.BitSet;
 /**
  * Conservative, terrain-independent plan for excavate-INTERNAL-EMPTY-SPACE.
  * A set bit is a position whose FINAL BLUEPRINT STATE IS AIR, bounded in
- * both horizontal axes by structural walls AND vertically by a floor and a
- * ceiling. All built blocks, including furniture, lights and decoration,
- * are excluded by definition.
+ * opposite structural walls. An enclosed room has walls on both X and Z
+ * axes; a hallway/tunnel has a continuous pair of parallel side walls.
+ * We do NOT require blueprint floor or roof: many real structures have
+ * open entrances, terrain floors or arched/open overhead sections.
  *
- * This is geometry classification, not 3D flood-fill: intentional door
- * and window openings should not make the entire interior "exterior".
- * A hollow operation MUST fail closed when no convincing room is found.
+ * All blueprint non-AIR cells (walls, furniture, light, decorations) are
+ * excluded by definition. This is conservative static geometry review,
+ * not a flood fill that leaks outdoors through intentionally open doors.
  */
 public final class InteriorHollowPlan {
     private InteriorHollowPlan(){}
     private static final int MAX_ROOM_SPAN=192;
-    private static final int MAX_FLOOR_TO_CEILING=96;
+    private static final int MIN_CORRIDOR_WALL_RUN=3;
+    private static final int MAX_WALL_GAP=192;
 
     private static boolean structural(Blueprint b,int x,int y,int z){
         if(x<0||z<0||x>=b.width||z>=b.length||
@@ -58,16 +60,66 @@ public final class InteriorHollowPlan {
         return b.width*b.height*b.length;
     }
 
-    public static BitSet enclosedAir(Blueprint b){
-        BitSet insideX=new BitSet(volume(b));
-        BitSet insideBoth=new BitSet(volume(b));
-        if(b.width<4||b.length<4||b.height<4)return insideBoth;
+    private static boolean between(int near,int far,int point){
+        return near>=0&&far>=0&&far-near>=3&&
+            far-near<=MAX_WALL_GAP&&near<point&&point<far;
+    }
 
-        for(int y=1;y<b.height-1;y++){
-            // Horizontal ray crossing in X (walls LEFT and RIGHT).
-            for(int z=1;z<b.length-1;z++){
-                int left=-1;
+    /** Require continuing VERTICAL standing walls on both sides of a
+     * hallway. A one-off facade, column pair, statue legs or scattered
+     * support columns are not a legitimate enclosed corridor. */
+    private static boolean corridorWallsX(Blueprint b,int left,int right,
+                                          int y,int z){
+        return standingRunZ(b,left,y,z)>=MIN_CORRIDOR_WALL_RUN&&
+               standingRunZ(b,right,y,z)>=MIN_CORRIDOR_WALL_RUN;
+    }
+    private static boolean corridorWallsZ(Blueprint b,int front,int back,
+                                          int y,int x){
+        return standingRunX(b,x,y,front)>=MIN_CORRIDOR_WALL_RUN&&
+               standingRunX(b,x,y,back)>=MIN_CORRIDOR_WALL_RUN;
+    }
+    private static int standingRunZ(Blueprint b,int x,int y,int z){
+        if(!wallSegment(b,x,y,z))return 0;
+        int count=1;
+        for(int z0=z-1;z0>=0&&z0>=z-4&&wallSegment(b,x,y,z0);z0--)count++;
+        for(int z0=z+1;z0<b.length&&z0<=z+4&&wallSegment(b,x,y,z0);z0++)count++;
+        return count;
+    }
+    private static int standingRunX(Blueprint b,int x,int y,int z){
+        if(!wallSegment(b,x,y,z))return 0;
+        int count=1;
+        for(int x0=x-1;x0>=0&&x0>=x-4&&wallSegment(b,x0,y,z);x0--)count++;
+        for(int x0=x+1;x0<b.width&&x0<=x+4&&wallSegment(b,x0,y,z);x0++)count++;
+        return count;
+    }
+
+    /**
+     * Three alternatives for a genuinely interior cell:
+     * 1. Enclosed between standing walls in BOTH horizontal directions;
+     * 2. Between continuous, parallel X-boundary corridor walls;
+     * 3. Between continuous, parallel Z-boundary corridor walls.
+     *
+     * The strong both-axis case detects rooms with door apertures;
+     * cases 2/3 detect roofless/terrain-floor corridors even with open
+     * entrances at both ends. There is deliberately NO requirement for a
+     * solid floor/roof above/below that exact coordinate.
+     *
+     * Only final blueprint AIR cells can appear in the mask. Any original
+     * world blocks at those locations are removed before construction;
+     * generated wall/room content cannot be removed by the hollow pass.
+     */
+    public static BitSet enclosedAir(Blueprint b){
+        int volume=volume(b);
+        BitSet xSpan=new BitSet(volume);
+        BitSet xCorridor=new BitSet(volume);
+        BitSet result=new BitSet(volume);
+        if(b.width<4||b.length<4||b.height<2)return result;
+
+        for(int y=0;y<b.height;y++){
+            // Pair closest standing walls along X for each row.
+            for(int z=0;z<b.length;z++){
                 int[] nearestLeft=new int[b.width];
+                int left=-1;
                 for(int x=0;x<b.width;x++){
                     if(wall(b,x,y,z))left=x;
                     nearestLeft[x]=left;
@@ -75,18 +127,21 @@ public final class InteriorHollowPlan {
                 int right=-1;
                 for(int x=b.width-1;x>=0;x--){
                     if(wall(b,x,y,z))right=x;
-                    if(x==0||x==b.width-1||b.isAir(x,y,z)==false)continue;
+                    if(!b.isAir(x,y,z))continue;
                     int l=nearestLeft[x];
-                    if(l>=0&&right>=0&&right-l>=3&&
-                       right-l<=MAX_ROOM_SPAN&&l<x&&x<right)
-                        insideX.set(b.index(x,y,z));
+                    if(between(l,right,x)){
+                        int index=b.index(x,y,z);
+                        xSpan.set(index);
+                        if(corridorWallsX(b,l,right,y,z))xCorridor.set(index);
+                    }
                 }
             }
-            // Orthogonal Z crossing. Both axes MUST be enclosed, so roofed
-            // overhangs, balconies and open platforms cannot be excavated.
-            for(int x=1;x<b.width-1;x++){
-                int front=-1;
+            // Pair closest standing walls along Z for each column.
+            // Both-axis rooms require xSpan AND zSpan.
+            // Narrow open-ended corridors may use either parallel-wall pair.
+            for(int x=0;x<b.width;x++){
                 int[] nearestFront=new int[b.length];
+                int front=-1;
                 for(int z=0;z<b.length;z++){
                     if(wall(b,x,y,z))front=z;
                     nearestFront[z]=front;
@@ -94,35 +149,16 @@ public final class InteriorHollowPlan {
                 int back=-1;
                 for(int z=b.length-1;z>=0;z--){
                     if(wall(b,x,y,z))back=z;
-                    if(z==0||z==b.length-1)continue;
-                    int i=b.index(x,y,z),f=nearestFront[z];
-                    if(insideX.get(i)&&f>=0&&back>=0&&
-                       back-f>=3&&back-f<=MAX_ROOM_SPAN&&f<z&&z<back)
-                        insideBoth.set(i);
+                    if(!b.isAir(x,y,z))continue;
+                    int f=nearestFront[z],index=b.index(x,y,z);
+                    boolean withinZ=between(f,back,z);
+                    if((xSpan.get(index)&&withinZ)||xCorridor.get(index)||
+                        (withinZ&&corridorWallsZ(b,f,back,y,x))){
+                        result.set(index);
+                    }
                 }
             }
         }
-
-        // For EACH interior-air column require floor and ceiling in the
-        // blueprint. Runs in O(volume) without allocating huge 3D arrays.
-        for(int z=1;z<b.length-1;z++)for(int x=1;x<b.width-1;x++){
-            int lastFloor=-1;
-            for(int y=0;y<b.height;y++){
-                if(structural(b,x,y,z))lastFloor=y;
-                int i=b.index(x,y,z);
-                if(insideBoth.get(i)&&
-                    (lastFloor<0||y-lastFloor>MAX_FLOOR_TO_CEILING))
-                    insideBoth.clear(i);
-            }
-            int nextCeiling=-1;
-            for(int y=b.height-1;y>=0;y--){
-                if(structural(b,x,y,z))nextCeiling=y;
-                int i=b.index(x,y,z);
-                if(insideBoth.get(i)&&
-                    (nextCeiling<0||nextCeiling-y>MAX_FLOOR_TO_CEILING))
-                    insideBoth.clear(i);
-            }
-        }
-        return insideBoth;
+        return result;
     }
 }

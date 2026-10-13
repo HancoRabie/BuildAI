@@ -66,9 +66,9 @@ public final class BuildAIHelpScreen extends Screen {
         },
         {
             "After G, use arrows and wheel to fine tune the ghost, then ENTER locks its XYZ. R or /buildai retry resets it. F8 > Confirm & Build begins excavation only after server validation; protected containers and unloaded chunks are still rejected.",
-            "Default /buildai confirm clears the full blueprint volume, including AIR cells. /buildai confirm excavate:no skips clearing and overlays only occupied blueprint blocks; existing mountain terrain in empty cells remains.",
-            "Use /buildai confirm foundation:no excavate:no to suppress recognizable flat bottom base blocks AND retain untouched mountain terrain. Both switches accept yes/no independently.",
-            "Overlay still REPLACES natural blocks at painted positions. Foundation:no removes only confidently identifiable uniform bottom platforms; does not strip sculpture feet. Protected block entities/bedrock remain forbidden at every actual edit.",
+            "DEFAULT /buildai confirm: clear all existing blocks in the blueprint volume before placing the build. /buildai confirm excavate:no: overlay blueprint blocks without clearing its empty spaces. Existing terrain in blueprint-AIR cells remains.",
+            "NEW /buildai confirm hollow:yes: excavate ONLY confidently enclosed building interior AIR cells (four surrounding walls, floor and roof), then build normally. Blueprint furniture, interior decoration and outside terrain are preserved. /buildai confirm foundation:no hollow:yes combines no platform with interior clearing.",
+            "In hollow mode, only previously existing terrain in EMPTY interior blueprint cells is excavated, but blocks at the blueprint's planned non-air locations are still replaced. No recognized enclosed interior? The request fails safely without excavation. Protected containers/bedrock and unloaded chunks reject the whole operation before edits.",
         },
         {
             "In Survival, put a sign reading BuildAI beside a chest. After anchoring the build, sneak-right-click the chest to link its inventory.",
@@ -89,7 +89,7 @@ public final class BuildAIHelpScreen extends Screen {
             "AFTER the physical build and naturalization finish, BuildAI pauses indefinitely at WAITING_COMMAND_APPROVAL and automatically opens the full command review IN Minecraft. Each script has a stable number, exact world location and matching block. You can close and reopen the review at F8 > Placement / Export > Design QA.",
             "With server OP4 and enable-command-block=true, choose Approve All or individually mark scripts in the review screen. Chat alternatives: /buildai commands approve all, /buildai commands approve 1,2,4,7, or /buildai commands 1,2,4. One-based numbering everywhere; nonapproved blocks remain empty/inert. Selected scripts program before any automatic activation. Test full game logic before public use.",
             "/buildai hide - dismiss the visual placement grid without modifying the real building.",
-            "/buildai confirm - default full excavation and foundation. Optional /buildai confirm foundation:no excavate:no, or either flag separately (yes/no). Overlay still replaces occupied cells, not just air.",
+            "/buildai confirm - full excavation by default. /buildai confirm excavate:no - terrain-preserving overlay. /buildai confirm hollow:yes - enclosed interior-only excavation (automatically disables full excavation). /buildai confirm foundation:no hollow:yes - interior hollowing without recognizable full-footprint foundations. hollow:yes excavate:yes is invalid. foundation:no recognizes obvious uniform base layers, including multi-layer bases; ask AI not to generate a foundation if it is decorative or irregular.",
             "/buildai cancel - stop and keep already placed blocks.",
             "/buildai undo - runs a non-destructive safety scan, then restores recorded original blockstates in server-tick batches. F8 > Placement / Export > Safe Undo uses the same command. /buildai undo force (OP4) overrides changed block entities after a second in-game confirmation; contents may be lost. No item refunds and undo history is not saved across restarts."
         },

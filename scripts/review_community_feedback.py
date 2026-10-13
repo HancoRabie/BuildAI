@@ -145,6 +145,17 @@ def promote(archive, decision_path, destination):
         raise Rejected("Held-out benchmark cases must not enter training examples.")
     target = Path(destination) / namespace
     target.mkdir(parents=True, exist_ok=True)
+    # Reject multiple submissions of the SAME original and correction even
+    # when ZIP timestamps / free-text notes produce a different ZIP hash.
+    for existing in target.glob("*.review.json"):
+        try:
+            approved = json.loads(existing.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            raise Rejected(f"Cannot verify existing curation record: {existing}")
+        if (approved.get("original_schematic_sha256") == report["generated_sha256"] and
+            approved.get("corrected_schematic_sha256") ==
+                report.get("corrected_sha256")):
+            raise Rejected("Duplicate approved schematic geometry pair in this lane.")
     prefix = archive_hash[:16]
     output = target / (prefix + ".zip")
     attestation = target / (prefix + ".review.json")

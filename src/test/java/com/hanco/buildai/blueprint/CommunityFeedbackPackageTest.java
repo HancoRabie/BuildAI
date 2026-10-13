@@ -55,7 +55,12 @@ public class CommunityFeedbackPackageTest {
         }
         assertEquals(Set.of("report.json","README.txt","generated.schem",
             "corrected.schem"),names);
-        assertTrue(json.contains("buildai-community-example-v1"));
+        assertTrue(json.contains("buildai-community-example-v2"));
+        assertTrue(json.contains("\\"schema_version\\":2"));
+        assertTrue(json.contains("\\"namespace\\":\\"redstone_insights\\""));
+        assertTrue(json.contains("\\"review_status\\":\\"quarantined\\""));
+        assertTrue(json.contains("\\"eligible_for_shared_learning\\":false"));
+        assertTrue(json.contains("\\"contains_verified_solution\\":false"));
         assertTrue(json.contains("Corrected and tested"));
         assertFalse(json.contains(dir.toString()));
         assertFalse(json.contains("projectPath"));
@@ -91,4 +96,63 @@ public class CommunityFeedbackPackageTest {
             assertFalse(corrected);
         }
     }
+    @Test void preferenceNeverInheritsRedstonePillarOrClaim(@TempDir Path folder)
+        throws Exception {
+        var v=new CommunityFeedbackPackage.Versions("0.2.7","1.21.1",
+            "0.16.7","StyleDemo","r3");
+        var preference=new CommunityFeedbackPackage.Report(
+            CommunityFeedbackPackage.PREFERENCE,"Boolean logic",
+            "Corrected and tested",4,
+            "Bare stone columns","Varied stone-and-copper palette",
+            "I prefer more architectural variation",v,true);
+        assertEquals("Not applicable",preference.pillar());
+        assertEquals("Subjective preference",preference.verification());
+        Path result=CommunityFeedbackPackage.packageBytes(folder,preference,
+            new byte[]{1,2,3},null);
+        assertTrue(result.getFileName().toString().startsWith("build-preference-"));
+        String json="";
+        try(ZipInputStream in=new ZipInputStream(Files.newInputStream(result))){
+            ZipEntry entry;
+            while((entry=in.getNextEntry())!=null){
+                if(entry.getName().equals("report.json"))
+                    json=new String(in.readAllBytes(),StandardCharsets.UTF_8);
+            }
+        }
+        assertTrue(json.contains("\\"category\\":\\"build_preference\\""),json);
+        assertTrue(json.contains("\\"namespace\\":\\"build_preferences\\""),json);
+        assertTrue(json.contains("\\"contributor_claim\\":\\"Subjective preference\\""));
+        assertTrue(json.contains("\\"example_role\\":\\"subjective_style_example\\""));
+        assertTrue(json.contains("\\"exporter_buildai_version\\":\\"0.2.7\\""));
+        assertTrue(json.contains("\\"benchmark_revision\\":\\"r3\\""));
+        assertTrue(json.contains("\\"eligible_for_shared_learning\\":false"));
+        assertFalse(json.contains("\\"contains_verified_solution\\":true"));
+        assertEquals(CommunityFeedbackPackage.PREFERENCE_SUBMISSION_URL,
+            CommunityFeedbackPackage.submissionUrl(CommunityFeedbackPackage.PREFERENCE));
+    }
+
+    @Test void contributorClaimCannotEverMarkCorrectionIndependentlyVerified(
+        @TempDir Path folder) throws Exception{
+        var v=new CommunityFeedbackPackage.Versions("0.1.0","1.21.1",
+            "0.16.7","BENCHY-P2","v1");
+        var feedback=new CommunityFeedbackPackage.Report(
+            CommunityFeedbackPackage.REDSTONE,"Boolean logic",
+            "Corrected and tested",5,"Lamp stayed ON for 11",
+            "Lamp OFF at 11","Tested myself",v,true);
+        Path file=CommunityFeedbackPackage.packageBytes(folder,feedback,
+            new byte[]{1},new byte[]{2});
+        String json="";
+        try(ZipInputStream in=new ZipInputStream(Files.newInputStream(file))){
+            ZipEntry e;
+            while((e=in.getNextEntry())!=null)
+                if(e.getName().equals("report.json"))
+                    json=new String(in.readAllBytes(),StandardCharsets.UTF_8);
+        }
+        assertTrue(json.contains("\\"review_status\\":\\"quarantined\\""));
+        assertTrue(json.contains("\\"reviewer_verified\\":false"));
+        assertTrue(json.contains("\\"contains_contributor_claimed_correction\\":true"));
+        assertTrue(json.contains("\\"contains_verified_solution\\":false"));
+        assertTrue(json.contains("\\"benchmark_id\\":\\"BENCHY-P2\\""));
+        assertTrue(json.contains("\\"benchmark_revision\\":\\"v1\\""));
+    }
+
 }

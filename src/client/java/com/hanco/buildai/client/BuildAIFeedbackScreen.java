@@ -115,9 +115,11 @@ public final class BuildAIFeedbackScreen extends Screen {
         layout=StudioLayout.forWindow(width,height);
         loadBuilds();
         int x=layout.x(),w=layout.width(),h=layout.buttonHeight(),gap=5;
-        int half=(w-gap)/2;
-        button("MY BUILD FEEDBACK",x,layout.stepY(),half,18,b->changeMode(0));
-        button("STYLE REFERENCES",x+half+gap,layout.stepY(),half,18,b->changeMode(1));
+        int half=(w-gap)/2,tab=(w-2*gap)/3;
+        button("MY BUILD FEEDBACK",x,layout.stepY(),tab,18,b->changeMode(0));
+        button("STYLE REFERENCES",x+tab+gap,layout.stepY(),tab,18,b->changeMode(1));
+        button("COMMUNITY SHARE",x+2*(tab+gap),layout.stepY(),
+            w-2*(tab+gap),18,b->changeMode(3));
         int y=layout.bodyTop(), available=layout.bodyHeight();
         if(available>=(layout.compact()?106:110)){
             if(mode==0){
@@ -152,6 +154,9 @@ public final class BuildAIFeedbackScreen extends Screen {
                 });
                 button("LEARN SIGN-LABELED DETAILS",x+8,y+49,w-16,h,b->learnDecorations())
                     .active=active!=null&&!busy;
+            }else if(mode==3){
+                button("CONTRIBUTE REDSTONE FEEDBACK...",x+8,y+20,w-16,h,
+                    b->shareFeedback()).active=active!=null&&!busy;
             }else if(mode==2){
                 int browse=Math.min(110,Math.max(70,w/3));
                 pathField=new TextFieldWidget(textRenderer,x+8,y+21,
@@ -166,6 +171,18 @@ public final class BuildAIFeedbackScreen extends Screen {
             }
         }
         button("BACK TO BUILDAI",x,layout.footerY(),w,h,b->close());
+    }
+
+    /** Separate opt-in contribution flow: local feedback stays private
+     * unless the player explicitly prepares and submits a public issue. */
+    private void shareFeedback(){
+        if(busy||active==null){
+            status="Select a saved build first; no data was shared.";
+            return;
+        }
+        capture();
+        if(client!=null)client.setScreen(new BuildAICommunityFeedbackScreen(
+            this,active,stars,noteText));
     }
 
     private void confirmDeleteProject(){
@@ -294,6 +311,16 @@ public final class BuildAIFeedbackScreen extends Screen {
                     small(ctx,"Saved note: "+saved.comment().replace('\n',' '),
                         x+9,top+127,w-18,DIM,0.72f);
             }
+        }else if(mode==3){
+            small(ctx,"CONTRIBUTE A REPRODUCIBLE REDSTONE CASE",x+8,top+4,
+                w-16,MINT,0.84f);
+            small(ctx,"Share an original schematic, optional expert correction",
+                x+10,top+51,w-20,BODY,0.76f);
+            small(ctx,"and truth-table evidence as a reviewed local ZIP.",
+                x+10,top+63,w-20,DIM,0.76f);
+            if(bottom>=top+96)
+                small(ctx,"Public GitHub issue; explicit rights consent required.",
+                    x+10,top+85,w-20,GOLD,0.74f);
         }else if(mode==1){
             small(ctx,"CHOOSE A REFERENCE METHOD",x+8,top+4,w-16,BLUE,0.84f);
             small(ctx,"Whole builds: no signs required; learn palettes, shapes & detail.",

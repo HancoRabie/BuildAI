@@ -109,7 +109,7 @@ def read_and_validate(archive):
         if member in members:
             if digest(members[member]) != report.get(key):
                 raise Rejected(f"{member} SHA-256 mismatch.")
-            if not members[member].startswith(b"\\x1f\\x8b"):
+            if not members[member].startswith(b"\x1f\x8b"):
                 raise Rejected(f"{member} is not a GZip-compressed schematic.")
         elif key in report:
             raise Rejected(f"{key} supplied without {member}")
@@ -174,7 +174,7 @@ def promote(archive, decision_path, destination):
     }
     shutil.copyfile(archive, output)
     try:
-        attestation.write_text(json.dumps(result, indent=2) + "\\n", encoding="utf-8")
+        attestation.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     except Exception:
         output.unlink(missing_ok=True)
         raise
@@ -203,7 +203,7 @@ def main(argv=None):
             if not args.decision or not args.destination:
                 parser.error("promote requires --decision and --destination")
             files = promote(args.archive, args.decision, args.destination)
-            print("Curated files (maintainer-only, NOT auto-learned):", *files, sep="\\n")
+            print("Curated files (maintainer-only, NOT auto-learned):", *files, sep="\n")
     except Rejected as error:
         print("REJECTED:", error, file=sys.stderr)
         return 2

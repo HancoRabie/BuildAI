@@ -260,7 +260,7 @@ public final class BuildAIScreen extends Screen {
                     status="Join a world before confirming.";return;
                 }
                 client.getNetworkHandler().sendChatCommand("buildai confirm");
-                status="Default full-clear build requested. For mountain embeds, use Minecraft chat: /buildai confirm foundation:no excavate:no instead of this button.";
+                status="Default full-clear build requested. To excavate ONLY enclosed room interiors, use Minecraft chat: /buildai confirm hollow:yes (add foundation:no to omit identifiable base platforms). For terrain overlay use foundation:no excavate:no.";
             });
         }
         add("Close",left,row(11),panelWidth,buttonHeight,b->close());

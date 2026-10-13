@@ -31,6 +31,28 @@ public final class ConstructionProject {
     private int omittedFoundationBlocks=0;
     public int omittedFoundationBlocks(){return omittedFoundationBlocks;}
     private Set<Integer> foundationOmissions=Set.of();
+    /** Human-readable audit of the ACTUAL blueprint blocks intentionally
+     * withheld by foundation:no, including every selected Y layer. */
+    public String foundationOmissionSummary(){
+        if(foundationOmissions.isEmpty())return "none recognized";
+        Map<String,Integer> types=new HashMap<>();
+        int minY=Integer.MAX_VALUE,maxY=-1;
+        for(int i:foundationOmissions){
+            int x=i%blueprint.width,z=(i/blueprint.width)%blueprint.length,
+                y=i/(blueprint.width*blueprint.length);
+            minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+            String id=Blueprint.id(blueprint.get(x,y,z));
+            types.merge(id.startsWith("minecraft:")?
+                id.substring("minecraft:".length()):id,1,Integer::sum);
+        }
+        String materials=types.entrySet().stream()
+            .sorted(Comparator.<Map.Entry<String,Integer>>comparingInt(
+                Map.Entry::getValue).reversed())
+            .limit(5).map(e->e.getKey()+" x"+e.getValue())
+            .reduce((a,b)->a+", "+b).orElse("");
+        return "Y "+minY+".."+maxY+"; "+materials+
+            (types.size()>5?" (+"+(types.size()-5)+" more)":"");
+    }
     private BitSet hollowInterior=new BitSet();
     public int hollowInteriorCells(){return hollowInterior.cardinality();}
     public ConstructionOptions constructionOptions(){return constructionOptions;}

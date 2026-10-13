@@ -194,10 +194,10 @@ public final class FoundationPlan {
     /** Never remove the specific block supporting an explicitly planned
      * functional/decorative item, even if it is on the outdoor part of a
      * foundation. Removing the whole layer would drop that decoration. */
-    private static boolean protectsAbove(Blueprint b,int x,int y,int z){
+    private static boolean protectsAbove(Blueprint b,int x,int y,int z,Set<String> materials){
         if(y+1>=b.height||b.isAir(x,y+1,z))return false;
         String above=Blueprint.id(b.get(x,y+1,z));
-        return forbidden(above)||!foundationMaterial(above,Set.of())||
+        return forbidden(above)||!foundationMaterial(above,materials)||
             above.contains("lantern")||above.contains("stairs")||above.contains("slab");
     }
 
@@ -248,7 +248,7 @@ public final class FoundationPlan {
                 for(int x=footprint.minX;x<=footprint.maxX;x++){
                     if(!eligible(b,x,y,z,extras))continue;
                     if(protectedXZ.get(z*b.width+x))continue;
-                    if(protectsAbove(b,x,y,z))continue;
+                    if(protectsAbove(b,x,y,z,extras))continue;
                     skip.set(b.index(x,y,z));
                 }
         }

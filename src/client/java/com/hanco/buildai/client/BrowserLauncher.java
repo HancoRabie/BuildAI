@@ -42,6 +42,25 @@ public final class BrowserLauncher {
         return false;
     }
 
+    /** Explicit PUBLIC GitHub submission, never an automatic file upload.
+     * The user must sign into GitHub and attach the reviewed ZIP manually. */
+    public static boolean openBuildAICommunityFeedback(){
+        URI uri=URI.create(
+            com.hanco.buildai.blueprint.CommunityFeedbackPackage.SUBMISSION_URL);
+        if(!"https".equalsIgnoreCase(uri.getScheme())||
+           !"github.com".equalsIgnoreCase(uri.getHost())||
+           !"/HancoRabie/BuildAI/issues/new".equals(uri.getPath()))
+            throw new IllegalStateException("Invalid official BuildAI GitHub submission URL");
+        String os=System.getProperty("os.name","").toLowerCase(Locale.ROOT);
+        if(os.contains("win"))
+            return launch(List.of("rundll32.exe","url.dll,FileProtocolHandler",uri.toString()))||
+                browseWithJava(uri)||launch(List.of("explorer.exe",uri.toString()));
+        if(browseWithJava(uri))return true;
+        for(List<String> cmd:nativeCommands(uri.toString(),os))
+            if(launch(cmd))return true;
+        return false;
+    }
+
     private static boolean browseWithJava(URI uri) {
         try {
             if(Desktop.isDesktopSupported()){

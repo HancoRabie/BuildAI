@@ -85,13 +85,100 @@ public class ConstructionOptionsTest {
                     b.set(x,y,z,"minecraft:stone_bricks");
         b.set(12,9,8,"minecraft:chiseled_stone_bricks");
         var skip=ConstructionOptions.identifiedFoundation(b);
-        assertEquals(6*21*21,skip.size(),
-            "Entire 6-layer platform including mixed grass cap must be omitted");
+        assertEquals(6*(21*21-9*9),skip.size(),
+            "Omit every exterior foundation layer but KEEP the 9x9 wall-enclosed "+
+            "building footprint, including its intended basement dirt");
         assertTrue(skip.contains(b.index(6,5,7)),"Top grass layer omitted");
         assertTrue(skip.contains(b.index(3,5,9)),"Top dirt patch omitted");
         assertFalse(skip.contains(b.index(8,9,8)),"Wall remains");
         assertFalse(skip.contains(b.index(12,9,8)),"Chiseled decoration remains");
         assertFalse(skip.contains(b.index(11,9,16)),"Other wall remains");
+    }
+
+    @Test void preservesIntentionalDirtBasementWithinWallsAtEveryFoundationY(){
+        Blueprint b=new Blueprint("Mountain basement and exterior dirt",18,11,18);
+        for(int y=0;y<=4;y++)for(int x=1;x<=16;x++)for(int z=1;z<=16;z++)
+            b.set(x,y,z,y==4?"minecraft:grass_block":"minecraft:dirt");
+        // Multi-storey wall enclosing a dirt-floored basement, with other
+        // deliberately placed dirt inside the rooms.
+        for(int y=5;y<=9;y++)for(int x=5;x<=12;x++)for(int z=5;z<=12;z++)
+            if(x==5||x==12||z==5||z==12)
+                b.set(x,y,z,((x+y+z)%2==0)?
+                    "minecraft:mossy_stone_bricks":
+                    "minecraft:chiseled_stone_bricks");
+        b.set(8,5,8,"minecraft:dirt");
+        b.set(8,6,8,"minecraft:grass_block");
+        var skip=ConstructionOptions.identifiedFoundation(b);
+        assertEquals(5*(16*16-8*8),skip.size(),
+            "Only foundation OUTSIDE the walls should be omitted");
+        for(int y=0;y<=4;y++){
+            assertFalse(skip.contains(b.index(8,y,8)),
+                "Intentional dirt under/inside basement must stay at Y "+y);
+            assertFalse(skip.contains(b.index(5,y,8)),
+                "Wall support remains at Y "+y);
+            assertTrue(skip.contains(b.index(2,y,8)),
+                "Exterior layer may be omitted at Y "+y);
+        }
+        assertFalse(skip.contains(b.index(8,5,8)));
+        assertFalse(skip.contains(b.index(8,6,8)));
+    }
+
+    @Test void materialOverrideUsesIdenticalWallProtection(){
+        Blueprint b=new Blueprint("Glowstone-supported greenhouse",14,8,14);
+        for(int y=0;y<3;y++)for(int x=0;x<14;x++)for(int z=0;z<14;z++)
+            b.set(x,y,z,"minecraft:glowstone");
+        for(int y=3;y<=7;y++)for(int x=4;x<=9;x++)for(int z=4;z<=9;z++)
+            if(x==4||x==9||z==4||z==9)
+                b.set(x,y,z,"minecraft:stone_bricks");
+        var hinted=ConstructionOptions.parse(
+            "foundation:no:glowstone hollow:yes").foundationMaterials();
+        var skip=ConstructionOptions.identifiedFoundation(b,hinted);
+        assertEquals(3*(14*14-6*6),skip.size());
+        assertTrue(skip.contains(b.index(0,0,0)));
+        assertFalse(skip.contains(b.index(6,1,6)),
+            "Custom material hints NEVER bypass protected interior");
+    }
+
+    @Test void exactlySixtyPercentIsNotEnoughAndNeverDeletesNonmatchingBlocks(){
+        Blueprint b=new Blueprint("Ratio threshold",10,5,10);
+        // Full 10x10 footprint: stone-like gold is a deliberate other
+        // material, not in the foundation material set.
+        for(int z=0;z<10;z++)for(int x=0;x<10;x++)
+            b.set(x,0,z,"minecraft:gold_block");
+        int added=0;
+        // Full perimeter gives coverage on all four footprint edges.
+        for(int z=0;z<10;z++)for(int x=0;x<10;x++)
+            if(x==0||x==9||z==0||z==9){
+                b.set(x,0,z,"minecraft:dirt");
+                added++;
+            }
+        for(int z=1;z<9&&added<60;z++)for(int x=1;x<9&&added<60;x++){
+            b.set(x,0,z,"minecraft:dirt");added++;
+        }
+        assertEquals(60,added);
+        assertTrue(ConstructionOptions.identifiedFoundation(b).isEmpty(),
+            "The threshold is GREATER THAN 60%, not greater-or-equal");
+        b.set(8,0,8,"minecraft:dirt"); // 61%, but this may have already been populated.
+        int dirt=0;
+        for(int x=0;x<10;x++)for(int z=0;z<10;z++)
+            if(Blueprint.id(b.get(x,0,z)).equals("minecraft:dirt"))dirt++;
+        assertEquals(61,dirt);
+        var skip=ConstructionOptions.identifiedFoundation(b);
+        assertEquals(61,skip.size());
+        assertFalse(skip.contains(b.index(7,0,7)),
+            "Other nonfoundation blocks in a qualifying layer stay intact");
+    }
+
+    @Test void stopsAtNextLayerOnceSixtyPercentThresholdIsLost(){
+        Blueprint b=new Blueprint("Floor with basement",10,6,10);
+        for(int z=0;z<10;z++)for(int x=0;x<10;x++){
+            b.set(x,0,z,"minecraft:dirt");
+            b.set(x,1,z,z<6?"minecraft:dirt":"minecraft:gold_block");
+        }
+        var skip=ConstructionOptions.identifiedFoundation(b);
+        assertEquals(100,skip.size(),"Skip bottom 100% layer only");
+        assertFalse(skip.contains(b.index(0,1,0)),
+            "60%-coverage upper layer must not be stripped");
     }
 
     @Test void detectsFoundationFootprintInsideOversizedSchematic(){

@@ -56,6 +56,11 @@ public class ConstructionOptionsTest {
             ConstructionOptions.parse(
                 "foundation:no:minecraft:stone_bricks,minecraft:grass_block excavate:no")
             .foundationMaterials());
+        assertEquals(Set.of("minecraft:bedrock","minecraft:stone_bricks",
+            "minecraft:grass_block"),
+            ConstructionOptions.parse(
+                "foundation:no:bedrock, stonebrick, grass_block hollow:yes")
+            .foundationMaterials());
         for(String bad:new String[]{
             "foundation:yes:dirt","foundation:no:","foundation:no:air",
             "foundation:no:stone_bricks,","foundation:no:dirt:what",

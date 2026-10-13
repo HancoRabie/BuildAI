@@ -63,7 +63,7 @@ public class ConstructionOptionsTest {
             .foundationMaterials());
         for(String bad:new String[]{
             "foundation:yes:dirt","foundation:no:","foundation:no:air",
-            "foundation:no:stone_bricks,","foundation:no:dirt:what",
+            "foundation:no:stone_bricks,","foundation:no:dirt:what:extra",
             "excavate:no:dirt","hollow:yes:stone","foundation:no:stonebrick foundation:no:dirt"
         })assertThrows(IllegalArgumentException.class,
             ()->ConstructionOptions.parse(bad),bad);

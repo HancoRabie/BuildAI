@@ -3,22 +3,26 @@ package com.hanco.buildai.blueprint;
 import java.util.BitSet;
 
 /**
- * Conservative, terrain-independent plan for excavate-INTERNAL-EMPTY-SPACE.
- * A set bit is a position whose FINAL BLUEPRINT STATE IS AIR, bounded in
- * opposite structural walls. An enclosed room has walls on both X and Z
- * axes; a hallway/tunnel has a continuous pair of parallel side walls.
- * We do NOT require blueprint floor or roof: many real structures have
- * open entrances, terrain floors or arched/open overhead sections.
+ * Conservative blueprint-space hollowing classification.
  *
- * All blueprint non-AIR cells (walls, furniture, light, decorations) are
- * excluded by definition. This is conservative static geometry review,
- * not a flood fill that leaks outdoors through intentionally open doors.
+ * The authoritative blueprint contains ALL block varieties belonging to
+ * the design. Geometry is evaluated across the complete vertical columns
+ * of connected structural masonry (stone, mossy, chiseled, etc.) instead
+ * of requiring identical blocks or wall height at an individual AIR voxel.
+ *
+ * Only blueprint AIR voxels are ever removable. Non-AIR blueprint content
+ * (including furniture, decoration, wiring and the walls themselves) cannot
+ * appear in the resulting removal mask.
+ *
+ * Requires structurally recognizable rooms or sustained parallel corridor
+ * boundaries. Isolated columns, horizontal platforms and open exteriors
+ * never qualify merely because they lie inside the build bounding box.
+ * Geometry inspection is not a substitute for inspecting the real world.
  */
 public final class InteriorHollowPlan {
     private InteriorHollowPlan(){}
-    private static final int MAX_ROOM_SPAN=192;
-    private static final int MIN_CORRIDOR_WALL_RUN=3;
-    private static final int MAX_WALL_GAP=192;
+    private static final int MAX_WALL_SPAN=192;
+    private static final int MIN_CORRIDOR_RUN=3;
 
     private static boolean structural(Blueprint b,int x,int y,int z){
         if(x<0||z<0||x>=b.width||z>=b.length||
@@ -38,127 +42,172 @@ public final class InteriorHollowPlan {
             !id.equals("minecraft:water")&&!id.equals("minecraft:lava");
     }
 
-    private static boolean wallSegment(Blueprint b,int x,int y,int z){
-        return structural(b,x,y,z)&&
-            (structural(b,x,y-1,z)||structural(b,x,y+1,z));
+
+    private static int columnIndex(Blueprint b,int x,int z){
+        return z*b.width+x;
     }
-    private static boolean wall(Blueprint b,int x,int y,int z){
-        // A two-high doorway/window breaks an otherwise continuous wall.
-        // The floor below and ceiling above are NOT enough: otherwise a
-        // mezzanine floor would incorrectly classify every room cell as a
-        // wall. Require standing wall segments on BOTH SIDES of the gap.
-        boolean at=structural(b,x,y,z);
-        if(at)return wallSegment(b,x,y,z);
-        boolean lintelAndSill=
-            (structural(b,x,y-1,z)&&structural(b,x,y+2,z))||
-            (structural(b,x,y-2,z)&&structural(b,x,y+1,z));
-        if(!lintelAndSill)return false;
-        return (wallSegment(b,x-1,y,z)&&wallSegment(b,x+1,y,z))||
-            (wallSegment(b,x,y,z-1)&&wallSegment(b,x,y,z+1));
+    private static boolean in2d(Blueprint b,int x,int z){
+        return x>=0&&z>=0&&x<b.width&&z<b.length;
     }
-    private static int volume(Blueprint b){
-        return b.width*b.height*b.length;
+    private static boolean inY(Blueprint b,int y){
+        return y>=0&&y<b.height;
+    }
+    private static boolean exposedPair(Blueprint b,int x,int y,int z){
+        // A 2+-block floor/foundation sheet is NOT a vertical wall:
+        // interior cells of a thick platform have no horizontally adjacent
+        // AIR at either of the two stacked heights. A side wall has at
+        // least one exposed side into its proposed open room/corridor.
+        final int[][] dirs={{1,0},{-1,0},{0,1},{0,-1}};
+        for(int[] dir:dirs){
+            int nx=x+dir[0],nz=z+dir[1];
+            if(in2d(b,nx,nz)&&
+                (b.isAir(nx,y,nz)||b.isAir(nx,y+1,nz)))
+                return true;
+        }
+        return false;
     }
 
-    private static boolean between(int near,int far,int point){
-        return near>=0&&far>=0&&far-near>=3&&
-            far-near<=MAX_WALL_GAP&&near<point&&point<far;
-    }
-
-    /** Require continuing VERTICAL standing walls on both sides of a
-     * hallway. A one-off facade, column pair, statue legs or scattered
-     * support columns are not a legitimate enclosed corridor. */
-    private static boolean corridorWallsX(Blueprint b,int left,int right,
-                                          int y,int z){
-        return standingRunZ(b,left,y,z)>=MIN_CORRIDOR_WALL_RUN&&
-               standingRunZ(b,right,y,z)>=MIN_CORRIDOR_WALL_RUN;
-    }
-    private static boolean corridorWallsZ(Blueprint b,int front,int back,
-                                          int y,int x){
-        return standingRunX(b,x,y,front)>=MIN_CORRIDOR_WALL_RUN&&
-               standingRunX(b,x,y,back)>=MIN_CORRIDOR_WALL_RUN;
-    }
-    private static int standingRunZ(Blueprint b,int x,int y,int z){
-        if(!wallSegment(b,x,y,z))return 0;
-        int count=1;
-        for(int z0=z-1;z0>=0&&z0>=z-4&&wallSegment(b,x,y,z0);z0--)count++;
-        for(int z0=z+1;z0<b.length&&z0<=z+4&&wallSegment(b,x,y,z0);z0++)count++;
-        return count;
-    }
-    private static int standingRunX(Blueprint b,int x,int y,int z){
-        if(!wallSegment(b,x,y,z))return 0;
-        int count=1;
-        for(int x0=x-1;x0>=0&&x0>=x-4&&wallSegment(b,x0,y,z);x0--)count++;
-        for(int x0=x+1;x0<b.width&&x0<=x+4&&wallSegment(b,x0,y,z);x0++)count++;
-        return count;
-    }
-
-    /**
-     * Three alternatives for a genuinely interior cell:
-     * 1. Enclosed between standing walls in BOTH horizontal directions;
-     * 2. Between continuous, parallel X-boundary corridor walls;
-     * 3. Between continuous, parallel Z-boundary corridor walls.
-     *
-     * The strong both-axis case detects rooms with door apertures;
-     * cases 2/3 detect roofless/terrain-floor corridors even with open
-     * entrances at both ends. There is deliberately NO requirement for a
-     * solid floor/roof above/below that exact coordinate.
-     *
-     * Only final blueprint AIR cells can appear in the mask. Any original
-     * world blocks at those locations are removed before construction;
-     * generated wall/room content cannot be removed by the hollow pass.
-     */
-    public static BitSet enclosedAir(Blueprint b){
-        int volume=volume(b);
-        BitSet xSpan=new BitSet(volume);
-        BitSet xCorridor=new BitSet(volume);
-        BitSet result=new BitSet(volume);
-        if(b.width<4||b.length<4||b.height<2)return result;
-
-        for(int y=0;y<b.height;y++){
-            // Pair closest standing walls along X for each row.
-            for(int z=0;z<b.length;z++){
-                int[] nearestLeft=new int[b.width];
-                int left=-1;
-                for(int x=0;x<b.width;x++){
-                    if(wall(b,x,y,z))left=x;
-                    nearestLeft[x]=left;
-                }
-                int right=-1;
-                for(int x=b.width-1;x>=0;x--){
-                    if(wall(b,x,y,z))right=x;
-                    if(!b.isAir(x,y,z))continue;
-                    int l=nearestLeft[x];
-                    if(between(l,right,x)){
-                        int index=b.index(x,y,z);
-                        xSpan.set(index);
-                        if(corridorWallsX(b,l,right,y,z))xCorridor.set(index);
-                    }
-                }
-            }
-            // Pair closest standing walls along Z for each column.
-            // Both-axis rooms require xSpan AND zSpan.
-            // Narrow open-ended corridors may use either parallel-wall pair.
-            for(int x=0;x<b.width;x++){
-                int[] nearestFront=new int[b.length];
-                int front=-1;
-                for(int z=0;z<b.length;z++){
-                    if(wall(b,x,y,z))front=z;
-                    nearestFront[z]=front;
-                }
-                int back=-1;
-                for(int z=b.length-1;z>=0;z--){
-                    if(wall(b,x,y,z))back=z;
-                    if(!b.isAir(x,y,z))continue;
-                    int f=nearestFront[z],index=b.index(x,y,z);
-                    boolean withinZ=between(f,back,z);
-                    if((xSpan.get(index)&&withinZ)||xCorridor.get(index)||
-                        (withinZ&&corridorWallsZ(b,f,back,y,x))){
-                        result.set(index);
-                    }
+    private static WallColumns analyze(Blueprint b){
+        int len=b.width*b.length;
+        boolean[] wall=new boolean[len];
+        int[] lowest=new int[len],highest=new int[len];
+        java.util.Arrays.fill(lowest,Integer.MAX_VALUE);
+        java.util.Arrays.fill(highest,-1);
+        // Determine actual connected STRUCTURAL WALL COLUMNS, not the
+        // Minecraft block material name or one horizontal slice. Adjacent
+        // y cells must form a standing face exposed to nearby blueprint
+        // AIR. A 3-layer solid foundation under the whole building will
+        // therefore not become a fake cross-wall through every room.
+        for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
+            int p=columnIndex(b,x,z);
+            for(int y=0;y+1<b.height;y++){
+                if(structural(b,x,y,z)&&structural(b,x,y+1,z)&&
+                   exposedPair(b,x,y,z)){
+                    wall[p]=true;
+                    lowest[p]=Math.min(lowest[p],y);
+                    highest[p]=Math.max(highest[p],y+1);
                 }
             }
         }
-        return result;
+        return new WallColumns(wall,lowest,highest);
+    }
+
+    private record WallColumns(boolean[] wall,int[] bottom,int[] top){
+        boolean at(Blueprint b,int x,int z){
+            return in2d(b,x,z)&&wall[columnIndex(b,x,z)];
+        }
+        boolean spans(Blueprint b,int x,int z,int y){
+            if(!at(b,x,z))return false;
+            int p=columnIndex(b,x,z);
+            // Allows 1-block decorative ledge at upper/lower ends.
+            // Never projects a ground-level wall all the way up through
+            // empty open sky or across a multi-story structure.
+            return y>=bottom[p]&&y<=top[p]+1;
+        }
+    }
+    private static int runZ(Blueprint b,WallColumns w,int x,int z){
+        if(!w.at(b,x,z))return 0;
+        int count=1;
+        for(int v=z-1;v>=0&&w.at(b,x,v);v--)count++;
+        for(int v=z+1;v<b.length&&w.at(b,x,v);v++)count++;
+        return count;
+    }
+    private static int runX(Blueprint b,WallColumns w,int x,int z){
+        if(!w.at(b,x,z))return 0;
+        int count=1;
+        for(int v=x-1;v>=0&&w.at(b,v,z);v--)count++;
+        for(int v=x+1;v<b.width&&w.at(b,v,z);v++)count++;
+        return count;
+    }
+    private static boolean between(int left,int right,int pos){
+        return left>=0&&right>=0&&left<pos&&pos<right&&
+            right-left>=3&&right-left<=MAX_WALL_SPAN;
+    }
+    private static boolean corridorAlongZ(Blueprint b,WallColumns w,
+                                          int l,int r,int z,int y){
+        // Both parallel walls must extend on BOTH sides of the cell.
+        // This excludes the open approach just before the entrance, and
+        // avoids clearing the door itself on a short building facade.
+        return w.spans(b,l,z,y)&&w.spans(b,r,z,y)&&
+            w.at(b,l,z-1)&&w.at(b,r,z-1)&&
+            w.at(b,l,z+1)&&w.at(b,r,z+1)&&
+            runZ(b,w,l,z)>=MIN_CORRIDOR_RUN&&
+            runZ(b,w,r,z)>=MIN_CORRIDOR_RUN;
+    }
+    private static boolean corridorAlongX(Blueprint b,WallColumns w,
+                                          int f,int back,int x,int y){
+        return w.spans(b,x,f,y)&&w.spans(b,x,back,y)&&
+            w.at(b,x-1,f)&&w.at(b,x-1,back)&&
+            w.at(b,x+1,f)&&w.at(b,x+1,back)&&
+            runX(b,w,x,f)>=MIN_CORRIDOR_RUN&&
+            runX(b,w,x,back)>=MIN_CORRIDOR_RUN;
+    }
+
+    /**
+     * Pair nearest opposing wall COLUMNS in the plan view. For a cell to
+     * clear, it must be inside a bounded room (X and Z wall pairs), or in
+     * a corridor between two CONTINUOUS parallel walls.
+     *
+     * Wall pairs must span that cell's height (using the standing wall
+     * column, not an exact same-Y material lookup). Final blueprint
+     * non-air positions are never cleared.
+     */
+    public static BitSet enclosedAir(Blueprint b){
+        BitSet selected=new BitSet(b.width*b.length*b.height);
+        if(b.width<4||b.length<4||b.height<2)return selected;
+        WallColumns w=analyze(b);
+        int columns=b.width*b.length;
+        boolean[] xBound=new boolean[columns],xCorridor=new boolean[columns];
+        int[] xLeft=new int[columns],xRight=new int[columns];
+        for(int y=0;y<b.height;y++){
+            java.util.Arrays.fill(xBound,false);
+            java.util.Arrays.fill(xCorridor,false);
+            java.util.Arrays.fill(xLeft,-1);
+            java.util.Arrays.fill(xRight,-1);
+            for(int z=0;z<b.length;z++){
+                int left=-1;
+                int[] last=new int[b.width];
+                for(int x=0;x<b.width;x++){
+                    if(w.spans(b,x,z,y))left=x;
+                    last[x]=left;
+                }
+                int right=-1;
+                for(int x=b.width-1;x>=0;x--){
+                    if(w.spans(b,x,z,y))right=x;
+                    if(!b.isAir(x,y,z))continue;
+                    int l=last[x],p=columnIndex(b,x,z);
+                    if(between(l,right,x)){
+                        xBound[p]=true;
+                        xLeft[p]=l;xRight[p]=right;
+                        xCorridor[p]=corridorAlongZ(b,w,l,right,z,y);
+                    }
+                }
+            }
+            for(int x=0;x<b.width;x++){
+                int front=-1;
+                int[] last=new int[b.length];
+                for(int z=0;z<b.length;z++){
+                    if(w.spans(b,x,z,y))front=z;
+                    last[z]=front;
+                }
+                int back=-1;
+                for(int z=b.length-1;z>=0;z--){
+                    if(w.spans(b,x,z,y))back=z;
+                    if(!b.isAir(x,y,z))continue;
+                    int f=last[z],p=columnIndex(b,x,z);
+                    boolean zBound=between(f,back,z);
+                    // The two-axis room rule requires its boundaries to
+                    // have LATERAL wall continuity, avoiding isolated posts.
+                    boolean room=xBound[p]&&zBound&&
+                        runZ(b,w,xLeft[p],z)>=2&&
+                        runZ(b,w,xRight[p],z)>=2&&
+                        runX(b,w,x,f)>=2&&runX(b,w,x,back)>=2;
+                    boolean corridor=xCorridor[p]||
+                        (zBound&&corridorAlongX(b,w,f,back,x,y));
+                    if(room||corridor)selected.set(b.index(x,y,z));
+                }
+            }
+        }
+        return selected;
     }
 }

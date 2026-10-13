@@ -240,9 +240,10 @@ public final class ConstructionProject {
             ?InteriorHollowPlan.enclosedAir(blueprint):new BitSet();
         if(requested.hollow()&&interior.isEmpty())
             throw new IllegalStateException(
-                "hollow:yes found no confidently enclosed blueprint interior "+
-                "(walls on four sides, floor and roof). Nothing was modified. "+
-                "Provide an enclosed structure or choose another excavation mode.");
+                "hollow:yes found no wall-defined interior or bounded "+
+                "corridor (standing walls on opposing sides). "+
+                "Nothing was modified. Provide an enclosed room or "+
+                "continuous corridor walls instead of an isolated facade.");
         Set<Integer> skip=requested.foundation()?Set.of():
             ConstructionOptions.identifiedFoundation(blueprint);
         List<BlockPos> selectedOrder=new ArrayList<>();

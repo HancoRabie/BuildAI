@@ -177,65 +177,66 @@ public final class InteriorHollowPlan {
      * foundation slab edges or isolated posts from defining a fake room.
      */
     public static BitSet protectedFootprint(Blueprint b){
-        BitSet protectedXZ=new BitSet(b.width*b.length);
-        if(b.width<4||b.length<4||b.height<2)return protectedXZ;
+        int size=b.width*b.length;
+        BitSet result=new BitSet(size);
+        if(b.width<4||b.length<4||b.height<2)return result;
         WallColumns w=analyze(b);
-        for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
-            int p=columnIndex(b,x,z);
-            if(w.at(b,x,z) &&
-                (runZ(b,w,x,z)>=2||runX(b,w,x,z)>=2))
-                protectedXZ.set(p);
-        }
-        for(int z=0;z<b.length;z++){
-            int left=-1;
-            int[] nearestLeft=new int[b.width];
-            for(int x=0;x<b.width;x++){
-                if(w.at(b,x,z))left=x;
-                nearestLeft[x]=left;
-            }
-            int right=-1;
-            for(int x=b.width-1;x>=0;x--){
-                if(w.at(b,x,z))right=x;
-                if(!between(nearestLeft[x],right,x))continue;
-                int l=nearestLeft[x];
-                if(!face(b,w,l,z,EAST)||!face(b,w,right,z,WEST))continue;
+        // Walls themselves are always protected regardless of material.
+        // Isolated decorative pillars do not count as enclosing a room.
+        for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++)
+            if(w.at(b,x,z)&&(runX(b,w,x,z)>=2||runZ(b,w,x,z)>=2))
+                result.set(columnIndex(b,x,z));
 
-                boolean parallel=runZ(b,w,l,z)>=MIN_CORRIDOR_RUN&&
-                    runZ(b,w,right,z)>=MIN_CORRIDOR_RUN&&
-                    w.at(b,l,z-1)&&w.at(b,right,z-1)&&
-                    w.at(b,l,z+1)&&w.at(b,right,z+1);
-                int front=-1,back=-1;
-                for(int zz=z-1;zz>=0;zz--)
-                    if(w.at(b,x,zz)&&face(b,w,x,zz,SOUTH)){
-                        front=zz;break;
-                    }
-                for(int zz=z+1;zz<b.length;zz++)
-                    if(w.at(b,x,zz)&&face(b,w,x,zz,NORTH)){
-                        back=zz;break;
-                    }
-                boolean enclosed=between(front,back,z)&&
-                    runZ(b,w,l,z)>=2&&runZ(b,w,right,z)>=2&&
-                    runX(b,w,x,front)>=2&&runX(b,w,x,back)>=2;
-                if(parallel||enclosed)protectedXZ.set(columnIndex(b,x,z));
+        // At every X position, identify the nearest north/south walls
+        // once. Avoid O(footprint * corridor length) repeated ray scans.
+        int[] north=new int[size],south=new int[size];
+        for(int x=0;x<b.width;x++){
+            int previous=-1;
+            for(int z=0;z<b.length;z++){
+                if(w.at(b,x,z)&&face(b,w,x,z,SOUTH))previous=z;
+                north[columnIndex(b,x,z)]=previous;
+            }
+            previous=-1;
+            for(int z=b.length-1;z>=0;z--){
+                if(w.at(b,x,z)&&face(b,w,x,z,NORTH))previous=z;
+                south[columnIndex(b,x,z)]=previous;
             }
         }
-        // The orthogonal parallel-wall case handles corridors rotated
-        // 90 degrees, without needing a roof, floor or filled room.
-        for(int x=0;x<b.width;x++)for(int z=0;z<b.length;z++){
-            if(protectedXZ.get(columnIndex(b,x,z)))continue;
-            int front=-1,back=-1;
-            for(int zz=z-1;zz>=0;zz--)
-                if(w.at(b,x,zz)&&face(b,w,x,zz,SOUTH)){front=zz;break;}
-            for(int zz=z+1;zz<b.length;zz++)
-                if(w.at(b,x,zz)&&face(b,w,x,zz,NORTH)){back=zz;break;}
-            if(between(front,back,z)&&
-               runX(b,w,x,front)>=MIN_CORRIDOR_RUN&&
-               runX(b,w,x,back)>=MIN_CORRIDOR_RUN&&
-               w.at(b,x-1,front)&&w.at(b,x-1,back)&&
-               w.at(b,x+1,front)&&w.at(b,x+1,back))
-                protectedXZ.set(columnIndex(b,x,z));
+        // Primary X-facing boundaries (both full rooms and long tunnels).
+        for(int z=0;z<b.length;z++){
+            int[] left=new int[b.width];
+            int previous=-1;
+            for(int x=0;x<b.width;x++){
+                if(w.at(b,x,z)&&face(b,w,x,z,EAST))previous=x;
+                left[x]=previous;
+            }
+            previous=-1;
+            for(int x=b.width-1;x>=0;x--){
+                if(w.at(b,x,z)&&face(b,w,x,z,WEST))previous=x;
+                int l=left[x],r=previous;
+                if(!between(l,r,x))continue;
+                int p=columnIndex(b,x,z),f=north[p],back=south[p];
+                boolean room=between(f,back,z)&&
+                    runZ(b,w,l,z)>=2&&runZ(b,w,r,z)>=2&&
+                    runX(b,w,x,f)>=2&&runX(b,w,x,back)>=2;
+                boolean corridor=runZ(b,w,l,z)>=MIN_CORRIDOR_RUN&&
+                    runZ(b,w,r,z)>=MIN_CORRIDOR_RUN&&
+                    w.at(b,l,z-1)&&w.at(b,r,z-1)&&
+                    w.at(b,l,z+1)&&w.at(b,r,z+1);
+                if(room||corridor)result.set(p);
+            }
         }
-        return protectedXZ;
+        // Orthogonal long east/west corridors (no roof/end walls needed).
+        for(int x=0;x<b.width;x++)for(int z=0;z<b.length;z++){
+            int p=columnIndex(b,x,z),f=north[p],back=south[p];
+            if(!result.get(p)&&between(f,back,z)&&
+               runX(b,w,x,f)>=MIN_CORRIDOR_RUN&&
+               runX(b,w,x,back)>=MIN_CORRIDOR_RUN&&
+               w.at(b,x-1,f)&&w.at(b,x-1,back)&&
+               w.at(b,x+1,f)&&w.at(b,x+1,back))
+                result.set(p);
+        }
+        return result;
     }
 
     /**

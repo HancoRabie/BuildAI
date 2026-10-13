@@ -52,24 +52,24 @@ public final class InteriorHollowPlan {
     private static boolean inY(Blueprint b,int y){
         return y>=0&&y<b.height;
     }
-    private static boolean exposedPair(Blueprint b,int x,int y,int z){
-        // A 2+-block floor/foundation sheet is NOT a vertical wall:
-        // interior cells of a thick platform have no horizontally adjacent
-        // AIR at either of the two stacked heights. A side wall has at
-        // least one exposed side into its proposed open room/corridor.
-        final int[][] dirs={{1,0},{-1,0},{0,1},{0,-1}};
-        for(int[] dir:dirs){
-            int nx=x+dir[0],nz=z+dir[1];
-            if(in2d(b,nx,nz)&&
-                (b.isAir(nx,y,nz)||b.isAir(nx,y+1,nz)))
-                return true;
-        }
-        return false;
+    private static final int EAST=1,WEST=2,SOUTH=4,NORTH=8;
+    private static int openFaces(Blueprint b,int x,int y,int z){
+        // Which faces of this vertical *standing pair* actually open to
+        // blueprint AIR? Track direction. Otherwise a thick foundation
+        // exposes its OUTER face and is accidentally interpreted as a
+        // corridor wall facing IN toward the solid foundation.
+        int faces=0;
+        if(in2d(b,x+1,z)&&(b.isAir(x+1,y,z)||b.isAir(x+1,y+1,z)))faces|=EAST;
+        if(in2d(b,x-1,z)&&(b.isAir(x-1,y,z)||b.isAir(x-1,y+1,z)))faces|=WEST;
+        if(in2d(b,x,z+1)&&(b.isAir(x,y,z+1)||b.isAir(x,y+1,z+1)))faces|=SOUTH;
+        if(in2d(b,x,z-1)&&(b.isAir(x,y,z-1)||b.isAir(x,y+1,z-1)))faces|=NORTH;
+        return faces;
     }
 
     private static WallColumns analyze(Blueprint b){
         int len=b.width*b.length;
         boolean[] wall=new boolean[len];
+        int[] faces=new int[len],runX=new int[len],runZ=new int[len];
         int[] lowest=new int[len],highest=new int[len];
         java.util.Arrays.fill(lowest,Integer.MAX_VALUE);
         java.util.Arrays.fill(highest,-1);
@@ -81,18 +81,42 @@ public final class InteriorHollowPlan {
         for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
             int p=columnIndex(b,x,z);
             for(int y=0;y+1<b.height;y++){
-                if(structural(b,x,y,z)&&structural(b,x,y+1,z)&&
-                   exposedPair(b,x,y,z)){
+                if(structural(b,x,y,z)&&structural(b,x,y+1,z)){
+                    int open=openFaces(b,x,y,z);
+                    if(open==0)continue;
                     wall[p]=true;
+                    faces[p]|=open;
                     lowest[p]=Math.min(lowest[p],y);
                     highest[p]=Math.max(highest[p],y+1);
                 }
             }
         }
-        return new WallColumns(wall,lowest,highest);
+        // Cache horizontal wall connectivity ONCE. Ray calculations on
+        // a large blueprint must not rescan 100s of wall blocks for every
+        // candidate voxel or every Y level.
+        for(int z=0;z<b.length;z++){
+            int x=0;
+            while(x<b.width){
+                if(!wall[columnIndex(b,x,z)]){x++;continue;}
+                int start=x;
+                while(x<b.width&&wall[columnIndex(b,x,z)])x++;
+                for(int v=start;v<x;v++)runX[columnIndex(b,v,z)]=x-start;
+            }
+        }
+        for(int x=0;x<b.width;x++){
+            int z=0;
+            while(z<b.length){
+                if(!wall[columnIndex(b,x,z)]){z++;continue;}
+                int start=z;
+                while(z<b.length&&wall[columnIndex(b,x,z)])z++;
+                for(int v=start;v<z;v++)runZ[columnIndex(b,x,v)]=z-start;
+            }
+        }
+        return new WallColumns(wall,faces,runX,runZ,lowest,highest);
     }
 
-    private record WallColumns(boolean[] wall,int[] bottom,int[] top){
+    private record WallColumns(boolean[] wall,int[] faces,int[] runX,int[] runZ,
+                               int[] bottom,int[] top){
         boolean at(Blueprint b,int x,int z){
             return in2d(b,x,z)&&wall[columnIndex(b,x,z)];
         }
@@ -106,18 +130,13 @@ public final class InteriorHollowPlan {
         }
     }
     private static int runZ(Blueprint b,WallColumns w,int x,int z){
-        if(!w.at(b,x,z))return 0;
-        int count=1;
-        for(int v=z-1;v>=0&&w.at(b,x,v);v--)count++;
-        for(int v=z+1;v<b.length&&w.at(b,x,v);v++)count++;
-        return count;
+        return w.at(b,x,z)?w.runZ[columnIndex(b,x,z)]:0;
     }
     private static int runX(Blueprint b,WallColumns w,int x,int z){
-        if(!w.at(b,x,z))return 0;
-        int count=1;
-        for(int v=x-1;v>=0&&w.at(b,v,z);v--)count++;
-        for(int v=x+1;v<b.width&&w.at(b,v,z);v++)count++;
-        return count;
+        return w.at(b,x,z)?w.runX[columnIndex(b,x,z)]:0;
+    }
+    private static boolean face(Blueprint b,WallColumns w,int x,int z,int direction){
+        return w.at(b,x,z)&&(w.faces[columnIndex(b,x,z)]&direction)!=0;
     }
     private static boolean between(int left,int right,int pos){
         return left>=0&&right>=0&&left<pos&&pos<right&&
@@ -129,6 +148,7 @@ public final class InteriorHollowPlan {
         // This excludes the open approach just before the entrance, and
         // avoids clearing the door itself on a short building facade.
         return w.spans(b,l,z,y)&&w.spans(b,r,z,y)&&
+            face(b,w,l,z,EAST)&&face(b,w,r,z,WEST)&&
             w.at(b,l,z-1)&&w.at(b,r,z-1)&&
             w.at(b,l,z+1)&&w.at(b,r,z+1)&&
             runZ(b,w,l,z)>=MIN_CORRIDOR_RUN&&
@@ -137,6 +157,7 @@ public final class InteriorHollowPlan {
     private static boolean corridorAlongX(Blueprint b,WallColumns w,
                                           int f,int back,int x,int y){
         return w.spans(b,x,f,y)&&w.spans(b,x,back,y)&&
+            face(b,w,x,f,SOUTH)&&face(b,w,x,back,NORTH)&&
             w.at(b,x-1,f)&&w.at(b,x-1,back)&&
             w.at(b,x+1,f)&&w.at(b,x+1,back)&&
             runX(b,w,x,f)>=MIN_CORRIDOR_RUN&&
@@ -176,7 +197,8 @@ public final class InteriorHollowPlan {
                     if(w.spans(b,x,z,y))right=x;
                     if(!b.isAir(x,y,z))continue;
                     int l=last[x],p=columnIndex(b,x,z);
-                    if(between(l,right,x)){
+                    if(between(l,right,x)&&face(b,w,l,z,EAST)&&
+                       face(b,w,right,z,WEST)){
                         xBound[p]=true;
                         xLeft[p]=l;xRight[p]=right;
                         xCorridor[p]=corridorAlongZ(b,w,l,right,z,y);
@@ -195,7 +217,8 @@ public final class InteriorHollowPlan {
                     if(w.spans(b,x,z,y))back=z;
                     if(!b.isAir(x,y,z))continue;
                     int f=last[z],p=columnIndex(b,x,z);
-                    boolean zBound=between(f,back,z);
+                    boolean zBound=between(f,back,z)&&
+                        face(b,w,x,f,SOUTH)&&face(b,w,x,back,NORTH);
                     // The two-axis room rule requires its boundaries to
                     // have LATERAL wall continuity, avoiding isolated posts.
                     boolean room=xBound[p]&&zBound&&

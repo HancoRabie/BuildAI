@@ -158,4 +158,72 @@ public class InteriorHollowPlanTest {
         assertFalse(mask.get(b.index(8,2,3)));
     }
 
+    @Test void mixedMossyChiseledAndInterruptedWallLevelsStillDefineInterior(){
+        // Temple wall materials and relief panels differ at each level.
+        // At height 3, both walls have decorative recesses with AIR;
+        // the previous same-Y ray casting stopped hollowing this level.
+        Blueprint b=new Blueprint("Mixed-material temple hall",17,9,21);
+        String[] palette={
+            "minecraft:stone_bricks",
+            "minecraft:mossy_stone_bricks",
+            "minecraft:chiseled_stone_bricks",
+            "minecraft:cracked_stone_bricks"
+        };
+        for(int z=2;z<=18;z++)for(int y=1;y<=6;y++){
+            String block=palette[(y+z)%palette.length];
+            if(y!=3||z%4!=0){
+                b.set(3,y,z,block);
+                b.set(13,y,z,palette[(y+z+2)%palette.length]);
+            }
+        }
+        // A decorative chiseled lintel and a mossy floor patch, both
+        // legitimate blueprint blocks which must NOT be excavated.
+        for(int x=3;x<=13;x++)
+            b.set(x,7,5,"minecraft:chiseled_stone_bricks");
+        b.set(6,1,10,"minecraft:mossy_stone_bricks");
+        b.set(8,3,10,"minecraft:lantern");
+        b.set(9,2,11,"minecraft:oak_stairs");
+        var mask=InteriorHollowPlan.enclosedAir(b);
+        assertTrue(mask.get(b.index(7,3,8)),
+            "Hollow air behind recessed CHISELED/MOSSY walls at the missing y-slice");
+        assertTrue(mask.get(b.index(7,5,8)),
+            "Clear remaining floating dirt near the ceiling inside");
+        assertTrue(mask.get(b.index(7,2,17)),
+            "Clear further back inside the tunnel");
+        assertFalse(mask.get(b.index(7,2,1)),
+            "No clearing outside entrance");
+        assertFalse(mask.get(b.index(7,2,19)),
+            "No clearing outside exit");
+        assertFalse(mask.get(b.index(2,2,8)),
+            "Exterior jungle outside left wall remains");
+        assertFalse(mask.get(b.index(14,2,8)),
+            "Exterior jungle outside right wall remains");
+        assertFalse(mask.get(b.index(6,1,10)),
+            "Decorative mossy stone remains untouched");
+        assertFalse(mask.get(b.index(8,3,10)),
+            "Lantern remains untouched");
+        assertFalse(mask.get(b.index(9,2,11)),
+            "Blueprint furniture remains untouched");
+        assertFalse(mask.get(b.index(7,7,5)),
+            "Chiseled roof segment remains untouched");
+    }
+
+    @Test void thickFootprintFoundationNotMistakenForInteriorCrossWalls(){
+        Blueprint b=new Blueprint("Temple with 3-layer podium",16,10,16);
+        for(int x=1;x<=14;x++)for(int z=1;z<=14;z++){
+            for(int y=0;y<=2;y++)b.set(x,y,z,"minecraft:stone_bricks");
+            for(int y=3;y<=8;y++){
+                if(x==1||x==14||z==1||z==14)
+                    b.set(x,y,z,"minecraft:mossy_stone_bricks");
+            }
+        }
+        var mask=InteriorHollowPlan.enclosedAir(b);
+        assertTrue(mask.get(b.index(8,5,8)),
+            "A large thick foundation must not hide genuine standing sidewalls");
+        assertFalse(mask.get(b.index(8,1,8)),
+            "Existing solid blueprint foundation is protected");
+        assertFalse(mask.get(b.index(0,5,8)),
+            "Exterior remains outside the wall");
+    }
+
 }

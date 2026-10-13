@@ -78,12 +78,26 @@ public class PlacementAppropriatenessAuditTest {
         assertTrue(findings.blockers().isEmpty(),findings.toString());
     }
 
-    @Test void leavesExternalBoundaryWiringUnverifiedInsteadOfBlocking(){
+    @Test void exposedBoundaryStillRequiresFeedUnlessExternalPowerRequested(){
         Blueprint b=layout();
         b.set(0,1,4,"minecraft:redstone_lamp");
-        var findings=PlacementAppropriatenessAudit.inspect(b,"Redstone circuit");
-        assertTrue(findings.blockers().isEmpty(),findings.toString());
-        assertTrue(findings.suggestions().stream().anyMatch(x->
-            x.contains("boundary")),findings.toString());
+        var selfContained=PlacementAppropriatenessAudit.inspect(b,"Redstone circuit");
+        assertFalse(selfContained.blockers().isEmpty(),selfContained.toString());
+        var external=PlacementAppropriatenessAudit.inspect(b,
+            "Connect to existing redstone in my world outside the blueprint");
+        assertTrue(external.blockers().isEmpty(),external.toString());
+        assertTrue(external.suggestions().stream().anyMatch(x->
+            x.contains("boundary")),external.toString());
+    }
+
+    @Test void caughtOutputDefectReachesGeneralBuildQualityGate(){
+        Blueprint b=layout();
+        b.set(4,1,4,"minecraft:redstone_wire");
+        b.set(6,1,4,"minecraft:redstone_lamp");
+        var report=BuildRequirementAudit.inspect(b,
+            "Create a functional XOR gate with a lamp and independent input controls",null);
+        assertTrue(report.blockers().stream().anyMatch(x->
+            x.contains("Lamp (6,1,4)")&&x.contains("AIR gap")),
+            report.blockers().toString());
     }
 }

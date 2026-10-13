@@ -3,15 +3,16 @@ package com.hanco.buildai.blueprint;
 import java.util.*;
 
 /**
- * Detects connected footprint-wide foundation PLATFORMS from the final
- * blueprint, independently of the whole blueprint bounding-box dimensions.
- * Only contiguous, densely rectangular near-base layers qualify; a matching
- * wall, statue, roof, room floor or solitary patch is not a foundation.
+ * A foundation layer must contain MORE THAN 60% eligible material across
+ * the building's connected bottom footprint, and must span that footprint.
+ * Scan successive layers until that evidence fails, without an arbitrary
+ * layer-count ceiling. Omit ONLY matching material blocks OUTSIDE validated
+ * blueprint walls and their interiors, retaining intentional dirt gardens,
+ * basement floors, decoration supports and architectural blocks.
  *
- * Materials override ADDS to the built-in list. It never means "erase all
- * blocks of this material" -- that would destroy houses made of stone bricks.
- * Returned cells are only omitted from future construction, not excavated
- * from the player's world.
+ * Custom material hints extend detection but NEVER bypass the wall/interior
+ * protection mask. Omission skips future construction; it does not excavate
+ * blocks already existing in the world.
  */
 public final class FoundationPlan {
     private FoundationPlan(){}

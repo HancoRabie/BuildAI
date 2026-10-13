@@ -47,10 +47,13 @@ public class InteriorHollowPlanTest {
         assertFalse(mask.get(b.index(4,0,4)),"Blueprint floor remains");
         assertFalse(mask.get(b.index(4,6,4)),"Blueprint roof remains");
     }
-    @Test void rooflessCourtYieldsNoHollowing(){
+    @Test void rooflessRoomStillHollowsBetweenFourActualWalls(){
         Blueprint b=house(false,false,false);
-        assertTrue(InteriorHollowPlan.enclosedAir(b).isEmpty(),
-            "Roofless outdoor enclosures should not trigger clearing");
+        var mask=InteriorHollowPlan.enclosedAir(b);
+        assertTrue(mask.get(b.index(4,2,4)),
+            "The user's rule is walls define interiors, not roof presence");
+        assertFalse(mask.get(b.index(0,2,4)),
+            "Never remove outside terrain");
     }
     @Test void noWallsStatueAndFlatRedstonePadDoNotTriggerHollowing(){
         Blueprint statue=new Blueprint("Jaguar statue",13,15,13);
@@ -62,12 +65,14 @@ public class InteriorHollowPlanTest {
             pad.set(x,0,z,"minecraft:stone_bricks");
         assertTrue(InteriorHollowPlan.enclosedAir(pad).isEmpty());
     }
-    @Test void roomWithNoFloorCannotAccidentallyCarveTerrain(){
+    @Test void aTerrainFloorDoesNotBlockInteriorClearing(){
         Blueprint b=house(true,false,false);
         for(int x=1;x<=8;x++)for(int z=1;z<=8;z++)
             b.set(x,0,z,"minecraft:air");
-        assertTrue(InteriorHollowPlan.enclosedAir(b).isEmpty(),
-            "No floor means building may be a floating facade");
+        var mask=InteriorHollowPlan.enclosedAir(b);
+        assertTrue(mask.get(b.index(4,1,4)),
+            "An empty blueprint floor doesn't justify leaving mountain dirt inside");
+        assertFalse(mask.get(b.index(0,1,4)));
     }
     @Test void multiLevelRoomsNeedFloorsAboveAndBelow(){
         Blueprint b=house(true,false,false);
@@ -78,4 +83,79 @@ public class InteriorHollowPlanTest {
         assertTrue(mask.get(b.index(4,4,4)));
         assertFalse(mask.get(b.index(4,3,4)));
     }
+    /** Reproduces the user's jungle temple: two long, parallel stone
+     * walls, an open entrance and exit, but NO blueprint roof/floor.
+     * Dirt/leaves inside the planned AIR tunnel must go; jungle outside
+     * those wall lines must remain untouched. */
+    @Test void jungleTempleTunnelClearsBetweenSideWallsNotOutside(){
+        Blueprint b=new Blueprint("Jungle temple hall",15,8,20);
+        for(int y=0;y<=5;y++)for(int z=2;z<=17;z++){
+            b.set(3,y,z,"minecraft:chiseled_stone_bricks");
+            b.set(11,y,z,"minecraft:chiseled_stone_bricks");
+        }
+        // Builder adds a decorative lintel at one end and lanterns.
+        for(int x=3;x<=11;x++)
+            b.set(x,5,2,"minecraft:stone_bricks");
+        b.set(4,3,10,"minecraft:lantern");
+        b.set(7,2,8,"minecraft:oak_stairs[facing=south,half=bottom]");
+        b.set(6,3,8,"minecraft:vine");
+        // The user wanted NO prefabricated floor or roof.
+        assertTrue(b.isAir(7,0,10));
+        assertTrue(b.isAir(7,7,10));
+        var mask=InteriorHollowPlan.enclosedAir(b);
+        assertTrue(mask.get(b.index(7,1,10)),
+            "Interior grass/dirt must be removed in a wall-defined passage");
+        assertTrue(mask.get(b.index(7,4,10)),
+            "Interior foliage at head height must also be cleared");
+        assertTrue(mask.get(b.index(7,1,3)),
+            "Entrance should not leave a curtain of terrain just inside");
+        assertTrue(mask.get(b.index(7,1,16)),
+            "Exit should also clear");
+        assertFalse(mask.get(b.index(7,1,1)),
+            "Outside approach must remain intact");
+        assertFalse(mask.get(b.index(7,1,18)),
+            "Terrain beyond the exit must remain");
+        assertFalse(mask.get(b.index(2,1,10)),
+            "Terrain to the left of the wall stays");
+        assertFalse(mask.get(b.index(12,1,10)),
+            "Terrain to the right of the wall stays");
+        assertFalse(mask.get(b.index(4,3,10)),
+            "Placed blueprint lanterns are not excavated");
+        assertFalse(mask.get(b.index(7,2,8)),
+            "Placed benches are preserved");
+        assertFalse(mask.get(b.index(6,3,8)),
+            "Specified blueprint vine is decoration and remains");
+    }
+    @Test void twoPostsCannotBeMistakenForCorridor(){
+        Blueprint b=new Blueprint("Decorative columns",12,7,12);
+        for(int y=1;y<=5;y++){
+            b.set(2,y,6,"minecraft:stone_bricks");
+            b.set(9,y,6,"minecraft:stone_bricks");
+        }
+        assertTrue(InteriorHollowPlan.enclosedAir(b).isEmpty(),
+            "Two isolated pillars must not cause a destructive hollowing pass");
+    }
+    @Test void rotatedLongitudinalCorridorAlsoWorks(){
+        Blueprint b=new Blueprint("East west hall",19,6,12);
+        for(int y=0;y<=4;y++)for(int x=2;x<=16;x++){
+            b.set(x,y,2,"minecraft:stone_bricks");
+            b.set(x,y,9,"minecraft:stone_bricks");
+        }
+        var mask=InteriorHollowPlan.enclosedAir(b);
+        assertTrue(mask.get(b.index(9,1,5)));
+        assertFalse(mask.get(b.index(1,1,5)));
+        assertFalse(mask.get(b.index(17,1,5)));
+    }
+    @Test void openBuildingFacadeCannotExcavateBeyondItsLastWall(){
+        Blueprint b=new Blueprint("Two partial walls",18,8,18);
+        for(int y=1;y<=6;y++)for(int z=4;z<=7;z++){
+            b.set(4,y,z,"minecraft:stone_bricks");
+            b.set(13,y,z,"minecraft:stone_bricks");
+        }
+        var mask=InteriorHollowPlan.enclosedAir(b);
+        assertFalse(mask.get(b.index(8,2,8)),
+            "No walls at this longitudinal point: do not excavate exterior");
+        assertFalse(mask.get(b.index(8,2,3)));
+    }
+
 }

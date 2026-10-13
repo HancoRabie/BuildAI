@@ -50,6 +50,27 @@ public final class AIArchitect {
         only for genuine potential simplifications that preserve requirements.
         Never claim the game ran a simulation you did not execute.
         Prioritize reliable function over decorative redstone complexity.
+        PLACEMENT APPROPRIATENESS (ALL FUNCTIONAL BUILDS):
+        After drafting each block operation, inspect the ACTUAL FINAL
+        voxel coordinates after all fills/overrides. For each output lamp,
+        note block, piston, dispenser, dropper, crafter, door or machine
+        endpoint, trace a physically adjacent power delivery path; merely
+        placing an active wire or repeater 1-2 blocks NEARBY does not
+        electrically activate an output. A lamp needs a real directly
+        neighboring capable power source or a genuinely powered conducting
+        block. No AIR gap between intended output driver and destination.
+        Java repeaters/comparators: blockstate facing denotes REAR/INPUT;
+        output is OPPOSITE facing. Observers: facing is sensed side and
+        output is opposite. Pistons: facing denotes EXTENSION direction.
+        Validate every wall-mount, torch attachment, dust/rail/repeater
+        floor support, directional input/output, door pairing, hopper
+        destination and unmovable piston obstruction. Inspect power
+        delivery to the TORCH'S SUPPORT BLOCK, not only the torch/lamp.
+        Don't make "fixes" by connecting independent parallel signal
+        lines or replacing control logic with an always-on source.
+        Before return, audit final XYZ neighbors and functional OFF states
+        for EVERY station; correct missing physical cells and impossible
+        placements. Do not pretend to simulate Minecraft ticks.
 
         SIGN LABELS (Minecraft Java 1.21.1): Signs are BLOCK ENTITIES:
         placing minecraft:oak_sign alone does NOT write any text. When the

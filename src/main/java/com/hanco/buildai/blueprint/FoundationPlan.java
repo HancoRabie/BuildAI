@@ -83,24 +83,28 @@ public final class FoundationPlan {
         Footprint best=null;
         for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
             int p=z*b.width+x;
-            if(visited.get(p)||!eligible(b,x,y,z,materials))continue;
-            int head=0,tail=0,minX=x,maxX=x,minZ=z,maxZ=z;
+            if(visited.get(p)||b.isAir(x,y,z))continue;
+            int head=0,tail=0,matched=0,minX=x,maxX=x,minZ=z,maxZ=z;
             visited.set(p);queue[tail++]=p;
             while(head<tail){
                 int current=queue[head++],px=current%b.width,pz=current/b.width;
                 minX=Math.min(minX,px);maxX=Math.max(maxX,px);
                 minZ=Math.min(minZ,pz);maxZ=Math.max(maxZ,pz);
+                if(eligible(b,px,y,pz,materials))matched++;
                 int[] neighbors={pz>0?current-b.width:-1,
                     pz+1<b.length?current+b.width:-1,
                     px>0?current-1:-1,px+1<b.width?current+1:-1};
                 for(int n:neighbors){
                     if(n<0||visited.get(n))continue;
-                    if(eligible(b,n%b.width,y,n/b.width,materials)){
+                    if(!b.isAir(n%b.width,y,n/b.width)){
                         visited.set(n);queue[tail++]=n;
                     }
                 }
             }
-            Footprint f=new Footprint(minX,maxX,minZ,maxZ,tail);
+            Footprint f=new Footprint(minX,maxX,minZ,maxZ,matched);
+            // The 60% is of ALL cells in the connected region's actual
+            // rectangular footprint, including its walls/basement holes.
+            // Otherwise a 60%-wide dirt patch would self-report 100%.
             if(f.width()<MIN_SIDE||f.length()<MIN_SIDE||f.area()<MIN_AREA||
                f.count<=MIN_SHARE*f.area())continue;
             if(best==null||f.area()>best.area()||

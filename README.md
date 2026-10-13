@@ -39,6 +39,33 @@ In private **Chat Mode** enabled from F8, ordinary chat messages create a new de
 
 **Continue with ChatGPT** now has a client-only browser OAuth implementation. It's not yet proven against a real ChatGPT login or response; validate in a test world. An optional separately billed developer API key remains the fallback. See [docs/OPEN_SOURCE_AND_CHATGPT.md](docs/OPEN_SOURCE_AND_CHATGPT.md).
 
+## General placement appropriateness review
+
+Before accepting an AI blueprint, BuildAI now inspects the **actual final
+voxel positions**, not just the text of the AI's claimed test results.
+The `PlacementAppropriatenessAudit` checks whether redstone lamps have
+a geometrically plausible **adjacent** power source (or a powered conducting
+block), taking Java repeater/comparator/observer direction into account;
+it identifies a visible **one-block air gap** between a lamp and intended
+input wiring. For functional redstone requests, disconnected lamps create a
+concrete acceptance-review defect; the existing bounded model revision
+path can propose a repaired COMPLETE blueprint. The checker never
+silently adds dust because connecting the wrong branches can short logic
+gates or independent circuits.
+
+The same generic check also warns about dust/rails/repeaters/torches
+without supporting blocks, missing wall-mounted supports, repeaters with
+empty rear/input cells, actuators without a plausible direct signal, and
+pistons facing immovable blocks. It checks actual block-state orientation;
+model-written `redstone_plan` text alone does not satisfy the check.
+
+**This is not a Minecraft power or tick simulator.** Dust shape,
+quasi-connectivity, weak/strong block power and complex control loops still
+require testing in Minecraft. Decorative unpowered lamps are advisory, and
+an output intentionally wired to existing external world circuitry can be
+marked externally supplied in the prompt. Original screenshots and
+benchmark schematics should be retained for reproducible comparison.
+
 ## Resilient streaming and generation monitor
 
 The ChatGPT-connected stream is **not** treated as complete unless

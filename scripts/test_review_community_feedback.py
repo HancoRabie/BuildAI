@@ -14,8 +14,8 @@ def sha(data):
 
 
 def sample(category="redstone_insight", corrected=True):
-    original = b"\\x1f\\x8b"+"sample redstone".encode()
-    fixed = b"\\x1f\\x8b"+"fixed circuit".encode()
+    original = b"\x1f\x8b"+"sample redstone".encode()
+    fixed = b"\x1f\x8b"+"fixed circuit".encode()
     is_logic = category == "redstone_insight"
     report = {
         "schema": "buildai-community-example-v2",
@@ -99,7 +99,7 @@ class IntakeTest(unittest.TestCase):
 
     def test_reject_changed_schematic_or_unknown_file(self):
         contents = sample()
-        contents["generated.schem"] = b"\\x1f\\x8b" + b"TAMPER"
+        contents["generated.schem"] = b"\x1f\x8b" + b"TAMPER"
         with self.assertRaises(Rejected):
             read_and_validate(self.write(contents))
         contents = sample()

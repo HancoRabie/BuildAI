@@ -83,7 +83,8 @@ def read_and_validate(archive):
         raise Rejected("Contributor must never declare an approved or trusted record.")
     if report.get("rights_confirmed") is not True or report.get("license") != "CC BY 4.0":
         raise Rejected("Rights and public contribution license are required.")
-    for key in ("exporter_buildai_version", "minecraft_version",
+    for key in ("exporter_buildai_version", "exporter_source_revision",
+                "minecraft_version",
                 "fabric_loader_version", "source_generation_version",
                 "benchmark_id", "benchmark_revision"):
         if not isinstance(report.get(key), str):
@@ -169,6 +170,7 @@ def promote(archive, decision_path, destination):
         "benchmark_id": report.get("benchmark_id", ""),
         "benchmark_revision": report.get("benchmark_revision", ""),
         "exporter_buildai_version": report["exporter_buildai_version"],
+        "exporter_source_revision": report["exporter_source_revision"],
         "schema_version": report["schema_version"],
         "training_eligible": True,
     }
@@ -196,6 +198,7 @@ def main(argv=None):
                 "category": report["category"],
                 "schema": report["schema"],
                 "exporter_buildai_version": report["exporter_buildai_version"],
+                "exporter_source_revision": report["exporter_source_revision"],
                 "minecraft_version": report["minecraft_version"],
                 "zip_sha256": zip_hash
             }, indent=2))

@@ -139,7 +139,7 @@ public class ConstructionOptionsTest {
             "Custom material hints NEVER bypass protected interior");
     }
 
-    @Test void exactlySixtyPercentIsNotEnoughAndNeverDeletesNonmatchingBlocks(){
+    @Test void fiftyPercentIsNotEnoughAndFiftyOnePercentKeepsOtherBlocks(){
         Blueprint b=new Blueprint("Ratio threshold",10,5,10);
         // Full 10x10 footprint: stone-like gold is a deliberate other
         // material, not in the foundation material set.
@@ -152,33 +152,92 @@ public class ConstructionOptionsTest {
                 b.set(x,0,z,"minecraft:dirt");
                 added++;
             }
-        for(int z=1;z<9&&added<60;z++)for(int x=1;x<9&&added<60;x++){
+        for(int z=1;z<9&&added<50;z++)for(int x=1;x<9&&added<50;x++){
             b.set(x,0,z,"minecraft:dirt");added++;
         }
-        assertEquals(60,added);
+        assertEquals(50,added);
         assertTrue(ConstructionOptions.identifiedFoundation(b).isEmpty(),
-            "The threshold is GREATER THAN 60%, not greater-or-equal");
-        b.set(8,0,8,"minecraft:dirt"); // 61%, but this may have already been populated.
+            "The threshold is AT LEAST 51%, never 50%");
+        b.set(8,0,8,"minecraft:dirt"); // Increase to 51% across full footprint.
         int dirt=0;
         for(int x=0;x<10;x++)for(int z=0;z<10;z++)
             if(Blueprint.id(b.get(x,0,z)).equals("minecraft:dirt"))dirt++;
-        assertEquals(61,dirt);
+        assertEquals(51,dirt);
         var skip=ConstructionOptions.identifiedFoundation(b);
-        assertEquals(61,skip.size());
+        assertEquals(51,skip.size());
         assertFalse(skip.contains(b.index(7,0,7)),
             "Other nonfoundation blocks in a qualifying layer stay intact");
     }
 
-    @Test void stopsAtNextLayerOnceSixtyPercentThresholdIsLost(){
+    @Test void stopsAtNextLayerOnceFiftyOnePercentThresholdIsLost(){
         Blueprint b=new Blueprint("Floor with basement",10,6,10);
         for(int z=0;z<10;z++)for(int x=0;x<10;x++){
             b.set(x,0,z,"minecraft:dirt");
-            b.set(x,1,z,z<6?"minecraft:dirt":"minecraft:gold_block");
+            b.set(x,1,z,z<5?"minecraft:dirt":"minecraft:gold_block");
         }
         var skip=ConstructionOptions.identifiedFoundation(b);
         assertEquals(100,skip.size(),"Skip bottom 100% layer only");
         assertFalse(skip.contains(b.index(0,1,0)),
-            "60%-coverage upper layer must not be stripped");
+            "50%-coverage upper layer must not be stripped");
+    }
+
+
+    @Test void rejectsPartialPlatformEvenIfItTouchesEveryEdgeAndIsOver51Percent(){
+        Blueprint b=new Blueprint("Missing foundation square",10,5,10);
+        for(int x=0;x<10;x++)for(int z=0;z<10;z++)
+            b.set(x,0,z,"minecraft:dirt");
+        b.set(5,0,5,"minecraft:air");
+        assertTrue(ConstructionOptions.identifiedFoundation(b).isEmpty(),
+            "A 99% dirt layer with a non-basement hole does not cover the entire footprint");
+    }
+
+    @Test void refusesBaseThatDoesNotCoverWiderAboveGroundStructure(){
+        Blueprint b=new Blueprint("Wide temple with partial footing",21,9,21);
+        for(int x=1;x<=15;x++)for(int z=1;z<=15;z++)
+            b.set(x,0,z,"minecraft:dirt");
+        // A genuine roof/terrace at X=18 is outside the bottom patch.
+        for(int y=1;y<=6;y++)for(int z=3;z<=17;z++){
+            b.set(3,y,z,"minecraft:stone_bricks");
+            b.set(18,y,z,"minecraft:stone_bricks");
+        }
+        assertTrue(ConstructionOptions.identifiedFoundation(b).isEmpty(),
+            "A base spanning only its OWN bounds is not full building coverage");
+    }
+
+    @Test void preservesExteriorVerticalSupportsOnEveryBelowGroundLevel(){
+        Blueprint b=new Blueprint("Exterior facade supports",18,9,18);
+        for(int y=0;y<=3;y++)for(int x=0;x<18;x++)for(int z=0;z<18;z++)
+            b.set(x,y,z,"minecraft:dirt");
+        // Outdoor facade, not a fully enclosed room. The wall columns
+        // themselves still need stable underpinnings all the way down.
+        for(int y=4;y<=8;y++)for(int z=4;z<=13;z++)
+            b.set(14,y,z,"minecraft:stone_bricks");
+        var skip=ConstructionOptions.identifiedFoundation(b);
+        assertFalse(skip.isEmpty(),"Exposed earth away from architecture can still go");
+        for(int y=0;y<=3;y++){
+            assertFalse(skip.contains(b.index(14,y,9)),
+                "Never undermine a genuine standing side wall");
+            assertTrue(skip.contains(b.index(1,y,1)),
+                "Outside dirt without structural support can be omitted");
+        }
+    }
+
+    @Test void retainsWallProtectedBasementVoidsWithoutCountingThemAsMissingCoverage(){
+        Blueprint b=new Blueprint("Open underground hall",15,10,15);
+        for(int y=0;y<4;y++)for(int x=0;x<15;x++)for(int z=0;z<15;z++)
+            b.set(x,y,z,"minecraft:dirt");
+        for(int y=4;y<=8;y++)for(int x=3;x<=11;x++)for(int z=3;z<=11;z++)
+            if(x==3||x==11||z==3||z==11)
+                b.set(x,y,z,"minecraft:mossy_stone_bricks");
+        // Intentional below-ground void and rare planted block within walls.
+        b.set(7,1,7,"minecraft:air");
+        b.set(7,2,7,"minecraft:grass_block");
+        var skip=ConstructionOptions.identifiedFoundation(b);
+        assertFalse(skip.isEmpty(),"Enclosed underground void should not veto a valid base");
+        assertFalse(skip.contains(b.index(7,1,7)));
+        assertFalse(skip.contains(b.index(7,2,7)));
+        assertFalse(skip.contains(b.index(3,0,7)),"Basement wall footprint protected");
+        assertTrue(skip.contains(b.index(1,0,7)),"Outdoor platform removable");
     }
 
     @Test void detectsFoundationFootprintInsideOversizedSchematic(){

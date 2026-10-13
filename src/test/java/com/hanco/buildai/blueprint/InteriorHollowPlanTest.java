@@ -198,6 +198,8 @@ public class InteriorHollowPlanTest {
             "Exterior jungle outside left wall remains");
         assertFalse(mask.get(b.index(14,2,8)),
             "Exterior jungle outside right wall remains");
+        assertFalse(mask.get(b.index(7,8,8)),
+            "Do not clear jungle canopy above the wall tops");
         assertFalse(mask.get(b.index(6,1,10)),
             "Decorative mossy stone remains untouched");
         assertFalse(mask.get(b.index(8,3,10)),

@@ -40,7 +40,7 @@ public record ConstructionOptions(boolean foundation,boolean excavate,boolean ho
         Set<String> materials=new LinkedHashSet<>();
         // Tolerate a space after commas in user-provided material hints,
         // e.g. foundation:no:dirt, grass_block hollow:yes.
-        for(String token:arguments.trim().replaceAll(",\\\\s+",",").split("\\s+")){
+        for(String token:arguments.trim().replaceAll(",\\s+",",").split("\\s+")){
             String[] pair=token.split(":",3);
             if(pair.length<2||pair[0].isBlank())throw new IllegalArgumentException(
                 "Expected foundation:yes|no[:block1,block2] excavate:yes|no "+

@@ -46,16 +46,24 @@ public final class CommunityFeedbackPackage {
      * or source schematic version. Benchmark ID and revision are user-supplied
      * and never used as independent proof of functionality. */
     public record Versions(String exporterBuildAi,String minecraft,String fabricLoader,
-                           String benchmarkId,String benchmarkRevision) {
+                           String benchmarkId,String benchmarkRevision,
+                           String exporterSourceRevision) {
         public Versions {
             exporterBuildAi=version(exporterBuildAi,60);
             minecraft=version(minecraft,40);
             fabricLoader=version(fabricLoader,40);
             benchmarkId=version(benchmarkId,64);
             benchmarkRevision=version(benchmarkRevision,48);
+            exporterSourceRevision=version(exporterSourceRevision,40);
+        }
+        // Schema compatibility for older tests/call sites, but unknown
+        // source revisions stay explicit instead of being fabricated.
+        public Versions(String buildAi,String minecraft,String loader,
+                        String benchmarkId,String benchmarkRevision){
+            this(buildAi,minecraft,loader,benchmarkId,benchmarkRevision,"unknown");
         }
         public static Versions unspecified(){
-            return new Versions("unspecified","1.21.1","unspecified","","");
+            return new Versions("unspecified","1.21.1","unspecified","","","unknown");
         }
     }
     private static String version(String s,int max){
@@ -162,6 +170,8 @@ public final class CommunityFeedbackPackage {
         report.addProperty("minecraft_data_version",3955);
         report.addProperty("exporter_buildai_version",
             feedback.versions().exporterBuildAi());
+        report.addProperty("exporter_source_revision",
+            feedback.versions().exporterSourceRevision());
         report.addProperty("minecraft_version",feedback.versions().minecraft());
         report.addProperty("fabric_loader_version",
             feedback.versions().fabricLoader());

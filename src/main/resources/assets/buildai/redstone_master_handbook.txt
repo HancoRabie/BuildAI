@@ -395,6 +395,52 @@ TIMING AND SIGNAL PRECISION:
   Java pistons have scheduled updates, moving-block events and QC; a
   successful powered-state estimate does not simulate those transitions.
 
+BOOLEAN LOGIC IMPLEMENTATION — POWER THE ACTUAL GATE, NOT ITS DECORATION:
+For each logic device, FIRST write its complete truth table and state the
+physical reason the OUTPUT is ON/OFF for every combination. Never substitute
+a plausible array of lever, dust, repeater, torch and lamp objects for logic.
+
+TORCH PHYSICS: A redstone torch is normally ON. The only way to switch an
+ordinary wall/floor redstone torch OFF is to POWER ITS ATTACHMENT BLOCK.
+A dust wire running beside a lamp or torch does not prove the ATTACHMENT
+BLOCK is powered. Redstone torch adjacent to redstone lamp will power the
+lamp in idle unless the support block is powered and the torch is OFF.
+Identify torch coordinate T and exact support coordinate S. Route a genuine,
+oriented, electrically connected input to power S for every truth-table row
+that requires T=OFF; route no power to S for every row requiring T=ON.
+For redstone_wall_torch[facing=D], support block is OPPOSITE the wall torch's
+facing. For standing redstone_torch, support is DIRECTLY BELOW it.
+Check dust shape, dust level, repeater/comparator front output, opaque
+conducting blocks and alternative neighbor power paths at S. Never leave
+an always-lit torch directly powering an output lamp that must ever be OFF.
+
+MULTI-INPUT LOGIC: Three separate lever feeds joined in one dust line
+implement OR-like combining, NOT an AND/majority/XOR gate. Adding a single
+inverter to a wired OR changes it to NOR, not magically to AND.
+- n-input AND: output=1 ONLY with all n inputs 1. Inverted input terms
+  and NOR/De Morgan or proven equivalent logic are valid; trace every
+  inversion. Three-input AND has EIGHT truth-table cases, seven OFF.
+- XOR: exactly one of A/B ON, including BOTH=ON -> output OFF.
+  Two forward feeds joining directly into the same output cannot be XOR;
+  require a genuine suppression term/conditional logic.
+- 3-input MAJORITY: AB+AC+BC; output ON for 011,101,110,111 and OFF
+  for 000,001,010,100. Confirm 2-of-3 behavior, not merely OR or AND.
+- 2-output SELECTOR: a separate trigger T must reach exactly one output
+  chosen by select S. Implement mutually EXCLUSIVE enabled branches:
+  A = T AND NOT S, B = T AND S (or swapped). Both output branches must
+  demonstrably block T when unselected. A plain Y-split of T to two
+  repeaters/lamps is NOT a selector, no matter where an S lever is placed.
+INDEPENDENCE: do not route input wires into each other's levers; use
+diode isolation and distinct control paths so one input cannot back-power
+a second input. A fused redstone trail may be right for OR but is evidence
+against isolation requested for a selector or crossing paths.
+BOOLEAN STATION VALIDATION: draw/trace each distinct path from input to
+output, including the input side of each repeater/comparator and the support
+of each torch. Check BOTH values of each input (up to 3 inputs = 8 cases),
+especially the cases that should produce ZERO output, then release/reset.
+Do not trust sign labels, default lit/powered blockstates or the AI's
+claim of pass. Only live Minecraft ticks can establish functionality.
+
 GENERIC LOGIC/MEMORY DESIGN TEMPLATES (truth tables must be correct):
 - OR: input 00->0; 01->1; 10->1; 11->1. Isolate parallel input wires
   with correctly oriented repeaters where cross-feedback would be harmful.

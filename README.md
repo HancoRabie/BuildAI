@@ -184,6 +184,45 @@ button after successful authorization; before approval, **RETURN TO GAME
 (REVIEW LATER)** leaves the server's approval pause intact. Neither action
 requires Escape or sends implicit approval.
 
+## Community Redstone Feedback (expert correction contributions)
+
+BuildAI's previous local 1–5 star feedback history remains **private** and
+still guides only the current player's later prompts. To contribute
+reproducible expert redstone examples publicly, use the separate
+**F8 → Feedback & Styles → Community Share** tab after selecting a build.
+The new three-step workflow lets a redstone expert provide an optional
+corrected schematic via native file picker, select one of eight mastery
+pillars, record expected vs observed results and the truth-table test notes,
+and explicitly mark a case as **Failure observed**, **Correction unverified**,
+or **Corrected and tested**.
+
+With explicit ownership/license consent, **Prepare Local ZIP** saves a
+public-ready archive into
+`<Minecraft game directory>/buildai/community-submissions/`. The ZIP includes
+`report.json`, `generated.schem`, optional `corrected.schem` and a README.
+Both schematics are normalized to plain block-state geometry and exclude
+original user prompts, AI operation history, attached sign text, command
+scripts and arbitrary block-entity NBT. Local file paths, world/player
+identities and OAuth/API credentials are never deliberately included in
+the archive. The reporter's manually entered description is included;
+review it for personal information before posting. Inputs must be valid
+supported schematic files (current import size limit 16 MB), and output
+archives are limited to 23 MB.
+
+Use **Open ZIP Folder** to inspect the archive and **Open Public Submission
+Page** to open [BuildAI redstone feedback issues](https://github.com/HancoRabie/BuildAI/issues/new?template=redstone-feedback.md).
+**You must attach the ZIP to the GitHub issue yourself**, using a GitHub
+account. The Minecraft mod never automatically uploads the file, and
+this contribution is not sent to OpenAI or ChatGPT. The GitHub issue is
+public and shares your GitHub username. Public submissions require
+contributor rights and a CC BY 4.0 grant for evaluation, redistribution,
+improvement and model training.
+
+**Importantly, collecting user feedback does not itself train an AI
+model.** We first need verified, deduplicated failure/correction pairs,
+a repeatable in-game evaluation pipeline, licensing checks and a
+held-out redstone mastery benchmark. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Adaptive builder feedback and executable minigame systems
 
 **F8 > Feedback & Styles > My Build Feedback** stores reviews against the

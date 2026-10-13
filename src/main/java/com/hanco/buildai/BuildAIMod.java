@@ -169,19 +169,23 @@ public final class BuildAIMod implements ModInitializer {
             p.confirm(options);
             clearGhost(player);
             reply(player,"Build confirmed: excavate:"+(options.excavate()?"yes":"no")+
-                " foundation:"+(options.foundation()?"yes":"no")+". "+
-                (options.excavate()
-                    ? "Clearing the original full blueprint footprint before building. "
-                    : "Overlay mode: surrounding/blueprint-AIR terrain is preserved; "+
-                      "blocks at actual planned positions may be REPLACED. ")+
+                " foundation:"+(options.foundation()?"yes":"no")+
+                " hollow:"+(options.hollow()?"yes":"no")+". "+
+                (options.hollow()
+                    ? "Hollowing "+p.hollowInteriorCells()+" enclosed interior AIR cells "+
+                      "without clearing outside terrain or design decorations. "+
+                      "Painted blueprint blocks still replace their locations. "
+                    : options.excavate()
+                        ? "Clearing the full blueprint volume before building. "
+                        : "Overlay: blueprint-AIR terrain is preserved; "+
+                          "planned blocks still replace overlapping terrain. ")+
                 (!options.foundation()
                     ? "Identified foundation blocks omitted: "+p.omittedFoundationBlocks()+". "
                     : "")+
                 "Protected blocks and inventories are never overwritten. /buildai status");
             if(!options.foundation()&&p.omittedFoundationBlocks()==0)
-                reply(player,"No confidently identifiable bottom foundation was found. "+
-                    "Nothing was removed from the blueprint; specify a simple "+
-                    "separate base in the design if you want it omitted.");
+                reply(player,"No confidently identifiable footprint foundation was found. "+
+                    "No base removed; also request NO foundation/platform in the prompt.");
             return 1;
         }catch(Exception e){
             reply(player,"Cannot confirm: "+e.getMessage());return 0;
@@ -253,7 +257,9 @@ public final class BuildAIMod implements ModInitializer {
                         throw new IllegalArgumentException("Move the proposal closer to your real character (100 block limit)");
                     p.selectOrigin(candidate,turn);
                     String msg="Placement locked at "+candidate.toShortString()+" (rotation "+(turn*90)+"°); "+p.collisions+
-                        " occupied cells in the proposed volume. Default /buildai confirm CLEARS the full volume; to preserve terrain use /buildai confirm foundation:no excavate:no.";
+                        " occupied cells in the proposed volume. Default confirm clears the whole volume; "+
+                        "use /buildai confirm hollow:yes for enclosed interior only, or "+
+                        "foundation:no excavate:no for overlay.";
                     if(ServerPlayNetworking.canSend(player,PlacementReplyPayload.ID))
                         ServerPlayNetworking.send(player,new PlacementReplyPayload(true,true,msg,p.origin));
                     reply(player,msg);
@@ -302,7 +308,9 @@ public final class BuildAIMod implements ModInitializer {
                         reply(player,p.phase+" | "+p.blueprint.name+" | "+p.placed()+"/"+p.total()+
                             " placed | excavation:"+(p.constructionOptions().excavate()?"yes":"no")+
                             " | foundation:"+(p.constructionOptions().foundation()?"yes":"no")+
-                            " ("+p.omittedFoundationBlocks()+" base cells omitted) | "+
+                            " | hollow:"+(p.constructionOptions().hollow()?"yes":"no")+
+                            " ("+p.omittedFoundationBlocks()+" base cells omitted; "+
+                            p.hollowInteriorCells()+" hollow cells) | "+
                             p.excavated()+"/"+p.cells()+" cells inspected | "+p.actuallyRemoved()+
                             " removed | "+p.collisions+" proposal overlaps | "+p.normalizedPanes()+
                             " pane/fence/wall links | "+p.normalizedRedstone()+

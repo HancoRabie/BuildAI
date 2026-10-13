@@ -168,6 +168,9 @@ public final class PlacementAppropriatenessAudit {
         // valid. Escalate endpoint disconnection to a repair blocker only
         // when the requested structure actually relies on redstone.
         boolean functionalPower=RedstoneKnowledge.isRedstoneRequest(request,null);
+        boolean externalFeedRequested=request!=null&&request.matches(
+            "(?is).*(existing redstone|external (?:redstone|power|signal)|"+
+            "connect to (?:a |the )?nearby circuit|world power source).*");
         int unpoweredActuators=0,blockedPistons=0;
         int yMax=blueprint.height,zMax=blueprint.length,xMax=blueprint.width;
         for(int y=0;y<yMax;y++)for(int z=0;z<zMax;z++)for(int x=0;x<xMax;x++){
@@ -181,12 +184,16 @@ public final class PlacementAppropriatenessAudit {
                         nearbyUnconnectedSignal(blueprint,x,y,z)+
                         " A visually nearby but nonadjacent wire/repeater "+
                         "cannot activate the lamp.";
-                    if(border(blueprint,x,y,z))
-                        suggestions.add(message+" It touches the blueprint "+
-                            "boundary, so externally supplied power is possible.");
-                    else if(functionalPower)blockers.add(message);
+                    if(functionalPower&&!(border(blueprint,x,y,z)&&externalFeedRequested))
+                        blockers.add(message+
+                            (border(blueprint,x,y,z)?
+                                " The output is at the blueprint edge, but "+
+                                "no external power source was requested.":""));
                     else suggestions.add(message+
-                        " This may be intentional decorative placement.");
+                        (border(blueprint,x,y,z)?
+                            " It touches the blueprint boundary, so "+
+                            "externally supplied power is possible.":
+                            " This may be intentional decorative placement."));
                 }
             }
             // Broader mechanical endpoints can use Java quasi-connectivity,

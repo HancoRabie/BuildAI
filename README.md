@@ -184,44 +184,63 @@ button after successful authorization; before approval, **RETURN TO GAME
 (REVIEW LATER)** leaves the server's approval pause intact. Neither action
 requires Escape or sends implicit approval.
 
-## Community Redstone Feedback (expert correction contributions)
+## Community Feedback — separated, versioned and reviewed
 
-BuildAI's previous local 1–5 star feedback history remains **private** and
-still guides only the current player's later prompts. To contribute
-reproducible expert redstone examples publicly, use the separate
-**F8 → Feedback & Styles → Community Share** tab after selecting a build.
-The new three-step workflow lets a redstone expert provide an optional
-corrected schematic via native file picker, select one of eight mastery
-pillars, record expected vs observed results and the truth-table test notes,
-and explicitly mark a case as **Failure observed**, **Correction unverified**,
-or **Corrected and tested**.
+**F8 → Feedback & Styles → Community Share** has **two independent lanes**:
 
-With explicit ownership/license consent, **Prepare Local ZIP** saves a
-public-ready archive into
-`<Minecraft game directory>/buildai/community-submissions/`. The ZIP includes
-`report.json`, `generated.schem`, optional `corrected.schem` and a README.
-Both schematics are normalized to plain block-state geometry and exclude
-original user prompts, AI operation history, attached sign text, command
-scripts and arbitrary block-entity NBT. Local file paths, world/player
-identities and OAuth/API credentials are never deliberately included in
-the archive. The reporter's manually entered description is included;
-review it for personal information before posting. Inputs must be valid
-supported schematic files (current import size limit 16 MB), and output
-archives are limited to 23 MB.
+- **Build Preference**: subjective material choices, statue proportions,
+  architectural palettes, decoration, before/after preferences. Examples
+  may inform **optional personalized style retrieval** only after review;
+  they never become redstone facts or global aesthetic defaults.
+- **Redstone Insight**: mechanical circuit failures, truth tables,
+  attached original vs corrected schematics, version-scoped reproductions.
+  A contributor's "corrected and tested" selection is merely a **claim**.
+  It NEVER means that BuildAI, Minecraft, or maintainers verified it.
 
-Use **Open ZIP Folder** to inspect the archive and **Open Public Submission
-Page** to open [BuildAI redstone feedback issues](https://github.com/HancoRabie/BuildAI/issues/new?template=redstone-feedback.md).
-**You must attach the ZIP to the GitHub issue yourself**, using a GitHub
-account. The Minecraft mod never automatically uploads the file, and
-this contribution is not sent to OpenAI or ChatGPT. The GitHub issue is
-public and shares your GitHub username. Public submissions require
-contributor rights and a CC BY 4.0 grant for evaluation, redistribution,
-improvement and model training.
+Every exported `buildai-community-example-v2` ZIP contains `report.json`,
+an anonymized source `generated.schem`, an optional `corrected.schem`
+and a README. Every intake is **`quarantined`, `unverified`, and
+`eligible_for_shared_learning=false`**. These flags are always false
+at contributor export time, regardless of rating. GitHub issue submission
+does **not** import knowledge, modify local style memory, or train a model.
 
-**Importantly, collecting user feedback does not itself train an AI
-model.** We first need verified, deduplicated failure/correction pairs,
-a repeatable in-game evaluation pipeline, licensing checks and a
-held-out redstone mastery benchmark. See [CONTRIBUTING.md](CONTRIBUTING.md).
+The v2 report captures `schema_version`, the selected **category and
+namespace**, installed BuildAI/Fabric Loader/Minecraft versions,
+BuildAI's **source Git revision** embedded at compilation (or `unknown`),
+optional **benchmark ID/revision**, Minecraft Edition, and `unknown`
+source-generation revision when the original build cannot establish it.
+ZIP hashes identify the exact exported schematics. This is version-scoped
+provenance, not evidence that a submitted circuit worked.
+
+**F8 Community Share → Build Preference / Redstone Insight → Evidence →
+Prepare Local ZIP.** Players explicitly consent to public CC BY 4.0
+sharing and manually attach the ZIP to the relevant GitHub issue.
+The native file picker allows an optional comparison schematic.
+Files are written to
+`<Minecraft game directory>/buildai/community-submissions/`.
+Schematic exports preserve geometry but remove original prompts, AI
+operation history, arbitrary block entities, command scripts, coordinates
+and sign labels. User-entered free-text notes are included, so review
+them before posting. No in-mod network upload occurs.
+
+For maintainers, `scripts/review_community_feedback.py validate` performs
+**offline schema, namespace, trust-label, file-list, SHA-256 and size
+checks**. It does NOT establish redstone correctness. A separate
+maintainer-written review decision with the exact ZIP checksum,
+rights check and independently reproduced Minecraft evidence is required
+before `promote` may output a **curated redstone insight**.
+Style preferences have their own separate curation destination and
+cannot be treated as verified electrical knowledge. A benchmark held out
+for evaluation must never be promoted into training examples.
+GitHub maintainer permissions, protected branches and independent
+reviewer accountability remain necessary—local review JSON alone is not
+cryptographic authorization.
+
+The submission and review tooling are a moderation foundation, **not**
+a deployed AI-training pipeline or a production upload server.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and
+[Redstone Mastery Benchy](docs/REDSTONE_MASTERY_BENCHY.md).
+
 
 ## Adaptive builder feedback and executable minigame systems
 

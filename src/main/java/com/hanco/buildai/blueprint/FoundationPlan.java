@@ -137,11 +137,17 @@ public final class FoundationPlan {
             // Never omit a layer if there is significant non-base
             // architecture in the same rectangular area.
             int other=0;
+            boolean mechanical=false;
             for(int z=layer.minZ;z<=layer.maxZ;z++)
                 for(int x=layer.minX;x<=layer.maxX;x++)
-                    if(!b.isAir(x,y,z)&&!layer.selected.get(z*b.width+x))
+                    if(!b.isAir(x,y,z)&&!layer.selected.get(z*b.width+x)){
                         other++;
-            if(other>layer.area()*0.05)break;
+                        if(forbidden(Blueprint.id(b.get(x,y,z))))
+                            mechanical=true;
+                    }
+            // Never classify a mechanical floor as a throwaway base:
+            // a redstone circuit on a stone testing pad is a real design.
+            if(mechanical||other>layer.area()*0.05)break;
 
             for(int p=layer.selected.nextSetBit(0);p>=0;
                     p=layer.selected.nextSetBit(p+1)){

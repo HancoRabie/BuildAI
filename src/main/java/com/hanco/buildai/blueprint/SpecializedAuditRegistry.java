@@ -16,6 +16,14 @@ public final class SpecializedAuditRegistry {
     }
     private static final List<Rule> RULES=List.of(
         (blueprint,request,specification)->{
+            // All generated designs pass the same static voxel placement
+            // check before review. It flags unpowered endpoints and
+            // unsupported/directionally misplaced components from ACTUAL
+            // coordinates, not the AI's claimed success text.
+            var placement=PlacementAppropriatenessAudit.inspect(blueprint,request);
+            return new Findings(placement.blockers(),placement.suggestions());
+        },
+        (blueprint,request,specification)->{
             var report=FarmFunctionAudit.inspect(blueprint,request,specification);
             return new Findings(report.blockers(),report.cautions());
         },

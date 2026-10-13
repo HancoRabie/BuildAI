@@ -12,7 +12,25 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:5.11.4"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
-processResources { inputs.property 'version',project.version; filesMatching('fabric.mod.json') { expand 'version':project.version } }
+// Stable source revision for feedback provenance; fall back explicitly if
+// distributed source trees are built without Git installed.
+def buildAiSourceRevision='unknown'
+try {
+    def gitCommand=new ProcessBuilder('git','rev-parse','--short=12','HEAD')
+        .directory(project.rootDir).redirectErrorStream(true).start()
+    def output=gitCommand.inputStream.getText('UTF-8').trim()
+    if(gitCommand.waitFor()==0 && output.matches('[0-9a-fA-F]{7,40}'))
+        buildAiSourceRevision=output
+} catch(Exception ignored) {
+    // Exact revision unavailable; never substitute a fabricated version.
+}
+processResources {
+    inputs.property 'version',project.version
+    inputs.property 'sourceRevision',buildAiSourceRevision
+    filesMatching('fabric.mod.json') {
+        expand 'version':project.version,'revision':buildAiSourceRevision
+    }
+}
 tasks.withType(JavaCompile).configureEach { it.options.release = 21 }
 java { withSourcesJar(); sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21 }
 

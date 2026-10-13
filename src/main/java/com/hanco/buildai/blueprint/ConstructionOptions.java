@@ -6,17 +6,25 @@ import java.util.*;
  * Confirmation-only construction modes. Default exactly preserves the
  * existing full-clear/full-blueprint behavior, for old worlds and F8 UI.
  */
-public record ConstructionOptions(boolean foundation,boolean excavate) {
-    public static final ConstructionOptions DEFAULT=new ConstructionOptions(true,true);
+public record ConstructionOptions(boolean foundation,boolean excavate,boolean hollow) {
+    public static final ConstructionOptions DEFAULT=new ConstructionOptions(true,true,false);
+    public ConstructionOptions(boolean foundation,boolean excavate){
+        this(foundation,excavate,false);
+    }
+    public ConstructionOptions {
+        if(hollow&&excavate)throw new IllegalArgumentException(
+            "hollow:yes cannot be combined with full excavate:yes. "+
+            "Use hollow:yes alone or excavate:no hollow:yes.");
+    }
 
     public static ConstructionOptions parse(String arguments){
         if(arguments==null||arguments.isBlank())return DEFAULT;
-        Boolean base=null,clear=null;
+        Boolean base=null,clear=null,interior=null;
         for(String token:arguments.trim().split("\\s+")){
             String[] pair=token.split(":",-1);
             if(pair.length!=2)throw new IllegalArgumentException(
-                "Expected foundation:yes|no and/or excavate:yes|no; e.g. "+
-                "/buildai confirm foundation:no excavate:no");
+                "Expected foundation:yes|no excavate:yes|no hollow:yes|no; e.g. "+
+                "/buildai confirm foundation:no hollow:yes");
             String key=pair[0].toLowerCase(Locale.ROOT);
             boolean value=switch(pair[1].toLowerCase(Locale.ROOT)){
                 case "yes"->true;
@@ -33,10 +41,16 @@ public record ConstructionOptions(boolean foundation,boolean excavate) {
                     if(clear!=null)throw new IllegalArgumentException("Duplicate excavate flag");
                     clear=value;
                 }
+                case "hollow"->{
+                    if(interior!=null)throw new IllegalArgumentException("Duplicate hollow flag");
+                    interior=value;
+                }
                 default->throw new IllegalArgumentException("Unknown confirmation flag: "+key);
             }
         }
-        return new ConstructionOptions(base==null||base,clear==null||clear);
+        boolean onlyInterior=Boolean.TRUE.equals(interior);
+        return new ConstructionOptions(base==null||base,
+            clear==null?!onlyInterior:clear,onlyInterior);
     }
 
     /**
@@ -49,25 +63,34 @@ public record ConstructionOptions(boolean foundation,boolean excavate) {
      */
     public static Set<Integer> identifiedFoundation(Blueprint b){
         long area=(long)b.width*b.length;
-        if(area<16)return Set.of();
-        Map<String,Integer> materials=new HashMap<>();
-        int occupied=0;
-        for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
-            if(b.isAir(x,0,z))continue;
-            String id=Blueprint.id(b.get(x,0,z));
-            if(!isBaseMaterial(id))return Set.of();
-            materials.merge(id,1,Integer::sum);
-            occupied++;
-        }
-        if(occupied<area*0.85)return Set.of();
-        int dominant=materials.values().stream().mapToInt(Integer::intValue).max().orElse(0);
-        if(dominant<occupied*0.85)return Set.of();
-        // A very thin pixel-art sheet, 1xN fence, or full vertical panel
-        // is not a foundation even when its first row happens to be flat.
-        if(b.width<4||b.length<4)return Set.of();
+        if(area<16||b.width<4||b.length<4)return Set.of();
+
+        // A blueprint may start with a thin padding-of-air layer, or have
+        // 2-4 consecutive foundation layers. A y=0-only scan missed those.
+        // Never remove layers once a real irregular structure begins.
         Set<Integer> omit=new HashSet<>();
-        for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++)
-            if(!b.isAir(x,0,z))omit.add(b.index(x,0,z));
+        boolean started=false;
+        for(int y=0;y<Math.min(4,b.height-1);y++){
+            Map<String,Integer> materials=new HashMap<>();
+            int occupied=0;
+            boolean mechanical=false;
+            for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
+                if(b.isAir(x,y,z))continue;
+                String id=Blueprint.id(b.get(x,y,z));
+                if(!isBaseMaterial(id)){mechanical=true;break;}
+                materials.merge(id,1,Integer::sum);
+                occupied++;
+            }
+            // Allow limited initial blank padding, but don't look for an
+            // accidental solid upper floor once the building has begun.
+            if(occupied==0&&!started&&y<2)continue;
+            if(mechanical||occupied<area*0.85)break;
+            int dominant=materials.values().stream().mapToInt(Integer::intValue).max().orElse(0);
+            if(dominant<occupied*0.85)break;
+            for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++)
+                if(!b.isAir(x,y,z))omit.add(b.index(x,y,z));
+            started=true;
+        }
         return Set.copyOf(omit);
     }
 

@@ -441,6 +441,36 @@ especially the cases that should produce ZERO output, then release/reset.
 Do not trust sign labels, default lit/powered blockstates or the AI's
 claim of pass. Only live Minecraft ticks can establish functionality.
 
+FINAL-VOXEL PLACEMENT APPROPRIATENESS: An electrically perfect diagram
+will fail if the blueprint places a redstone lamp, repeater, piston, hopper,
+sign, observer, or other output one cell away from the necessary connection.
+Evaluate every functional block as a point in final XYZ space. For each:
+(1) What directly touches it on all six faces?
+(2) Does that neighboring component ACTUALLY supply required redstone or
+    mechanical support? AIR is not a connector.
+(3) Is input/output facing correct? Java repeater/comparator blockstate
+    facing is its INPUT/rear side; actual output points OPPOSITE facing.
+    Java observer facing is sensing side; output points opposite. Piston
+    facing is extension direction.
+(4) Is it attached to a durable support? Check dust/repeater/torch/rail
+    blocks BELOW, wall torches/buttons/levers/signs BEHIND, and doors'
+    upper/lower alignment. Later fill/air operations may erase supports.
+(5) Does an opaque conducting block really receive power from dust,
+    torch, lever or repeater? Being "near" a glowing wire does not
+    make every neighboring lamp or torch support block powered.
+(6) If two separate circuits cross, never connect them merely to make
+    a nearby lamp work; repair only the missing output connection without
+    introducing shorts or backfeeding. If ambiguous, report as needing
+    testing rather than inventing an unverified bridge.
+An output device such as a lamp with no direct redstone neighbor and no
+powered conducting block has no established control connection. Place
+the missing actual wire/block in the EXACT intended location or reroute
+the final repeater appropriately; don't tell the player to imagine it.
+For hoppers verify FACING toward the next hopper/chest, not visual
+proximity. For pistons check movable blocks and extension volume.
+This is static design guidance only; true power and updates need live
+Java gameplay testing.
+
 GENERIC LOGIC/MEMORY DESIGN TEMPLATES (truth tables must be correct):
 - OR: input 00->0; 01->1; 10->1; 11->1. Isolate parallel input wires
   with correctly oriented repeaters where cross-feedback would be harmful.

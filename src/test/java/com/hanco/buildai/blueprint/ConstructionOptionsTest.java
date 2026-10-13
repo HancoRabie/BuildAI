@@ -139,6 +139,21 @@ public class ConstructionOptionsTest {
             "Custom material hints NEVER bypass protected interior");
     }
 
+    @Test void customFoundationOverrideAppliesThroughEveryBaseLayer(){
+        Blueprint b=new Blueprint("Glowstone platform with protected artwork",8,7,8);
+        for(int y=0;y<=3;y++)for(int x=0;x<8;x++)for(int z=0;z<8;z++)
+            b.set(x,y,z,"minecraft:glowstone");
+        b.set(4,4,4,"minecraft:oak_stairs");
+        var extras=ConstructionOptions.parse("foundation:no:glowstone").foundationMaterials();
+        var skip=ConstructionOptions.identifiedFoundation(b,extras);
+        assertEquals(4*8*8-1,skip.size(),
+            "Every full glowstone base layer is omitted except the stair's direct support");
+        assertFalse(skip.contains(b.index(4,3,4)));
+        for(int y=0;y<3;y++)
+            assertTrue(skip.contains(b.index(4,y,4)),
+                "Do not mistake another glowstone layer for separate load-bearing architecture");
+    }
+
     @Test void fiftyPercentIsNotEnoughAndFiftyOnePercentKeepsOtherBlocks(){
         Blueprint b=new Blueprint("Ratio threshold",10,5,10);
         // Full 10x10 footprint: stone-like gold is a deliberate other
@@ -176,7 +191,12 @@ public class ConstructionOptionsTest {
             b.set(x,1,z,z<5?"minecraft:dirt":"minecraft:gold_block");
         }
         var skip=ConstructionOptions.identifiedFoundation(b);
-        assertEquals(100,skip.size(),"Skip bottom 100% layer only");
+        assertEquals(50,skip.size(),
+            "Keep the fifty dirt supports directly beneath the intentionally retained gold-block floor");
+        assertTrue(skip.contains(b.index(0,0,0)),
+            "Exposed portion of the full bottom foundation can be omitted");
+        assertFalse(skip.contains(b.index(0,0,9)),
+            "Gold floor needs its support underneath even when this layer is otherwise a foundation");
         assertFalse(skip.contains(b.index(0,1,0)),
             "50%-coverage upper layer must not be stripped");
     }
@@ -283,7 +303,13 @@ public class ConstructionOptionsTest {
         b.set(2,4,2,"minecraft:oak_stairs");
         b.set(3,4,2,"minecraft:lantern");
         var omission=ConstructionOptions.identifiedFoundation(b);
-        assertEquals(192,omission.size(),"All three base layers should be omitted");
+        assertEquals(190,omission.size(),
+            "Preserve two topmost supports directly underneath explicit stairs and lantern");
+        assertTrue(omission.contains(b.index(0,2,0)));
+        assertFalse(omission.contains(b.index(2,3,2)),
+            "Do not remove base cell immediately beneath the planned stairs");
+        assertFalse(omission.contains(b.index(3,3,2)),
+            "Do not remove base cell immediately beneath the planned lantern");
         assertFalse(omission.contains(b.index(2,4,2)),"Living area must survive");
     }
 
@@ -294,7 +320,12 @@ public class ConstructionOptionsTest {
         b.set(2,1,2,"minecraft:gold_block"); // statue legs
         b.set(3,1,2,"minecraft:gold_block");
         Set<Integer> removed=ConstructionOptions.identifiedFoundation(b);
-        assertEquals(36,removed.size());
+        assertEquals(34,removed.size(),
+            "Retain the two foundation supports under actual statue legs");
+        assertFalse(removed.contains(b.index(2,0,2)),
+            "Statue leg support cannot be stripped");
+        assertFalse(removed.contains(b.index(3,0,2)),
+            "Second statue leg support cannot be stripped");
         assertTrue(removed.contains(b.index(0,0,0)));
         assertFalse(removed.contains(b.index(2,1,2)));
     }

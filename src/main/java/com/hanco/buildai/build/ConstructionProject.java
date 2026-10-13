@@ -245,7 +245,8 @@ public final class ConstructionProject {
                 "Nothing was modified. Provide an enclosed room or "+
                 "continuous corridor walls instead of an isolated facade.");
         Set<Integer> skip=requested.foundation()?Set.of():
-            ConstructionOptions.identifiedFoundation(blueprint);
+            ConstructionOptions.identifiedFoundation(blueprint,
+                requested.foundationMaterials());
         List<BlockPos> selectedOrder=new ArrayList<>();
         for(BlockPos local:blueprint.ordered())
             if(!skip.contains(blueprint.index(local.getX(),local.getY(),local.getZ())))

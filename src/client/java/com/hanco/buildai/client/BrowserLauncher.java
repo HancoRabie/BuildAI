@@ -44,9 +44,9 @@ public final class BrowserLauncher {
 
     /** Explicit PUBLIC GitHub submission, never an automatic file upload.
      * The user must sign into GitHub and attach the reviewed ZIP manually. */
-    public static boolean openBuildAICommunityFeedback(){
+    public static boolean openBuildAICommunityFeedback(String category){
         URI uri=URI.create(
-            com.hanco.buildai.blueprint.CommunityFeedbackPackage.SUBMISSION_URL);
+            com.hanco.buildai.blueprint.CommunityFeedbackPackage.submissionUrl(category));
         if(!"https".equalsIgnoreCase(uri.getScheme())||
            !"github.com".equalsIgnoreCase(uri.getHost())||
            !"/HancoRabie/BuildAI/issues/new".equals(uri.getPath()))

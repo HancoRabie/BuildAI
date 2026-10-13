@@ -146,6 +146,18 @@ class IntakeTest(unittest.TestCase):
         with self.assertRaises(Rejected):
             promote(path,self.decision(path),dest)
 
+    def test_reject_duplicate_geometry_even_when_zip_changes(self):
+        path = self.write(sample())
+        dest = self.folder / "curated"
+        promote(path, self.decision(path), dest)
+        second = self.folder / "other.zip"
+        with zipfile.ZipFile(second, "w") as zip_out:
+            for name, value in sample().items():
+                zip_out.writestr(name, value)
+            zip_out.comment = b"another contributor with same geometry"
+        with self.assertRaisesRegex(Rejected, "Duplicate approved"):
+            promote(second, self.decision(second), dest)
+
     def test_subjective_preference_can_only_be_approved_as_style(self):
         path = self.write(sample("build_preference",False))
         dest = self.folder / "curated"

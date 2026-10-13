@@ -30,6 +30,7 @@ def sample(category="redstone_insight", corrected=True):
         "rights_confirmed": True,
         "license": "CC BY 4.0",
         "exporter_buildai_version": "0.1.0",
+        "exporter_source_revision": "d7f4e18ca711",
         "minecraft_version": "1.21.1",
         "minecraft_edition": "Java",
         "fabric_loader_version": "0.16.7",

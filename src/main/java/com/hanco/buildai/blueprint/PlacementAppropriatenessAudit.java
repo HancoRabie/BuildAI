@@ -99,7 +99,11 @@ public final class PlacementAppropriatenessAudit {
            id.contains("torch")||id.contains("wire")||id.contains("rail")||
            id.contains("hopper")||id.contains("chest")||
            id.contains("repeater")||id.contains("comparator"))return false;
-        return id.equals("minecraft:stone")||id.equals("minecraft:cobblestone")||
+        return id.equals("minecraft:stone")||id.equals("minecraft:smooth_stone")||
+            id.equals("minecraft:andesite")||id.equals("minecraft:diorite")||
+            id.equals("minecraft:granite")||id.equals("minecraft:polished_granite")||
+            id.equals("minecraft:polished_diorite")||
+            id.equals("minecraft:cobblestone")||
             id.equals("minecraft:deepslate")||id.equals("minecraft:obsidian")||
             id.equals("minecraft:bedrock")||id.equals("minecraft:dirt")||
             id.equals("minecraft:grass_block")||
@@ -160,6 +164,11 @@ public final class PlacementAppropriatenessAudit {
     public static Findings inspect(Blueprint blueprint,String request){
         List<String> blockers=new ArrayList<>(),suggestions=new ArrayList<>();
         int unpoweredLampCount=0,unsupportedCount=0,repeaterCount=0;
+        // A deliberately unpowered lamp in a decorative sculpture is
+        // valid. Escalate endpoint disconnection to a repair blocker only
+        // when the requested structure actually relies on redstone.
+        boolean functionalPower=RedstoneKnowledge.isRedstoneRequest(request,null);
+        int unpoweredActuators=0,blockedPistons=0;
         int yMax=blueprint.height,zMax=blueprint.length,xMax=blueprint.width;
         for(int y=0;y<yMax;y++)for(int z=0;z<zMax;z++)for(int x=0;x<xMax;x++){
             String state=blueprint.get(x,y,z),block=Blueprint.id(state);
@@ -175,7 +184,44 @@ public final class PlacementAppropriatenessAudit {
                     if(border(blueprint,x,y,z))
                         suggestions.add(message+" It touches the blueprint "+
                             "boundary, so externally supplied power is possible.");
-                    else blockers.add(message);
+                    else if(functionalPower)blockers.add(message);
+                    else suggestions.add(message+
+                        " This may be intentional decorative placement.");
+                }
+            }
+            // Broader mechanical endpoints can use Java quasi-connectivity,
+            // indirect blocks, or pulses; a missing DIRECT feed is therefore
+            // only a review suggestion, never proof of a broken actuator.
+            boolean actuator=block.equals("minecraft:piston")||
+                block.equals("minecraft:sticky_piston")||
+                block.equals("minecraft:dispenser")||
+                block.equals("minecraft:dropper")||
+                block.equals("minecraft:crafter")||
+                block.equals("minecraft:note_block")||
+                block.equals("minecraft:iron_door")||
+                block.equals("minecraft:iron_trapdoor");
+            if(actuator && functionalPower && !canReceivePower(blueprint,x,y,z) &&
+               !border(blueprint,x,y,z) && unpoweredActuators++<MAX_ITEMS)
+                suggestions.add("PLACEMENT: "+block+" at "+xyz(x,y,z)+
+                    " has no direct plausible redstone neighbor. Check "+
+                    "intended activation, including indirect block power, "+
+                    "block updates and quasi-connectivity where relevant.");
+            if((block.equals("minecraft:piston")||
+                block.equals("minecraft:sticky_piston"))){
+                int[] face=vector(property(state,"facing"));
+                if(face!=null){
+                    int nx=x+face[0],ny=y+face[1],nz=z+face[2];
+                    String ahead=id(blueprint,nx,ny,nz);
+                    if((ahead.equals("minecraft:obsidian")||
+                        ahead.equals("minecraft:bedrock")||
+                        ahead.equals("minecraft:crying_obsidian")||
+                        ahead.equals("minecraft:reinforced_deepslate")||
+                        ahead.equals("minecraft:end_portal_frame")) &&
+                        blockedPistons++<MAX_ITEMS)
+                        suggestions.add("PLACEMENT: Piston "+xyz(x,y,z)+
+                            " extends toward an immovable "+ahead+
+                            " at "+xyz(nx,ny,nz)+
+                            "; it will not push this obstruction.");
                 }
             }
             // A support-less part would be destroyed or impossible after
@@ -196,7 +242,8 @@ public final class PlacementAppropriatenessAudit {
             if(block.equals("minecraft:redstone_wall_torch")||
                block.endsWith("_wall_sign")||
                block.endsWith("_wall_hanging_sign")||
-               block.endsWith("_wall_button")){
+               ((block.endsWith("_button")||block.equals("minecraft:lever"))&&
+                   "wall".equals(property(state,"face")))){
                 int[] support=attachmentOfWall(property(state,"facing"),x,y,z);
                 if(support!=null && inside(blueprint,support[0],support[1],support[2])&&
                     blueprint.isAir(support[0],support[1],support[2])&&

@@ -34,7 +34,7 @@ public class RedstoneLogicAuditTest {
             int x=4+support[i][0],y=2,z=4+support[i][2];
             b.set(x,y,z,"minecraft:stone");
             var warnings=RedstoneLogicAudit.inspect(b,"XOR gate");
-            assertTrue(warnings.stream().anyMatch(x->x.contains(
+            assertTrue(warnings.stream().anyMatch(issue->issue.contains(
                 "attachment block at "+x+","+y+","+z)),warnings.toString());
         }
     }

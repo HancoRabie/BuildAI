@@ -148,6 +148,8 @@ public final class RedstoneAudit {
             }
         }
         if(hasCircuit)
+            warnings.addAll(RedstoneLogicAudit.inspect(blueprint,playerRequest));
+        if(hasCircuit)
             warnings.add("REDSTONE QA: Connection and geometry checks are NOT functional "+
                 "simulation. Test idle, trigger, repeated pulses, reset and power interruption "+
                 "in Minecraft Java 1.21.1 before public use.");

@@ -181,11 +181,10 @@ public final class InteriorHollowPlan {
         BitSet result=new BitSet(size);
         if(b.width<4||b.length<4||b.height<2)return result;
         WallColumns w=analyze(b);
-        // Walls themselves are always protected regardless of material.
-        // Isolated decorative pillars do not count as enclosing a room.
-        for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++)
-            if(w.at(b,x,z)&&(runX(b,w,x,z)>=2||runZ(b,w,x,z)>=2))
-                result.set(columnIndex(b,x,z));
+        // Don't mark every tall block as a wall! A thick, disposable
+        // dirt foundation has exposed OUTER vertical faces at its edges,
+        // which can look like standing walls in isolation. First classify
+        // ACTUAL wall-enclosed space; protect only wall columns bordering it.
 
         // At every X position, identify the nearest north/south walls
         // once. Avoid O(footprint * corridor length) repeated ray scans.
@@ -235,6 +234,18 @@ public final class InteriorHollowPlan {
                w.at(b,x-1,f)&&w.at(b,x-1,back)&&
                w.at(b,x+1,f)&&w.at(b,x+1,back))
                 result.set(p);
+        }
+        // Add walls bordering validated interiors, INCLUDING matching
+        // dirt/stone wall blocks on each scanned foundation layer.
+        // Work from a snapshot so the expansion cannot spread across
+        // unrelated podium edges or across distant parts of the blueprint.
+        BitSet enclosed=(BitSet)result.clone();
+        for(int p=enclosed.nextSetBit(0);p>=0;p=enclosed.nextSetBit(p+1)){
+            int x=p%b.width,z=p/b.width;
+            for(int dz=-2;dz<=2;dz++)for(int dx=-2;dx<=2;dx++){
+                int nx=x+dx,nz=z+dz;
+                if(w.at(b,nx,nz))result.set(columnIndex(b,nx,nz));
+            }
         }
         return result;
     }

@@ -19,7 +19,8 @@ public final class InteriorHollowPlan {
     private static final int MAX_FLOOR_TO_CEILING=96;
 
     private static boolean structural(Blueprint b,int x,int y,int z){
-        if(y<0||y>=b.height||b.isAir(x,y,z))return false;
+        if(x<0||z<0||x>=b.width||z>=b.length||
+           y<0||y>=b.height||b.isAir(x,y,z))return false;
         String id=Blueprint.id(b.get(x,y,z));
         return !id.contains("redstone")&&!id.contains("repeater")&&
             !id.contains("comparator")&&!id.contains("torch")&&
@@ -35,14 +36,23 @@ public final class InteriorHollowPlan {
             !id.equals("minecraft:water")&&!id.equals("minecraft:lava");
     }
 
+    private static boolean wallSegment(Blueprint b,int x,int y,int z){
+        return structural(b,x,y,z)&&
+            (structural(b,x,y-1,z)||structural(b,x,y+1,z));
+    }
     private static boolean wall(Blueprint b,int x,int y,int z){
-        // Door apertures may occupy two vertical AIR cells. Bridging only
-        // when the same column has a solid sill AND lintel preserves narrow
-        // openings without treating arbitrary open exterior as walls.
+        // A two-high doorway/window breaks an otherwise continuous wall.
+        // The floor below and ceiling above are NOT enough: otherwise a
+        // mezzanine floor would incorrectly classify every room cell as a
+        // wall. Require standing wall segments on BOTH SIDES of the gap.
         boolean at=structural(b,x,y,z);
-        if(at)return structural(b,x,y-1,z)||structural(b,x,y+1,z);
-        return (structural(b,x,y-1,z)&&structural(b,x,y+2,z))||
+        if(at)return wallSegment(b,x,y,z);
+        boolean lintelAndSill=
+            (structural(b,x,y-1,z)&&structural(b,x,y+2,z))||
             (structural(b,x,y-2,z)&&structural(b,x,y+1,z));
+        if(!lintelAndSill)return false;
+        return (wallSegment(b,x-1,y,z)&&wallSegment(b,x+1,y,z))||
+            (wallSegment(b,x,y,z-1)&&wallSegment(b,x,y,z+1));
     }
     private static int volume(Blueprint b){
         return b.width*b.height*b.length;

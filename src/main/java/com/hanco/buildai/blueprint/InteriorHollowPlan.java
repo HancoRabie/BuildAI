@@ -123,10 +123,10 @@ public final class InteriorHollowPlan {
         boolean spans(Blueprint b,int x,int z,int y){
             if(!at(b,x,z))return false;
             int p=columnIndex(b,x,z);
-            // Allows 1-block decorative ledge at upper/lower ends.
-            // Never projects a ground-level wall all the way up through
-            // empty open sky or across a multi-story structure.
-            return y>=bottom[p]&&y<=top[p]+1;
+            // Hollow ONLY within the standing-wall vertical extent.
+            // An open-top building must never clear the jungle canopy
+            // ABOVE its last wall row, even if the plan footprint is inside.
+            return y>=bottom[p]&&y<=top[p];
         }
     }
     private static int runZ(Blueprint b,WallColumns w,int x,int z){

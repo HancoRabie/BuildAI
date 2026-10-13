@@ -315,7 +315,7 @@ public final class BuildAIFeedbackScreen extends Screen {
             small(ctx,"CONTRIBUTE A REPRODUCIBLE REDSTONE CASE",x+8,top+4,
                 w-16,MINT,0.84f);
             small(ctx,"Share an original schematic, optional expert correction",
-                x+10,top+51,w-20,BODY,0.76f);
+                x+10,top+51,w-20,LIGHT,0.76f);
             small(ctx,"and truth-table evidence as a reviewed local ZIP.",
                 x+10,top+63,w-20,DIM,0.76f);
             if(bottom>=top+96)

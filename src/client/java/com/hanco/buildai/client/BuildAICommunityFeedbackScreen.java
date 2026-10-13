@@ -205,7 +205,21 @@ public final class BuildAICommunityFeedbackScreen extends Screen {
             id=at<0?bench:bench.substring(0,at);
             rev=at<0?"unspecified":bench.substring(at+1);
         }
-        return new CommunityFeedbackPackage.Versions(mod,mc,fabric,id,rev);
+        String sourceRevision="unknown";
+        try {
+            var container=loader.getModContainer("buildai");
+            if(container.isPresent()){
+                var custom=container.get().getMetadata()
+                    .getCustomValue("buildai:source_revision");
+                if(custom!=null&&custom.getType()==
+                    net.fabricmc.loader.api.metadata.CustomValue.CvType.STRING)
+                    sourceRevision=custom.getAsString();
+            }
+        }catch(RuntimeException ignored){
+            // Safe dev build fallback: source revision genuinely unavailable.
+        }
+        return new CommunityFeedbackPackage.Versions(
+            mod,mc,fabric,id,rev,sourceRevision);
     }
 
     private boolean verificationEqualsFailure(){

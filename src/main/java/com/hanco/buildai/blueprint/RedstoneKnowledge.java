@@ -17,7 +17,9 @@ public final class RedstoneKnowledge {
     private static final Pattern EXPLICIT=Pattern.compile(
         "\\bred[\\s-]?stone(?:\\b|_)|\\b(?:comparator|repeater|observer|piston|sticky piston|"+
         "hopper|dropper|dispenser|crafter|copper bulb|sculk sensor|lever|"+
-        "button circuit|pressure plate|tripwire|logic gate|rs latch|t flip.flop|"+
+        "button circuit|pressure plate|tripwire|logic gate|xor|xnor|"+
+        "and gate|nand gate|nor gate|majority gate|signal selector|"+
+        "rs latch|t flip.flop|"+
         "analog circuit|digital circuit|wireless redstone|powered rail|detector rail|"+
         "command blocks?|redstone clocks?)s?\\b",
         Pattern.CASE_INSENSITIVE|Pattern.UNICODE_CASE);

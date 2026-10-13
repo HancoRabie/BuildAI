@@ -30,6 +30,31 @@ public class ConstructionOptionsTest {
                 ()->ConstructionOptions.parse(bad),bad);
         }
     }
+    @Test void hollowIsItsOwnInteriorOnlyMode(){
+        assertEquals(new ConstructionOptions(true,false,true),
+            ConstructionOptions.parse("hollow:yes"));
+        assertEquals(new ConstructionOptions(false,false,true),
+            ConstructionOptions.parse("foundation:no hollow:yes"));
+        assertEquals(new ConstructionOptions(false,false,true),
+            ConstructionOptions.parse("excavate:no foundation:no hollow:yes"));
+        assertEquals(new ConstructionOptions(false,false,false),
+            ConstructionOptions.parse("hollow:no excavate:no foundation:no"));
+        assertThrows(IllegalArgumentException.class,
+            ()->ConstructionOptions.parse("hollow:yes excavate:yes"));
+        assertThrows(IllegalArgumentException.class,
+            ()->ConstructionOptions.parse("hollow:yes hollow:no"));
+    }
+    @Test void identifiesMultipleBaseLayersIncludingAirPadding(){
+        Blueprint b=new Blueprint("Tall mountain house",8,9,8);
+        for(int y=1;y<=3;y++)for(int x=0;x<8;x++)for(int z=0;z<8;z++)
+            b.set(x,y,z,"minecraft:stone_bricks");
+        b.set(2,4,2,"minecraft:oak_stairs");
+        b.set(3,4,2,"minecraft:lantern");
+        var omission=ConstructionOptions.identifiedFoundation(b);
+        assertEquals(192,omission.size(),"All three base layers should be omitted");
+        assertFalse(omission.contains(b.index(2,4,2)),"Living area must survive");
+    }
+
     @Test void detectsObviousFourByFourSolidPlatformButKeepsStatue(){
         Blueprint b=new Blueprint("Mountain statue",6,10,6);
         for(int z=0;z<6;z++)for(int x=0;x<6;x++)

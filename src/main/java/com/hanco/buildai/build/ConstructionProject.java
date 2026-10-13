@@ -31,6 +31,8 @@ public final class ConstructionProject {
     private int omittedFoundationBlocks=0;
     public int omittedFoundationBlocks(){return omittedFoundationBlocks;}
     private Set<Integer> foundationOmissions=Set.of();
+    private BitSet hollowInterior=new BitSet();
+    public int hollowInteriorCells(){return hollowInterior.cardinality();}
     public ConstructionOptions constructionOptions(){return constructionOptions;}
     private boolean plannedSupport(int x,int y,int z){
         return !blueprint.isAir(x,y,z) &&
@@ -183,6 +185,7 @@ public final class ConstructionProject {
         origin=BlockPos.ORIGIN;collisions=0;phase=Phase.SELECT_XZ;
         constructionOptions=ConstructionOptions.DEFAULT;
         foundationOmissions=Set.of();omittedFoundationBlocks=0;
+        hollowInterior=new BitSet();
         commandsApproved=false;approvedCommandIndices=Set.of();programmingIndex=0;armingIndex=0;
     }
     /** Preview is free to move client-side; only this method locks a server-approved XYZ origin. */
@@ -230,6 +233,16 @@ public final class ConstructionProject {
             "Placement is not locked. Close F8, freeze/adjust the preview, "+
             "press ENTER, then /buildai confirm foundation:no excavate:no.");
         Objects.requireNonNull(requested,"Confirmation flags");
+        // This is computed from the design's interior AIR cells, never a
+        // generic cuboid. Non-air blueprint blocks, including decorations,
+        // are NEVER part of the hollow-excavation write set.
+        BitSet interior=requested.hollow()
+            ?InteriorHollowPlan.enclosedAir(blueprint):new BitSet();
+        if(requested.hollow()&&interior.isEmpty())
+            throw new IllegalStateException(
+                "hollow:yes found no confidently enclosed blueprint interior "+
+                "(walls on four sides, floor and roof). Nothing was modified. "+
+                "Provide an enclosed structure or choose another excavation mode.");
         Set<Integer> skip=requested.foundation()?Set.of():
             ConstructionOptions.identifiedFoundation(blueprint);
         List<BlockPos> selectedOrder=new ArrayList<>();
@@ -254,6 +267,22 @@ public final class ConstructionProject {
                             ". Use excavate:no if that cell is outside the painted blocks.");
                 }
         }else{
+            // Hollow mode preflights BOTH independent write sets, BEFORE
+            // placing or excavating anything. A protected interior inventory
+            // must reject the ENTIRE job instead of disappearing mid-build.
+            if(requested.hollow())for(int i=interior.nextSetBit(0);i>=0;
+                                      i=interior.nextSetBit(i+1)){
+                int x=i%blueprint.width,z=(i/blueprint.width)%blueprint.length,
+                    y=i/(blueprint.width*blueprint.length);
+                BlockPos at=origin.add(x,y,z);
+                if(!world.isChunkLoaded(at))
+                    throw new IllegalStateException("Interior contains unloaded chunks");
+                BlockState previous=world.getBlockState(at);
+                if(previous.hasBlockEntity()||previous.isOf(Blocks.BEDROCK))
+                    throw new IllegalStateException("Protected block inside the "+
+                        "planned hollow interior at "+at.toShortString()+
+                        ". No excavation started.");
+            }
             for(BlockPos local:selectedOrder){
                 BlockPos at=origin.add(local);
                 if(!world.isChunkLoaded(at))
@@ -262,11 +291,12 @@ public final class ConstructionProject {
                 if(previous.hasBlockEntity()||previous.isOf(Blocks.BEDROCK))
                     throw new IllegalStateException("Protected block overlaps "+
                         "painted blueprint at "+at.toShortString()+
-                        ". Overlay mode cannot replace protected blocks.");
+                        ". Overlay/hollow mode cannot replace protected blocks.");
             }
         }
         constructionOptions=requested;
         foundationOmissions=skip;
+        hollowInterior=interior;
         omittedFoundationBlocks=skip.size();
         order=List.copyOf(selectedOrder);
         // Command approval is intentionally AFTER physical construction,
@@ -275,14 +305,14 @@ public final class ConstructionProject {
         hasSnapshot=true;
         excavationSamples.clear();excavationSampleIds.clear();
         sampledRemovalCount=0;removedCount=0;blackHoleTicks=0;
-        if(requested.excavate()){
+        excavationIndex=0;
+        if(requested.excavate()||requested.hollow()){
             phase=Phase.EXCAVATE;
-            if(cinematic && collisions>0)excavationCue(
+            // Never use the full-site excavation cinematic in hollow mode:
+            // exterior terrain is supposed to remain visible and intact.
+            if(cinematic&&!requested.hollow()&&collisions>0)excavationCue(
                 com.hanco.buildai.net.CinematicExcavationPayload.PREPARE,0);
-        }else{
-            excavationIndex=0;
-            phase=Phase.BUILD;
-        }
+        }else phase=Phase.BUILD;
     }
     private void excavationCue(int stage,int duration){
         net.minecraft.server.network.ServerPlayerEntity player=
@@ -504,12 +534,16 @@ public final class ConstructionProject {
             final int maxRemoved=cinematic?2048:2048;
             int sampleStride=Math.max(1,collisions/192);
             while(excavationIndex<total && scanned<maxScanned && removed<maxRemoved) {
-                int i=excavationIndex++;
+                int i=constructionOptions.hollow()
+                    ?hollowInterior.nextSetBit(excavationIndex)
+                    :excavationIndex;
+                if(i<0){excavationIndex=total;break;}
+                excavationIndex=i+1;
                 int x=i%blueprint.width;
                 int z=(i/blueprint.width)%blueprint.length;
                 int y=i/(blueprint.width*blueprint.length);
                 BlockPos p=origin.add(x,y,z);
-                if(!world.isChunkLoaded(p)) {excavationIndex--;break;}
+                if(!world.isChunkLoaded(p)) {excavationIndex=i;break;}
                 scanned++;
                 BlockState removedState=world.getBlockState(p);
                 // Already-air world cells are no-ops. Only the blueprint's
@@ -525,8 +559,11 @@ public final class ConstructionProject {
                     }
                 }
             }
-            if(excavationIndex==total){
-                if(cinematic&&collisions>0){
+            if(excavationIndex>=total||
+                (constructionOptions.hollow()&&
+                 hollowInterior.nextSetBit(excavationIndex)<0)){
+                excavationIndex=total;
+                if(cinematic&&!constructionOptions.hollow()&&collisions>0){
                     // The client reveals the newly empty site ALL AT ONCE,
                     // then draws sample fragments spiralling into the center.
                     excavationCue(com.hanco.buildai.net.CinematicExcavationPayload.PULL,
@@ -629,11 +666,17 @@ public final class ConstructionProject {
     public int actuallyRemoved(){return removedCount;}
     public String phaseDescription(){
         return switch(phase){
-            case EXCAVATE->"Excavating only obstructing blocks; existing air is untouched";
+            case EXCAVATE->constructionOptions.hollow()
+                ?"Hollowing only enclosed empty blueprint interior cells ("+
+                    hollowInterior.cardinality()+" candidates); all design "+
+                    "blocks and outside terrain are preserved"
+                :"Excavating the blueprint volume; existing air is untouched";
             case CINEMATIC_PULL->"Excavation complete; terrain spirals into black hole";
             case BUILD->constructionOptions.excavate()
                 ?"Building blueprint in progressive layers"
-                :"Overlaying specified blueprint blocks only; preserving empty/unused terrain";
+                :constructionOptions.hollow()
+                    ?"Building after interior-only clearing; preserving blueprint decorations"
+                    :"Overlaying specified blueprint blocks only; preserving empty/unused terrain";
             case WAITING_SUPPLIES->normalizePass==2 && constructionIndex>=order.size()
                 ? "Waiting for fluid supplies: 2 water buckets total (renewable) "+
                   "and 1 lava bucket per source, then fluid normalization resumes"

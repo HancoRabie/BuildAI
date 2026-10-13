@@ -165,6 +165,80 @@ public final class InteriorHollowPlan {
     }
 
     /**
+     * Structural footprint for foundation decisions, intentionally separate
+     * from the 3D AIR-only excavation mask.
+     *
+     * Walls may start ABOVE a foundation or surround a basement filled with
+     * dirt in the blueprint: a 2D wall/interior plan protects these cells at
+     * ALL candidate foundation Y levels. Requiring AIR at the same Y would
+     * mistakenly erase intentional filled basements and garden dirt.
+     *
+     * The same inward-facing, continuous-wall checks as hollowing prevent
+     * foundation slab edges or isolated posts from defining a fake room.
+     */
+    public static BitSet protectedFootprint(Blueprint b){
+        BitSet protectedXZ=new BitSet(b.width*b.length);
+        if(b.width<4||b.length<4||b.height<2)return protectedXZ;
+        WallColumns w=analyze(b);
+        for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
+            int p=columnIndex(b,x,z);
+            if(w.at(b,x,z) &&
+                (runZ(b,w,x,z)>=2||runX(b,w,x,z)>=2))
+                protectedXZ.set(p);
+        }
+        for(int z=0;z<b.length;z++){
+            int left=-1;
+            int[] nearestLeft=new int[b.width];
+            for(int x=0;x<b.width;x++){
+                if(w.at(b,x,z))left=x;
+                nearestLeft[x]=left;
+            }
+            int right=-1;
+            for(int x=b.width-1;x>=0;x--){
+                if(w.at(b,x,z))right=x;
+                if(!between(nearestLeft[x],right,x))continue;
+                int l=nearestLeft[x];
+                if(!face(b,w,l,z,EAST)||!face(b,w,right,z,WEST))continue;
+
+                boolean parallel=runZ(b,w,l,z)>=MIN_CORRIDOR_RUN&&
+                    runZ(b,w,right,z)>=MIN_CORRIDOR_RUN&&
+                    w.at(b,l,z-1)&&w.at(b,right,z-1)&&
+                    w.at(b,l,z+1)&&w.at(b,right,z+1);
+                int front=-1,back=-1;
+                for(int zz=z-1;zz>=0;zz--)
+                    if(w.at(b,x,zz)&&face(b,w,x,zz,SOUTH)){
+                        front=zz;break;
+                    }
+                for(int zz=z+1;zz<b.length;zz++)
+                    if(w.at(b,x,zz)&&face(b,w,x,zz,NORTH)){
+                        back=zz;break;
+                    }
+                boolean enclosed=between(front,back,z)&&
+                    runZ(b,w,l,z)>=2&&runZ(b,w,right,z)>=2&&
+                    runX(b,w,x,front)>=2&&runX(b,w,x,back)>=2;
+                if(parallel||enclosed)protectedXZ.set(columnIndex(b,x,z));
+            }
+        }
+        // The orthogonal parallel-wall case handles corridors rotated
+        // 90 degrees, without needing a roof, floor or filled room.
+        for(int x=0;x<b.width;x++)for(int z=0;z<b.length;z++){
+            if(protectedXZ.get(columnIndex(b,x,z)))continue;
+            int front=-1,back=-1;
+            for(int zz=z-1;zz>=0;zz--)
+                if(w.at(b,x,zz)&&face(b,w,x,zz,SOUTH)){front=zz;break;}
+            for(int zz=z+1;zz<b.length;zz++)
+                if(w.at(b,x,zz)&&face(b,w,x,zz,NORTH)){back=zz;break;}
+            if(between(front,back,z)&&
+               runX(b,w,x,front)>=MIN_CORRIDOR_RUN&&
+               runX(b,w,x,back)>=MIN_CORRIDOR_RUN&&
+               w.at(b,x-1,front)&&w.at(b,x-1,back)&&
+               w.at(b,x+1,front)&&w.at(b,x+1,back))
+                protectedXZ.set(columnIndex(b,x,z));
+        }
+        return protectedXZ;
+    }
+
+    /**
      * Pair nearest opposing wall COLUMNS in the plan view. For a cell to
      * clear, it must be inside a bounded room (X and Z wall pairs), or in
      * a corridor between two CONTINUOUS parallel walls.

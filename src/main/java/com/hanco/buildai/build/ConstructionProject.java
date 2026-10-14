@@ -392,9 +392,15 @@ public final class ConstructionProject {
         if(actual.getBlock()!=intended.getBlock())return false;
         for(var property:intended.getProperties()){
             String key=property.getName();
-            if(key.equals("type")||key.equals("half")||key.equals("facing")||
+            // Slab type is exact geometry. Chest "type" (single/left/
+            // right) is a dynamic neighbor connection and must not be
+            // forced back to a standalone chest on each audit.
+            boolean stable=(key.equals("type")&&
+                intended.getBlock() instanceof SlabBlock)||
+                key.equals("half")||key.equals("facing")||
                 key.equals("axis")||key.equals("vertical_direction")||
-                key.equals("hinge")||key.equals("rotation")||key.equals("part")){
+                key.equals("hinge")||key.equals("rotation")||key.equals("part");
+            if(stable){
                 if(!Objects.equals(actual.get(property),intended.get(property)))
                     return false;
             }

@@ -337,6 +337,47 @@ public class ConstructionOptionsTest {
             actual.foundationMaterials());
     }
 
+
+    @Test void decorativeSixSidedAirPocketDoesNotProtectFiveStoneFoundationLayers(){
+        Blueprint b=new Blueprint("Decoration above floating stone base",18,13,18);
+        for(int y=0;y<5;y++)for(int x=0;x<18;x++)for(int z=0;z<18;z++)
+            b.set(x,y,z,"minecraft:stone");
+        // A hollow six-face leaf/decor pocket high ABOVE the foundation
+        // appears enclosed to the normal hollow:yes air classifier, but
+        // DOES NOT make a load-bearing wall or basement. The previous
+        // projected-air algorithm left a full-height STONE PILLAR below it.
+        b.set(8,7,8,"minecraft:oak_leaves");
+        b.set(8,9,8,"minecraft:oak_leaves");
+        b.set(7,8,8,"minecraft:oak_leaves");
+        b.set(9,8,8,"minecraft:oak_leaves");
+        b.set(8,8,7,"minecraft:oak_leaves");
+        b.set(8,8,9,"minecraft:oak_leaves");
+        assertTrue(InteriorHollowPlan.enclosedAir(b).get(b.index(8,8,8)),
+            "A fully enclosed decorative AIR pocket may correctly be considered hollow AIR");
+        var result=FoundationPlan.analyze(b,Set.of());
+        assertEquals(5,result.qualifyingLayers());
+        assertEquals(5*18*18,result.omissions().size(),
+            "A decorative air pocket must not leave a floating foundation pillar");
+        for(int y=0;y<5;y++)
+            assertTrue(result.omissions().contains(b.index(8,y,8)),
+                "The stone under decorative AIR remains disposable at layer "+y);
+    }
+
+    @Test void allDisqualifiedPlatformStoneIsFilteredFromConstructionOrder(){
+        Blueprint b=new Blueprint("Mixed corner defects",12,10,12);
+        for(int y=0;y<6;y++)for(int x=0;x<12;x++)for(int z=0;z<12;z++)
+            b.set(x,y,z,"minecraft:stone");
+        b.set(6,8,6,"minecraft:oak_leaves");
+        var skipped=FoundationPlan.analyze(b,Set.of()).omissions();
+        assertEquals(6*12*12,skipped.size());
+        var selected=b.ordered().stream()
+            .filter(pos->!skipped.contains(b.index(pos.getX(),pos.getY(),pos.getZ())))
+            .toList();
+        assertEquals(1,selected.size(),"No skipped stone can be placed by the filtered order");
+        assertEquals("minecraft:oak_leaves",b.get(
+            selected.get(0).getX(),selected.get(0).getY(),selected.get(0).getZ()));
+    }
+
     @Test void floatingStoneBasementAndGrassTopAreBothRemovedWhenEachLayerQualifies(){
         Blueprint b=new Blueprint("Floating stone basement",14,9,16);
         for(int x=0;x<b.width;x++)for(int z=0;z<b.length;z++){

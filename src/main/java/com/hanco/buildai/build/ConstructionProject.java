@@ -16,7 +16,7 @@ import net.minecraft.util.math.*;
  * This first version deliberately refuses excavating block entities and bedrock.
  */
 public final class ConstructionProject {
-    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, FOUNDATION_CLEAR, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, WAITING_COMMAND_APPROVAL, COMMISSION, CINEMATIC_PULL, COMPLETE, CANCELLED, ROLLBACK_CHECK, ROLLBACK, ROLLBACK_REFUND, PAUSED_ERROR }
+    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, WAITING_COMMAND_APPROVAL, COMMISSION, CINEMATIC_PULL, COMPLETE, CANCELLED, ROLLBACK_CHECK, ROLLBACK, ROLLBACK_REFUND, PAUSED_ERROR }
     public Blueprint blueprint;
     private final Blueprint sourceBlueprint;
     private int rotation=0;
@@ -33,11 +33,6 @@ public final class ConstructionProject {
     public String foundationScanSummary(){return foundationScanSummary;}
     public int omittedFoundationBlocks(){return omittedFoundationBlocks;}
     private Set<Integer> foundationOmissions=Set.of();
-    private List<Integer> foundationClearOrder=List.of();
-    private int foundationClearIndex=0,foundationCleared=0;
-    private int foundationFinalIndex=0,foundationFinalPass=0;
-    private int foundationFinalRepairs=0,foundationFinalMismatches=0;
-    private boolean foundationFinalVerified=true;
     /** Human-readable audit of the ACTUAL blueprint blocks intentionally
      * withheld by foundation:no, including every selected Y layer. */
     public String foundationOmissionSummary(){
@@ -227,10 +222,6 @@ public final class ConstructionProject {
         origin=BlockPos.ORIGIN;collisions=0;phase=Phase.SELECT_XZ;
         constructionOptions=ConstructionOptions.DEFAULT;
         foundationOmissions=Set.of();omittedFoundationBlocks=0;
-        foundationClearOrder=List.of();foundationClearIndex=0;foundationCleared=0;
-        foundationFinalIndex=0;foundationFinalPass=0;
-        foundationFinalRepairs=0;foundationFinalMismatches=0;
-        foundationFinalVerified=true;
         foundationScanSummary="not requested";
         hollowInterior=new BitSet();
         interiorVerifyIndex=0; interiorVerificationClears=0; interiorVerified=true;
@@ -276,8 +267,10 @@ public final class ConstructionProject {
     /**
      * Preflight the ACTUAL write-set before starting. Full excavation clears
      * every cell in the selected volume. Overlay writes only actual
-     * non-air blueprint cells (minus an identifiable optional foundation).
-     * Both modes must refuse inventory/bedrock at any cell they would touch.
+     * non-air blueprint cells AFTER sanitizing selected foundation positions
+     * from the placement order. In overlay mode, foundation:no does NOT
+     * excavate existing world blocks. Both modes must refuse protected
+     * inventory/bedrock ONLY at positions that they actually modify.
      */
     public void confirm(ConstructionOptions requested){
         if(phase!=Phase.REVIEW)throw new IllegalStateException(
@@ -313,7 +306,6 @@ public final class ConstructionProject {
         if(selectedOrder.isEmpty())
             throw new IllegalStateException("No blueprint blocks remain after "+
                 "foundation selection. Construction was not started.");
-        List<Integer> plannedFoundationRemoval=skip.stream().sorted().toList();
 
         if(requested.excavate()){
             // Only full clearing requires checking blueprint AIR voxels too.
@@ -329,24 +321,6 @@ public final class ConstructionProject {
                             ". Use excavate:no if that cell is outside the painted blocks.");
                 }
         }else{
-            // foundation:no explicitly OVERRIDES existing world terrain at
-            // confirmed majority-foundation cells. The original algorithm
-            // only skipped new placement, leaving old floating platforms.
-            // Preflight ALL foundation writes before touching ANY block.
-            for(int i:plannedFoundationRemoval){
-                int x=i%blueprint.width,z=(i/blueprint.width)%blueprint.length,
-                    y=i/(blueprint.width*blueprint.length);
-                if(blueprint.isAir(x,y,z))
-                    throw new IllegalStateException("Foundation removal selected schematic AIR at "+x+","+y+","+z);
-                BlockPos at=origin.add(x,y,z);
-                if(!world.isChunkLoaded(at))
-                    throw new IllegalStateException("Foundation contains unloaded chunk at "+at.toShortString());
-                BlockState old=world.getBlockState(at);
-                if(old.hasBlockEntity()||old.isOf(Blocks.BEDROCK))
-                    throw new IllegalStateException("foundation:no will not destroy protected "+
-                        "inventory or bedrock at "+at.toShortString()+
-                        ". No terrain was modified.");
-            }
             // Hollow mode preflights BOTH independent write sets, BEFORE
             // placing or excavating anything. A protected interior inventory
             // must reject the ENTIRE job instead of disappearing mid-build.
@@ -376,11 +350,6 @@ public final class ConstructionProject {
         }
         constructionOptions=requested;
         foundationOmissions=skip;
-        foundationClearOrder=List.copyOf(plannedFoundationRemoval);
-        foundationClearIndex=0;foundationCleared=0;
-        foundationFinalIndex=0;foundationFinalPass=0;
-        foundationFinalRepairs=0;foundationFinalMismatches=0;
-        foundationFinalVerified=requested.foundation();
         hollowInterior=interior;
         interiorVerifyIndex=0; interiorVerificationClears=0;
         finalAirAuditIndex=0;finalAirAuditPass=0;
@@ -398,11 +367,10 @@ public final class ConstructionProject {
         excavationSamples.clear();excavationSampleIds.clear();
         sampledRemovalCount=0;removedCount=0;blackHoleTicks=0;
         excavationIndex=0;
-        if(!requested.excavate()&&!requested.foundation()){
-            // Explicit override of world blocks at the omitted foundation
-            // positions. This occurs BEFORE hollowing or construction.
-            phase=Phase.FOUNDATION_CLEAR;
-        }else if(requested.excavate()||requested.hollow()){
+        // foundation:no modifies ONLY which schematic blocks are placed,
+        // never the pre-existing world. Excavation requires excavate:yes
+        // or an EXPLICIT hollow:yes request.
+        if(requested.excavate()||requested.hollow()){
             phase=Phase.EXCAVATE;
             // Never use the full-site excavation cinematic in hollow mode:
             // exterior terrain is supposed to remain visible and intact.
@@ -476,9 +444,6 @@ public final class ConstructionProject {
         finalAirAuditIndex=0;finalAirAuditPass=0;
         finalAirAuditMismatches=0;finalAirAuditRepairs=0;
         finalSolidAuditIndex=-1;finalSolidAuditRepairs=0;
-        foundationFinalIndex=0;foundationFinalPass=0;
-        foundationFinalRepairs=0;foundationFinalMismatches=0;
-        foundationFinalVerified=constructionOptions.foundation()||manualRepair;
         normalizedPanes=0;
         normalizedRedstone=0;
         refreshedRedstone=0;
@@ -560,71 +525,7 @@ public final class ConstructionProject {
             if(++blackHoleTicks>=BLACK_HOLE_TICKS)phase=Phase.BUILD;
             return;
         }
-        if(phase==Phase.FOUNDATION_CLEAR){
-            // Bounded server-thread overrides at the EXACT recognized
-            // schematic foundation positions. No generic cuboid excavation.
-            int examined=0,cleared=0;
-            while(foundationClearIndex<foundationClearOrder.size()&&
-                  examined++<4096&&cleared<2048){
-                int i=foundationClearOrder.get(foundationClearIndex);
-                int x=i%blueprint.width,z=(i/blueprint.width)%blueprint.length;
-                int y=i/(blueprint.width*blueprint.length);
-                BlockPos at=origin.add(x,y,z);
-                if(!world.isChunkLoaded(at))return;
-                BlockState previous=world.getBlockState(at);
-                if(!previous.isAir()){
-                    recordOriginal(at);
-                    world.setBlockState(at,Blocks.AIR.getDefaultState(),
-                        Block.NOTIFY_ALL|Block.FORCE_STATE);
-                    foundationCleared++;removedCount++;cleared++;
-                }
-                foundationClearIndex++;
-            }
-            if(foundationClearIndex>=foundationClearOrder.size()){
-                phase=constructionOptions.hollow()?Phase.EXCAVATE:Phase.BUILD;
-            }
-            return;
-        }
         if(phase==Phase.NORMALIZE) {
-            // foundation:no is an end-state AIR contract, not just a
-            // placement-queue filter. Check again AFTER all construction
-            // supports and neighbor/connection normalization are finished.
-            if(normalizePass>=4&&!manualNormalize&&!foundationFinalVerified){
-                int scanned=0;
-                while(foundationFinalIndex<foundationClearOrder.size()&&scanned++<4096){
-                    int i=foundationClearOrder.get(foundationFinalIndex);
-                    int x=i%blueprint.width,z=(i/blueprint.width)%blueprint.length;
-                    int y=i/(blueprint.width*blueprint.length);
-                    BlockPos at=origin.add(x,y,z);
-                    if(!world.isChunkLoaded(at))return;
-                    BlockState old=world.getBlockState(at);
-                    if(!old.isAir()){
-                        recordOriginal(at);
-                        world.setBlockState(at,Blocks.AIR.getDefaultState(),
-                            Block.NOTIFY_ALL|Block.FORCE_STATE);
-                        foundationFinalMismatches++;foundationFinalRepairs++;
-                    }
-                    foundationFinalIndex++;
-                }
-                if(foundationFinalIndex<foundationClearOrder.size())return;
-                if(foundationFinalMismatches>0){
-                    if(foundationFinalPass>=2)
-                        throw new IllegalStateException(
-                            "Foundation removal would not remain AIR after 3 "+
-                            "verification/repair passes. Last pass repaired "+
-                            foundationFinalMismatches+" cells. Project paused.");
-                    foundationFinalPass++;
-                    foundationFinalIndex=0;
-                    foundationFinalMismatches=0;
-                    return;
-                }
-                foundationFinalVerified=true;
-                if(!constructionOptions.hollow()){
-                    phase=commandCount()>0?
-                        Phase.WAITING_COMMAND_APPROVAL:Phase.COMPLETE;
-                }
-                return;
-            }
             // FINAL TWO-SIDED RECONCILIATION:
             // (A) expected schematic interior AIR is really AIR, and
             // (B) EVERY non-omitted schematic building block still exists.
@@ -780,8 +681,7 @@ public final class ConstructionProject {
                 normalizeIndex=0;
                 normalizePass++;
                 if(normalizePass>=4){
-                    if(manualNormalize||
-                       (constructionOptions.foundation()&&!constructionOptions.hollow()))
+                    if(manualNormalize||!constructionOptions.hollow())
                         phase=manualNormalize?Phase.COMPLETE:
                             (commandCount()>0?Phase.WAITING_COMMAND_APPROVAL:Phase.COMPLETE);
                     manualNormalize=false;
@@ -980,10 +880,6 @@ public final class ConstructionProject {
     public int actuallyRemoved(){return removedCount;}
     public String phaseDescription(){
         return switch(phase){
-            case FOUNDATION_CLEAR->"foundation:no OVERRIDE: clearing "+
-                foundationClearIndex+"/"+foundationClearOrder.size()+
-                " identified majority-foundation cells; world blocks removed "+
-                foundationCleared+" (undo recorded)";
             case EXCAVATE->constructionOptions.hollow()
                 ?"Hollowing only enclosed empty blueprint interior cells ("+
                     hollowInterior.cardinality()+" candidates); all design "+
@@ -1000,12 +896,7 @@ public final class ConstructionProject {
                   "and 1 lava bucket per source, then fluid normalization resumes"
                 : "Waiting for supply chests to receive materials";
             case CLEANUP->"Removing temporary construction supports";
-            case NORMALIZE->!foundationFinalVerified
-                ?"Verifying foundation:no AIR after construction: "+
-                    foundationFinalIndex+"/"+foundationClearOrder.size()+
-                    ", pass "+(foundationFinalPass+1)+
-                    ", cleared "+foundationFinalRepairs
-                :!interiorVerified
+            case NORMALIZE->!interiorVerified
                 ?"Verifying intended interior schematic AIR ("+
                     interiorVerifyIndex+"/"+cells()+", recleared "+interiorVerificationClears+")"
                 :normalizePass>=4&&!manualNormalize&&constructionOptions.hollow()

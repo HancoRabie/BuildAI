@@ -219,22 +219,29 @@ public final class FoundationPlan {
         String reason="all scanned layers qualified";
         for(int y=first;y<b.height;y++){
             int occupied=0;
-            Map<String,Integer> counts=new HashMap<>();
+            Map<String,Integer> counts=new HashMap<>(),allTypes=new HashMap<>();
             for(int p=base.mask().nextSetBit(0);p>=0;p=base.mask().nextSetBit(p+1)){
                 int x=p%b.width,z=p/b.width;
                 if(b.isAir(x,y,z))continue;
                 occupied++;
                 String id=Blueprint.id(b.get(x,y,z));
+                allTypes.merge(id,1,Integer::sum);
                 if(!forbidden(id)&&foundationMaterial(id,extras))
                     counts.merge(id,1,Integer::sum);
             }
+            Map.Entry<String,Integer> actualDominant=allTypes.entrySet().stream()
+                .max(Map.Entry.<String,Integer>comparingByValue()
+                    .thenComparing(Map.Entry::getKey)).orElse(null);
+            String actualTop=actualDominant==null?"none":
+                actualDominant.getKey()+" "+
+                    pct(actualDominant.getValue(),base.area());
             if(occupied!=base.area()){
                 stop=y;
                 reason="stopped at schematic Y="+y+": "+occupied+"/"+base.area()+
                     " footprint positions occupied ("+pct(occupied,base.area())+
                     "); need 100% of the connected "+base.size()+
                     " platform footprint, NOT all "+b.width+"x"+b.length+
-                    " schematic positions";
+                    " schematic positions; largest actual block type: "+actualTop;
                 break;
             }
             Map.Entry<String,Integer> dominant=counts.entrySet().stream()
@@ -247,7 +254,8 @@ public final class FoundationPlan {
                     ": no single eligible block type reaches 51% over "+
                     base.area()+" connected-footprint cells. Largest eligible: "+
                     (dominant==null?"none":dominant.getKey()+" "+
-                    pct(dominant.getValue(),base.area()));
+                    pct(dominant.getValue(),base.area()))+
+                    "; largest actual block type: "+actualTop;
                 break;
             }
             String block=dominant.getKey();

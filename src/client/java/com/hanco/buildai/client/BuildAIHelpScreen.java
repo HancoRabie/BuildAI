@@ -10,7 +10,9 @@ import java.util.List;
 /** Local, offline help guide. No third-party building mod required. */
 public final class BuildAIHelpScreen extends Screen {
     private static final String[] TITLES = {
-        "Welcome to BuildAI", "ChatGPT and API access", "Generate and revise",
+        "Welcome to BuildAI", "Creative quick start", "Survival quick start",
+        "BuildAI chest labels", "Survival material costs", "Foundation & hollowing",
+        "Undo and item returns", "ChatGPT and API access", "Generate and revise",
         "Import and export", "Feedback & reference schematics", "Choose your placement", "Ground level and excavation",
         "Survival material chests", "Construction controls", "Safety and known limitations"
     };
@@ -20,6 +22,64 @@ public final class BuildAIHelpScreen extends Screen {
             "Press F8 to open the building console. You can generate with AI, import a schematic, or click Load Demo Cottage to test offline without an account.",
             "BuildAI runs without WorldEdit, Litematica, PinLock, or ChainFrames. The Fabric API is its only mod API dependency.",
             "This is an early test build. Use a disposable world before experimenting with excavation or undo."
+        },
+        {
+            "Creative quick start: 1) Press F8 to create a structure with AI, load a saved schematic, or use the offline demo.",
+            "2) Select the intended ground or surface Y-layer, then Upload and Preview. Fly to the build site; the ghost starts in front of you.",
+            "3) Press G to freeze the preview. Adjust it with arrows and mouse wheel; CTRL+arrows rotate or move forward/back. Press ENTER to lock. R retries.",
+            "4) Inspect the space BEFORE confirming. /buildai confirm clears the full volume; /buildai confirm excavate:no overlays existing terrain.",
+            "5) For an existing landscape, /buildai confirm foundation:no hollow:yes omits recognized foundation and clears only verified interior schematic AIR.",
+            "6) Creative building does not require or consume inventory resources. Follow /buildai status; inspect rooms and redstone before trusting the result.",
+            "7) /buildai normalize repairs neighbor connections; /buildai undo restores recorded blocks after a safety check. Still use a backup."
+        },
+        {
+            "Survival quick start: 1) Press F8 to generate/import a design, preview it, and lock the site using G and ENTER.",
+            "2) Near the site, place an ordinary chest and put a sign immediately BESIDE it. Write BuildAI on any line, front or back.",
+            "3) No sneak-click or manual chest link is required. Supply chests beside your player or near the project are discovered automatically; add several if needed.",
+            "4) Put the needed items into signed chests. Use /buildai materials for the exact materials list and delivered/used quantities.",
+            "5) /buildai confirm starts progressive construction, removing only the terrain allowed by your chosen excavate/hollow mode.",
+            "6) Construction automatically withdraws the item for each placed block, pauses for shortages, and resumes when you add more materials.",
+            "7) Building scaffolds created temporarily by BuildAI are FREE and are NOT in the supply manifest. Skipped foundation blocks are also FREE.",
+            "8) If you undo, BuildAI restores world blocks and returns consumed supplies to the SAME signed/source chests. Keep those chests in place."
+        },
+        {
+            "Labeling Survival supply chests: Put a sign immediately adjacent to the chest (side, above or below) and write BuildAI, any capitalization.",
+            "BuildAI automatically searches for marked chests near the locked site's corner and near the active builder anywhere along the structure.",
+            "The label is the only required step. Sneak-right-clicking a marked chest remains an OPTIONAL manual link for special cases.",
+            "The chest must stay in loaded chunks and near the building. You can move around a very large site so newly labeled chests are discovered.",
+            "Double-chest halves are treated as real inventory sources. BuildAI remembers the EXACT chest position used for each withdrawal.",
+            "The signed chests are protected from being broken during active construction. Removing labels mid-project can interrupt future supply discovery.",
+            "If supplies are missing, stand next to your marked chest, wait a couple of seconds for discovery, then check /buildai materials."
+        },
+        {
+            "Survival material accounting: The list counts actual BLOCK ITEMS, not temporary BuildAI scaffolds or the air in rooms.",
+            "foundation:no skips only foundation blocks classified for omission BEFORE the materials list is calculated, so you need not stock those blocks.",
+            "The original blocks intentionally retained for basements, walls, stairs, redstone, and decorations still cost their normal items.",
+            "Two-block structures (such as doors/beds) are billed for the item once, not for both block-state halves.",
+            "Water requires TWO starting water buckets total for a renewable supply; lava requires ONE bucket per designed lava source.",
+            "Fluid buckets turn into empty buckets in their source chest. Undo exchanges those empties back for the original filled buckets.",
+            "Missing ordinary block items pause construction. You can fill additional labeled chests to continue without restarting the blueprint.",
+            "If a block has no obtainably mapped item, BuildAI may pause; that requires a different design or administrative support."
+        },
+        {
+            "Choosing foundation and hollow options: Default /buildai confirm removes the ENTIRE selected volume. Be extremely careful.",
+            "foundation:no identifies the real connected base footprint even when the schematic has empty padding around it.",
+            "A candidate foundation layer needs at least 90% occupied positions over that footprint, plus ONE eligible block ID making up at least 51% of ALL footprint cells.",
+            "BuildAI scans upward layer-by-layer and stops at the first failure. Only that dominant material outside recognized wall, room and basement columns is omitted.",
+            "Ordinary stone, grass_block, dirt and common foundation types are recognized automatically. foundation:no:glowstone adds a custom eligible type.",
+            "hollow:yes clears existing-world blocks ONLY where the schematic calls for AIR inside recognized X/Y/Z-bounded rooms and corridors.",
+            "Use /buildai confirm foundation:no hollow:yes to remove both unwanted platform and interior jungle while preserving exterior terrain.",
+            "No automatic geometry classifier can guarantee every basement or courtyard. Use a BACKUP and inspect the diagnostic summary before proceeding."
+        },
+        {
+            "Undo and Survival refunds: /buildai undo preflights protected blocks, then restores every recorded original blockstate in batches.",
+            "When the world is restored, BuildAI checks whether EVERY original supply chest can accept all items consumed from that specific chest.",
+            "The refund is all-or-nothing: if a source chest is removed or full, undo waits for that EXACT chest to return or have enough room. No items are silently dropped.",
+            "For water/lava supplies, keep the empty buckets in their source chest (or put them back) so filled buckets can be returned without duplication.",
+            "Use /buildai status to read any waiting-for-refund message. The world can be restored while the inventory refund is still pending.",
+            "/buildai undo force is dangerous: it may destroy player-edited block entities. Do not use it unless you understand the warning.",
+            "IMPORTANT: Undo and its chest withdrawal receipts are still MEMORY-ONLY. Do not restart the server or replace the project before refund finishes.",
+            "World backups are required for crash safety. Cancel without undo keeps placed blocks and does NOT return materials."
         },
         {
             "Press F8, then Continue with ChatGPT. BuildAI tries to open the secure OpenAI login in your default browser. Approve permission and return to Minecraft.",
@@ -71,11 +131,12 @@ public final class BuildAIHelpScreen extends Screen {
             "In hollow mode, only existing terrain inside wall-defined blueprint AIR cells is excavated; generated decorations/floors/walls are never removed. Rooms with four-sided wall containment AND wall-defined corridors with long parallel standing walls qualify. No recognized area? The request fails safely. Protected containers/bedrock and unloaded chunks reject the whole operation before edits.",
         },
         {
-            "In Survival, put a sign reading BuildAI beside a chest. After anchoring the build, sneak-right-click the chest to link its inventory.",
-            "Deliver required blocks to that chest. Link more chests as needed. Construction consumes supplies as each block is placed and pauses when they run out.",
-            "Stand near a linked chest to view supplied/required counts and separate material/construction progress bars.",
-            "Use /buildai materials to view per-material progress. Supply chests are protected from breaking while their active project is tracked.",
-            "A project cannot yet survive a server restart; do not depend on the current implementation for long-running valuable-world builds."
+            "Place a chest at or near the building and put an adjacent sign saying BuildAI. That alone enables automatic discovery; manual sneak-right-click linking is OPTIONAL.",
+            "Keep the sign and source chest where they are. BuildAI searches near the site and near you while you work, and draws from multiple chests as required.",
+            "The material total is based on actual placed item requirements. Omitted foundation, temporary construction blocks and temporary slabs are NOT charged.",
+            "Use /buildai materials for supplied, needed and used counts. Projects pause safely when materials run out and resume when the signed chest is refilled.",
+            "Undo returns consumed items to their individual SOURCE chests after restoring the world. If a chest is missing/full, the item receipt remains pending and /buildai status tells you why.",
+            "In-memory receipts and construction cannot yet survive a server restart; use a backup and complete undo/refund before leaving."
         },
         {
             "/buildai status - report active project phase and construction count.",
@@ -91,11 +152,11 @@ public final class BuildAIHelpScreen extends Screen {
             "/buildai hide - dismiss the visual placement grid without modifying the real building.",
             "/buildai confirm: excavate:no overlays; hollow:yes clears known interior schematic AIR. foundation:no finds a CONNECTED bottom platform footprint (not schematic AIR padding), then for each successive layer requires >=90% occupancy of that footprint and ONE eligible material type >=51% of the FULL footprint, including any holes. Only matching majority material OUTSIDE recognized walls/enclosed room/basement columns is omitted. Inspection reports qualifying layers, rejected Y, reason and protected count. Defaults include stone and grass_block; foundation:no:glowstone adds an eligible material. The rule affects NEW construction only, not previously placed terrain; hollow:yes excavate:yes is invalid.",
             "/buildai cancel - stop and keep already placed blocks.",
-            "/buildai undo - runs a non-destructive safety scan, then restores recorded original blockstates in server-tick batches. F8 > Placement / Export > Safe Undo uses the same command. /buildai undo force (OP4) overrides changed block entities after a second in-game confirmation; contents may be lost. No item refunds and undo history is not saved across restarts."
+            "/buildai undo - safely restores the original world blockstates in batches, then returns Survival supplies to their original BuildAI chests without partial refunds. Full/missing chests hold the pending refund until fixed. /buildai undo force (OP4) can destroy edited inventories or scripts. Undo receipts are NOT crash-persistent yet."
         },
         {
             "DO NOT test BuildAI on a valuable world without a backup.",
-            "BuildAI now uses the normal Minecraft player camera for all placement. ChatGPT sign-in works with eligible accounts. Still incomplete: durable crash recovery, full rollback/refunds, complete legacy conversions and tested arbitrary redstone.",
+            "BuildAI uses the normal Minecraft camera for placement. In-session Survival undo now refunds original supply chests, but crash-safe persistence of the build AND refund ledger is not implemented. Complex redstone and legacy imports are still experimental.",
             "When your request mentions redstone, circuitry, automatic machines, pistons, hoppers, observers, crafters, sorters or command blocks, BuildAI automatically consults its bundled Java 1.21.1 Redstone Master Handbook. It covers real device quirks, support, power routing, timings, QC, memory, inventory and failure/recovery cases.",
             "The AI is instructed to provide a redstone_plan for functional machines: input, signal path, output, timing, reset and in-world tests. Redstone Design QA flags absent paths, missing controls, default-facing devices and unsupported wire. This reference is NOT real model training or proof a machine works.",
             "Redstone normalization is connection and neighbor-update repair, NOT a full redstone simulator. It does not add missing wire, flip repeater/comparator facing, choose delays or certify logic. In-game testing is still required. Running manual /buildai normalize on a powered existing circuit can trigger pulses.",

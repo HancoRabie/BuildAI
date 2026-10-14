@@ -180,7 +180,7 @@ public final class BuildAIMod implements ModInitializer {
                         : "Overlay: blueprint-AIR terrain is preserved; "+
                           "planned blocks still replace overlapping terrain. ")+
                 (!options.foundation()
-                    ? "Identified foundation blocks omitted: "+p.omittedFoundationBlocks()+
+                    ? "foundation:no world OVERRIDE scheduled: "+p.omittedFoundationBlocks()+
                       " ("+p.foundationOmissionSummary()+"). "
                     : "")+
                 "Protected blocks and inventories are never overwritten. /buildai status");
@@ -301,7 +301,8 @@ public final class BuildAIMod implements ModInitializer {
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project. Open BuildAI GUI to generate/import.");return 1;}
                     if(p.phase==ConstructionProject.Phase.ROLLBACK_CHECK||
-                        p.phase==ConstructionProject.Phase.ROLLBACK){
+                        p.phase==ConstructionProject.Phase.ROLLBACK||
+                        p.phase==ConstructionProject.Phase.ROLLBACK_REFUND){
                         reply(player,p.blueprint.name+" | "+p.phaseDescription()+
                             ". The operation remains on the server until completed. "+
                             "Missing loaded chunks may pause progress.");
@@ -359,6 +360,7 @@ public final class BuildAIMod implements ModInitializer {
                         return 1;
                     }
                     if(p!=null&&(p.phase==ConstructionProject.Phase.BUILD||
+                        p.phase==ConstructionProject.Phase.FOUNDATION_CLEAR||
                         p.phase==ConstructionProject.Phase.EXCAVATE||
                         p.phase==ConstructionProject.Phase.CLEANUP||
                         p.phase==ConstructionProject.Phase.NORMALIZE)){

@@ -3,15 +3,19 @@ package com.hanco.buildai.blueprint;
 import java.util.*;
 
 /**
- * Bottom-up, strict whole-schematic foundation detection. A layer qualifies
- * ONLY when each X/Z position in the full schematic rectangle is occupied
- * AND a single eligible foundation block ID occupies at least 51% of that
- * entire area. Omit every matching block in a qualifying layer, with no
- * room, basement, wall-column or support exceptions.
+ * Foundation detection based on the actual connected footprint of the
+ * bottom platform, not the full schematic bounding rectangle (which often
+ * has arbitrary AIR padding). For each qualifying Y-layer, a SINGLE
+ * eligible block type must occupy >=51% of the anchored footprint.
  *
- * Unlike hollow:yes, this does not excavate existing world terrain.
- * A majority block may ALSO be part of deliberate architecture. Imported
- * schematic geometry alone cannot distinguish those intentions.
+ * A two-phase plan keeps architectural walls and enclosed basements:
+ * (1) identify provisional foundation layers from their stable footprint;
+ * (2) project actual enclosed schematic interior and its wall columns,
+ * omitting only majority-material cells OUTSIDE that protected plan.
+ *
+ * No inference from a schematic can prove a completely solid region is a
+ * basement rather than disposable terrain. Such ambiguity must be inspected
+ * before placement in a valuable world.
  */
 public final class FoundationPlan {
     private FoundationPlan(){}
@@ -60,6 +64,116 @@ public final class FoundationPlan {
         return !forbidden(id)&&foundationMaterial(id,materials);
     }
 
+
+    private record Footprint(BitSet mask,int area,int minX,int maxX,
+                             int minZ,int maxZ){
+        String size(){return (maxX-minX+1)+"x"+(maxZ-minZ+1);}
+    }
+
+    /**
+     * Find the largest four-connected occupied island on the bottom layer.
+     * Preserve its TRUE non-rectangular silhouette (an L-shaped platform
+     * is not made rectangular). Any holes fully enclosed by that island
+     * count as part of the footprint and cause incomplete-layer rejection.
+     */
+    private static Footprint footprint(Blueprint b,int y){
+        int plane=b.width*b.length;
+        BitSet seen=new BitSet(plane),largest=new BitSet(plane);
+        int[] queue=new int[plane];
+        int biggest=0;
+        for(int p=0;p<plane;p++){
+            int x=p%b.width,z=p/b.width;
+            if(seen.get(p)||b.isAir(x,y,z))continue;
+            seen.set(p);
+            int head=0,tail=1;
+            queue[0]=p;
+            while(head<tail){
+                int v=queue[head++],vx=v%b.width,vz=v/b.width;
+                if(vx>0&&!seen.get(v-1)&&!b.isAir(vx-1,y,vz)){
+                    seen.set(v-1);queue[tail++]=v-1;
+                }
+                if(vx+1<b.width&&!seen.get(v+1)&&!b.isAir(vx+1,y,vz)){
+                    seen.set(v+1);queue[tail++]=v+1;
+                }
+                if(vz>0&&!seen.get(v-b.width)&&!b.isAir(vx,y,vz-1)){
+                    seen.set(v-b.width);queue[tail++]=v-b.width;
+                }
+                if(vz+1<b.length&&!seen.get(v+b.width)&&!b.isAir(vx,y,vz+1)){
+                    seen.set(v+b.width);queue[tail++]=v+b.width;
+                }
+            }
+            if(tail>biggest){
+                biggest=tail;largest.clear();
+                for(int i=0;i<tail;i++)largest.set(queue[i]);
+            }
+        }
+        if(biggest==0)return new Footprint(largest,0,0,-1,0,-1);
+        int x0=b.width,x1=-1,z0=b.length,z1=-1;
+        for(int p=largest.nextSetBit(0);p>=0;p=largest.nextSetBit(p+1)){
+            int x=p%b.width,z=p/b.width;
+            x0=Math.min(x0,x);x1=Math.max(x1,x);
+            z0=Math.min(z0,z);z1=Math.max(z1,z);
+        }
+        // Flood from the rectangle's perimeter through unoccupied cells.
+        // AIR unreachable from outside is a genuine hole IN the footprint.
+        BitSet exterior=new BitSet(plane);
+        int head=0,tail=0;
+        for(int z=z0;z<=z1;z++)for(int x=x0;x<=x1;x++){
+            if(x!=x0&&x!=x1&&z!=z0&&z!=z1)continue;
+            int p=z*b.width+x;
+            if(!largest.get(p)&&!exterior.get(p)){
+                exterior.set(p);queue[tail++]=p;
+            }
+        }
+        while(head<tail){
+            int p=queue[head++],x=p%b.width,z=p/b.width;
+            int[] neighbors={
+                x>x0?p-1:-1,x<x1?p+1:-1,
+                z>z0?p-b.width:-1,z<z1?p+b.width:-1};
+            for(int n:neighbors){
+                if(n<0||largest.get(n)||exterior.get(n))continue;
+                exterior.set(n);queue[tail++]=n;
+            }
+        }
+        for(int z=z0;z<=z1;z++)for(int x=x0;x<=x1;x++){
+            int p=z*b.width+x;
+            if(!largest.get(p)&&!exterior.get(p))largest.set(p);
+        }
+        return new Footprint(largest,largest.cardinality(),x0,x1,z0,z1);
+    }
+
+    /**
+     * A basement (including its dirt/stone floors and redstone) must not
+     * disappear because its block ID happens to be the layer majority.
+     * Protect proven enclosed space and the adjacent ACTUAL design walls.
+     * This projected X/Z mask protects underground rooms too, without
+     * preserving the entire surrounding stone/grass platform.
+     */
+    private static BitSet protectedInterior(Blueprint b,Set<Integer> provisional,
+                                             int lastFoundationY){
+        int plane=b.width*b.length;
+        BitSet rooms=InteriorHollowPlan.enclosedAir(b,provisional);
+        BitSet protectedXZ=new BitSet(plane);
+        for(int i=rooms.nextSetBit(0);i>=0;i=rooms.nextSetBit(i+1))
+            protectedXZ.set(i%plane);
+        BitSet interior=(BitSet)protectedXZ.clone();
+        for(int p=interior.nextSetBit(0);p>=0;p=interior.nextSetBit(p+1)){
+            int x=p%b.width,z=p/b.width;
+            int[] neighbors={x>0?p-1:-1,x+1<b.width?p+1:-1,
+                z>0?p-b.width:-1,z+1<b.length?p+b.width:-1};
+            for(int n:neighbors){
+                if(n<0||protectedXZ.get(n))continue;
+                int nx=n%b.width,nz=n/b.width;
+                for(int y=lastFoundationY+1;y<b.height;y++)
+                    if(!b.isAir(nx,y,nz)){
+                        protectedXZ.set(n);
+                        break;
+                    }
+            }
+        }
+        return protectedXZ;
+    }
+
     /**
      * An inspectable foundation decision. The SAME analysis provides the
      * omission set and a precise reason why layer scanning stopped. Keep
@@ -86,64 +200,77 @@ public final class FoundationPlan {
         Set<String> extras=materials==null?Set.of():materials;
         if(b.width<MIN_SIDE||b.length<MIN_SIDE)
             return new Analysis(Set.of(),-1,0,-1,
-                "schematic width/length is below the 4-block minimum");
-        final int area=b.width*b.length;
+                "schematic width/length below four blocks");
         int first=-1;
         outer:for(int y=0;y<b.height;y++)
             for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++)
                 if(!b.isAir(x,y,z)){first=y;break outer;}
         if(first<0)
-            return new Analysis(Set.of(),-1,0,-1,"schematic has no occupied blocks");
+            return new Analysis(Set.of(),-1,0,-1,"schematic has no blocks");
+        Footprint base=footprint(b,first);
+        if(base.area()<MIN_SIDE*MIN_SIDE||
+           base.maxX()-base.minX()+1<MIN_SIDE||
+           base.maxZ()-base.minZ()+1<MIN_SIDE)
+            return new Analysis(Set.of(),first,0,first,
+                "lowest connected platform is too small to classify as foundation");
 
-        Set<Integer> omissions=new HashSet<>();
-        int qualified=0;
+        Set<Integer> provisional=new HashSet<>();
+        int qualified=0,stop=b.height;
+        String reason="all scanned layers qualified";
         for(int y=first;y<b.height;y++){
             int occupied=0;
-            Map<String,Integer> all=new HashMap<>(),eligible=new HashMap<>();
-            for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
+            Map<String,Integer> counts=new HashMap<>();
+            for(int p=base.mask().nextSetBit(0);p>=0;p=base.mask().nextSetBit(p+1)){
+                int x=p%b.width,z=p/b.width;
                 if(b.isAir(x,y,z))continue;
                 occupied++;
                 String id=Blueprint.id(b.get(x,y,z));
-                all.merge(id,1,Integer::sum);
                 if(!forbidden(id)&&foundationMaterial(id,extras))
-                    eligible.merge(id,1,Integer::sum);
+                    counts.merge(id,1,Integer::sum);
             }
-            Map.Entry<String,Integer> largest=all.entrySet().stream()
+            if(occupied!=base.area()){
+                stop=y;
+                reason="stopped at schematic Y="+y+": "+occupied+"/"+base.area()+
+                    " footprint positions occupied ("+pct(occupied,base.area())+
+                    "); need 100% of the connected "+base.size()+
+                    " platform footprint, NOT all "+b.width+"x"+b.length+
+                    " schematic positions";
+                break;
+            }
+            Map.Entry<String,Integer> dominant=counts.entrySet().stream()
                 .max(Map.Entry.<String,Integer>comparingByValue()
                     .thenComparing(Map.Entry::getKey)).orElse(null);
-            String top=largest==null?"none":largest.getKey()+" "+
-                pct(largest.getValue(),area);
-
-            // Full occupancy is a HARD prerequisite. A single AIR cell
-            // anywhere in this Y-layer invalidates the entire layer.
-            if(occupied!=area)
-                return new Analysis(omissions,first,qualified,y,
-                    "stopped at schematic Y="+y+": "+occupied+"/"+area+
-                    " cells occupied ("+pct(occupied,area)+"); need 100% "+
-                    "full-footprint coverage. Largest block type: "+top);
-            Map.Entry<String,Integer> majority=eligible.entrySet().stream()
-                .max(Map.Entry.<String,Integer>comparingByValue()
-                    .thenComparing(Map.Entry::getKey)).orElse(null);
-            if(majority==null||(long)majority.getValue()*100<(long)MIN_PERCENT*area)
-                return new Analysis(omissions,first,qualified,y,
-                    "stopped at schematic Y="+y+": no SINGLE eligible "+
-                    "foundation material reaches 51% of "+area+" cells. "+
-                    "Largest eligible: "+(majority==null?"none":
-                    majority.getKey()+" "+pct(majority.getValue(),area))+
-                    "; largest actual block type: "+top+
-                    ". Material hints add eligible IDs, not percentages.");
-
-            String majorityId=majority.getKey();
-            // No exception under walls, support columns or basements.
-            // Other material IDs on this same layer remain intact.
-            for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++)
-                if(majorityId.equals(Blueprint.id(b.get(x,y,z))))
-                    omissions.add(b.index(x,y,z));
+            if(dominant==null||
+                (long)dominant.getValue()*100<(long)MIN_PERCENT*base.area()){
+                stop=y;
+                reason="stopped at schematic Y="+y+
+                    ": no single eligible block type reaches 51% over "+
+                    base.area()+" connected-footprint cells. Largest eligible: "+
+                    (dominant==null?"none":dominant.getKey()+" "+
+                    pct(dominant.getValue(),base.area()));
+                break;
+            }
+            String block=dominant.getKey();
+            for(int p=base.mask().nextSetBit(0);p>=0;p=base.mask().nextSetBit(p+1)){
+                int x=p%b.width,z=p/b.width;
+                if(block.equals(Blueprint.id(b.get(x,y,z))))
+                    provisional.add(b.index(x,y,z));
+            }
             qualified++;
         }
-        return new Analysis(omissions,first,qualified,b.height,
-            "every occupied layer from Y="+first+" to "+
-            (b.height-1)+" satisfied the full-footprint/51% rule");
+        if(qualified==0)return new Analysis(Set.of(),first,0,stop,reason);
+        BitSet protectedXZ=protectedInterior(b,provisional,first+qualified-1);
+        Set<Integer> omitted=new HashSet<>();
+        int retained=0,plane=b.width*b.length;
+        for(int i:provisional){
+            if(protectedXZ.get(i%plane))retained++;
+            else omitted.add(i);
+        }
+        reason+="; footprint "+base.area()+" cells ("+base.size()+
+            ") inside schematic "+b.width+"x"+b.length+
+            "; retained "+retained+" candidate blocks within recognized "+
+            "room/wall columns (basement protection)";
+        return new Analysis(omitted,first,qualified,stop,reason);
     }
 
     public static Set<Integer> identifiedFoundation(Blueprint b,Set<String> materials){

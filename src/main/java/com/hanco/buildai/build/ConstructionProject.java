@@ -60,7 +60,9 @@ public final class ConstructionProject {
     private boolean interiorVerified=true;
     private int finalAirAuditIndex=0,finalAirAuditPass=0;
     private int finalAirAuditMismatches=0,finalAirAuditRepairs=0;
+    private int finalSolidAuditIndex=-1,finalSolidAuditRepairs=0;
     public int finalAirAuditRepairs(){return finalAirAuditRepairs;}
+    public int finalSolidAuditRepairs(){return finalSolidAuditRepairs;}
     public int hollowInteriorCells(){return hollowInterior.cardinality();}
     public ConstructionOptions constructionOptions(){return constructionOptions;}
     private boolean plannedSupport(int x,int y,int z){
@@ -218,6 +220,7 @@ public final class ConstructionProject {
         interiorVerifyIndex=0; interiorVerificationClears=0; interiorVerified=true;
         finalAirAuditIndex=0;finalAirAuditPass=0;
         finalAirAuditMismatches=0;finalAirAuditRepairs=0;
+        finalSolidAuditIndex=-1;finalSolidAuditRepairs=0;
         commandsApproved=false;approvedCommandIndices=Set.of();programmingIndex=0;armingIndex=0;
     }
     /** Preview is free to move client-side; only this method locks a server-approved XYZ origin. */
@@ -334,6 +337,7 @@ public final class ConstructionProject {
         interiorVerifyIndex=0; interiorVerificationClears=0;
         finalAirAuditIndex=0;finalAirAuditPass=0;
         finalAirAuditMismatches=0;finalAirAuditRepairs=0;
+        finalSolidAuditIndex=-1;finalSolidAuditRepairs=0;
         interiorVerified=!requested.hollow();
         omittedFoundationBlocks=skip.size();
         order=List.copyOf(selectedOrder);
@@ -377,6 +381,26 @@ public final class ConstructionProject {
         if(!modified.add(key))return;
         if(!previous.isAir())originals.put(key,previous);
     }
+    /**
+     * Block IDs are always authoritative. Also require the schematic's
+     * stable geometry/orientation properties; ignore transient redstone
+     * powers and dynamic connection shapes updated by Minecraft itself.
+     * In particular, a TOP slab is not AIR above a bottom slab: it is a
+     * single block with an exact slab-type state.
+     */
+    private static boolean essentialPropertiesMatch(BlockState actual,BlockState intended){
+        if(actual.getBlock()!=intended.getBlock())return false;
+        for(var property:intended.getProperties()){
+            String key=property.getName();
+            if(key.equals("type")||key.equals("half")||key.equals("facing")||
+                key.equals("axis")||key.equals("vertical_direction")||
+                key.equals("hinge")||key.equals("rotation")||key.equals("part")){
+                if(!Objects.equals(actual.get(property),intended.get(property)))
+                    return false;
+            }
+        }
+        return true;
+    }
     private void beginNormalization(boolean manualRepair) {
         normalizeIndex=0;
         normalizePass=0;
@@ -384,6 +408,7 @@ public final class ConstructionProject {
         interiorVerified=!constructionOptions.hollow()||manualRepair;
         finalAirAuditIndex=0;finalAirAuditPass=0;
         finalAirAuditMismatches=0;finalAirAuditRepairs=0;
+        finalSolidAuditIndex=-1;finalSolidAuditRepairs=0;
         normalizedPanes=0;
         normalizedRedstone=0;
         refreshedRedstone=0;
@@ -450,45 +475,69 @@ public final class ConstructionProject {
             return;
         }
         if(phase==Phase.NORMALIZE) {
-            // Compare final world against the expected air in the original
-            // schematic's confirmed interior, AFTER normalization. Correct
-            // unexpected world blocks; repeat comparison until the mask is
-            // clean. A persistent mismatch must pause, never report Complete.
+            // FINAL TWO-SIDED RECONCILIATION:
+            // (A) expected schematic interior AIR is really AIR, and
+            // (B) EVERY non-omitted schematic building block still exists.
+            // The former handles jungle terrain; the latter catches missing
+            // stalagmites, slabs, pots, pistons and decorations. Each pass
+            // visits both complete sets before deciding whether to retry.
             if(normalizePass>=4&&!manualNormalize&&constructionOptions.hollow()){
-                int scanned=0;
-                while(scanned++<4096){
-                    int i=hollowInterior.nextSetBit(finalAirAuditIndex);
-                    if(i<0){
-                        if(finalAirAuditMismatches>0){
-                            if(finalAirAuditPass>=2)
-                                throw new IllegalStateException(
-                                    "World/schematic interior comparison still has "+
-                                    finalAirAuditMismatches+
-                                    " unexpected blocks after 3 passes. Build paused.");
-                            finalAirAuditPass++;
-                            finalAirAuditMismatches=0;
-                            finalAirAuditIndex=0;
-                            return;
+                int inspected=0;
+                if(finalSolidAuditIndex<0){
+                    while(inspected++<4096){
+                        int i=hollowInterior.nextSetBit(finalAirAuditIndex);
+                        if(i<0){finalSolidAuditIndex=0;break;}
+                        int x=i%blueprint.width,z=(i/blueprint.width)%blueprint.length;
+                        int y=i/(blueprint.width*blueprint.length);
+                        if(!blueprint.isAir(x,y,z))
+                            throw new IllegalStateException(
+                                "Interior AIR mask includes a schematic design block at "+
+                                x+","+y+","+z);
+                        BlockPos at=origin.add(x,y,z);
+                        if(!world.isChunkLoaded(at))return;
+                        if(!world.getBlockState(at).isAir()){
+                            finalAirAuditMismatches++;
+                            recordOriginal(at);
+                            world.setBlockState(at,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
+                            finalAirAuditRepairs++;
                         }
-                        phase=commandCount()>0?
-                            Phase.WAITING_COMMAND_APPROVAL:Phase.COMPLETE;
-                        return;
+                        finalAirAuditIndex=i+1;
                     }
-                    int x=i%blueprint.width,z=(i/blueprint.width)%blueprint.length;
-                    int y=i/(blueprint.width*blueprint.length);
-                    if(!blueprint.isAir(x,y,z))
-                        throw new IllegalStateException("Interior audit would clear "+
-                            "a designed block at "+x+","+y+","+z);
-                    BlockPos at=origin.add(x,y,z);
+                    return;
+                }
+                while(finalSolidAuditIndex<order.size()&&inspected++<4096){
+                    BlockPos local=order.get(finalSolidAuditIndex);
+                    BlockPos at=origin.add(local);
                     if(!world.isChunkLoaded(at))return;
-                    if(!world.getBlockState(at).isAir()){
+                    // Includes every schematic item, whether or not it was
+                    // deemed structural by the AIR-classification heuristic.
+                    BlockState desired=BlockStates.parse(effective(local));
+                    BlockState actual=world.getBlockState(at);
+                    if(!essentialPropertiesMatch(actual,desired)){
                         finalAirAuditMismatches++;
                         recordOriginal(at);
-                        world.setBlockState(at,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
-                        finalAirAuditRepairs++;
+                        world.setBlockState(at,desired,Block.NOTIFY_ALL|Block.FORCE_STATE);
+                        finalSolidAuditRepairs++;
                     }
-                    finalAirAuditIndex=i+1;
+                    finalSolidAuditIndex++;
                 }
+                if(finalSolidAuditIndex<order.size())return;
+                if(finalAirAuditMismatches!=0){
+                    if(finalAirAuditPass>=2)
+                        throw new IllegalStateException(
+                            "World differs from expected schematic after 3 "+
+                            "repair passes. Last pass repaired "+
+                            finalAirAuditMismatches+" AIR/structure cells. "+
+                            "Check unsupported dripstone, plants, slabs and "+
+                            "foundation:no support removal. Project paused.");
+                    finalAirAuditPass++;
+                    finalAirAuditMismatches=0;
+                    finalAirAuditIndex=0;
+                    finalSolidAuditIndex=-1;
+                    return;
+                }
+                phase=commandCount()>0?
+                    Phase.WAITING_COMMAND_APPROVAL:Phase.COMPLETE;
                 return;
             }
             // The blueprint's intended ROOM/CORRIDOR AIR is a real end-state,
@@ -800,9 +849,12 @@ public final class ConstructionProject {
                 ?"Verifying intended interior schematic AIR ("+
                     interiorVerifyIndex+"/"+cells()+", recleared "+interiorVerificationClears+")"
                 :normalizePass>=4&&!manualNormalize&&constructionOptions.hollow()
-                ?"Final world/schematic AIR comparison: pass "+(finalAirAuditPass+1)+
-                    ", index "+finalAirAuditIndex+"/"+cells()+
-                    ", unexpected blocks repaired "+finalAirAuditRepairs
+                ?"Comparing AIR and all schematic building blocks: pass "+
+                    (finalAirAuditPass+1)+", "+
+                    (finalSolidAuditIndex<0?"interior AIR "+finalAirAuditIndex+
+                    "/"+cells():"design blocks "+finalSolidAuditIndex+"/"+order.size())+
+                    "; AIR repaired "+finalAirAuditRepairs+
+                    ", build blocks repaired "+finalSolidAuditRepairs
                 :switch(normalizePass){
                 case 0->"Normalizing glass panes, fences, walls and iron bars ("+
                     normalizeIndex+"/"+order.size()+")";

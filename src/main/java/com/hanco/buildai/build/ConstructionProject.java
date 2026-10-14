@@ -835,7 +835,7 @@ public final class ConstructionProject {
     }
     public Map<String,Integer> consumed(){return Collections.unmodifiableMap(consumed);}
     public BlockPos statusChest(){
-        if(supplies.isEmpty())refreshChests();
+        ensureSupplyChests();
         return supplies.isEmpty()?new BlockPos(0,-2048,0):supplies.get(0);
     }
     public com.hanco.buildai.net.ProjectStatusPayload status(){
@@ -961,7 +961,7 @@ public final class ConstructionProject {
      * changing inventory or placing the first source.
      */
     private int availableFluidBuckets(Item fluidItem){
-        if(world.getTime()-lastChestScan>=40||supplies.isEmpty())refreshChests();
+        ensureSupplyChests();
         int total=0;
         for(BlockPos chest:supplies){
             if(!(world.getBlockEntity(chest) instanceof Inventory inv))continue;
@@ -1003,7 +1003,7 @@ public final class ConstructionProject {
     }
 
     private boolean consume(Item item) {
-        if(world.getTime()-lastChestScan>=40||supplies.isEmpty())refreshChests();
+        ensureSupplyChests();
         for(BlockPos chest:supplies) {
             if(!(world.getBlockEntity(chest) instanceof Inventory inv))continue;
             for(int i=0;i<inv.size();i++) {
@@ -1018,20 +1018,46 @@ public final class ConstructionProject {
         }
         return false;
     }
+    private void ensureSupplyChests(){
+        // Avoid re-scanning thousands of world cells for every HUD update.
+        if(lastChestScan==0||world.getTime()-lastChestScan>=40)
+            refreshChests();
+    }
+    private boolean projectSupplyArea(BlockPos pos){
+        // A player may put the chest at ANY face/side of a large building,
+        // not just within 12 blocks of one placement corner.
+        return pos.getX()>=origin.getX()-24&&
+            pos.getX()<=origin.getX()+blueprint.width+24&&
+            pos.getZ()>=origin.getZ()-24&&
+            pos.getZ()<=origin.getZ()+blueprint.length+24&&
+            pos.getY()>=origin.getY()-24&&
+            pos.getY()<=origin.getY()+blueprint.height+24;
+    }
+    private void discoverSignedChestsNear(BlockPos focus,int radius,int yRange){
+        for(int dx=-radius;dx<=radius;dx++)
+            for(int dz=-radius;dz<=radius;dz++)
+                for(int dy=-yRange;dy<=yRange;dy++){
+                    BlockPos candidate=focus.add(dx,dy,dz);
+                    if(!projectSupplyArea(candidate)||!world.isChunkLoaded(candidate))continue;
+                    if(!(world.getBlockEntity(candidate) instanceof Inventory))continue;
+                    if(marked(candidate)&&!supplies.contains(candidate))
+                        supplies.add(candidate.toImmutable());
+                }
+    }
     private void refreshChests() {
         supplies.clear();
         lastChestScan=world.getTime();
-        for(BlockPos linked:linkedChests) {
-            if(world.getBlockEntity(linked) instanceof Inventory && marked(linked))
+        for(BlockPos linked:linkedChests){
+            if(world.isChunkLoaded(linked)&&
+                world.getBlockEntity(linked) instanceof Inventory&&marked(linked))
                 supplies.add(linked);
         }
-        // Small auto-discovery around the chosen ground-level corner, never the buried blueprint origin.
-        BlockPos ground=origin.up(surfaceLayer);
-        for(int dx=-12;dx<=12;dx++)for(int dz=-12;dz<=12;dz++)for(int dy=-4;dy<=4;dy++) {
-            BlockPos candidate=ground.add(dx,dy,dz);
-            if(!(world.getBlockEntity(candidate) instanceof Inventory))continue;
-            if(marked(candidate)&&!supplies.contains(candidate))supplies.add(candidate.toImmutable());
-        }
+        // A SIGN reading BuildAI next to a chest is enough. No sneak-click
+        // or manual association is required. Manual linking remains optional.
+        discoverSignedChestsNear(origin.up(surfaceLayer),12,4);
+        var player=world.getServer().getPlayerManager().getPlayer(owner);
+        if(player!=null&&player.getServerWorld()==world)
+            discoverSignedChestsNear(player.getBlockPos(),16,4);
     }
     private boolean marked(BlockPos chest) {
         for(Direction direction:Direction.values()){
@@ -1047,17 +1073,21 @@ public final class ConstructionProject {
         return false;
     }
     public boolean protectedChest(BlockPos pos) {
-        return linkedChests.contains(pos)||supplies.contains(pos);
+        // Even freshly signed chests (before the next auto-discovery tick)
+        // must not be broken by accident during active construction.
+        return linkedChests.contains(pos)||supplies.contains(pos)||
+            (projectSupplyArea(pos)&&
+                world.getBlockEntity(pos) instanceof Inventory&&marked(pos));
     }
     public void linkChest(BlockPos pos) {
         if(!(world.getBlockEntity(pos) instanceof Inventory))throw new IllegalArgumentException("Select a chest or other inventory block");
         if(!marked(pos))throw new IllegalArgumentException("Put a sign saying BuildAI beside the chest first");
-        if(pos.getSquaredDistance(origin.add(blueprint.width/2,surfaceLayer,blueprint.length/2))>160*160)
-            throw new IllegalArgumentException("Supply chest too far from the project");
+        if(!projectSupplyArea(pos))
+            throw new IllegalArgumentException("Supply chest must be at or near your construction site");
         linkedChests.add(pos.toImmutable());refreshChests();
     }
     public Map<String,Integer> stored(){
-        refreshChests();
+        ensureSupplyChests();
         Map<String,Integer> map=new TreeMap<>();
         for(BlockPos pos:supplies)if(world.getBlockEntity(pos) instanceof Inventory inv)
             for(int slot=0;slot<inv.size();slot++){

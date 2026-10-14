@@ -347,4 +347,23 @@ public class InteriorHollowPlanTest {
         assertFalse(mask.get(b.index(9,2,8)),
             "Do not erase dirt explicitly present in the schematic");
     }
+
+    @Test void allDesignedBlockTypesRemainOutsideTheAirMask(){
+        Blueprint b=house(true,true,false);
+        b.set(4,2,4,"minecraft:pointed_dripstone[vertical_direction=up,thickness=tip]");
+        b.set(5,2,4,"minecraft:flower_pot");
+        b.set(6,2,4,"minecraft:piston[facing=north]");
+        b.set(7,2,4,"minecraft:stone_slab[type=top]");
+        b.set(6,3,4,"minecraft:repeater[facing=west,delay=1]");
+        b.set(7,3,4,"minecraft:oak_leaves");
+        var mask=InteriorHollowPlan.enclosedAir(b);
+        for(int x=4;x<=7;x++)
+            assertFalse(mask.get(b.index(x,2,4)),
+                "Every single non-AIR schematic block is part of the design");
+        assertFalse(mask.get(b.index(6,3,4)));
+        assertFalse(mask.get(b.index(7,3,4)));
+        assertTrue(mask.get(b.index(3,3,3)),"Adjacent genuine interior air is cleared");
+        assertFalse(mask.get(b.index(4,1,1)),"Preserve open doorway");
+        assertFalse(mask.get(b.index(0,3,4)),"Do not excavate exterior");
+    }
 }

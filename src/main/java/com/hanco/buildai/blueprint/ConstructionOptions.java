@@ -5,10 +5,10 @@ import java.util.*;
 /**
  * Confirmation-only construction modes.
  *
- * foundation:no omits all occurrences of ONE majority foundation block type
- * from each consecutive fully populated, full-schematic X/Z bottom layer.
- * Every layer requires >=51% of its TOTAL positions to be that block ID;
- * this deliberately has no extra basement/support/room exceptions.
+ * foundation:no uses the connected bottom-platform footprint instead of
+ * schematic AIR padding; each consecutive bottom layer must fill >=90% of
+ * that footprint and contain ONE eligible block ID in >=51% of ALL its cells.
+ * Recognized wall/interior/basement columns are protected from omission.
  */
 public record ConstructionOptions(boolean foundation,boolean excavate,boolean hollow,
                                   Set<String> foundationMaterials) {
@@ -32,7 +32,7 @@ public record ConstructionOptions(boolean foundation,boolean excavate,boolean ho
     }
 
     /** Syntax: foundation:no:grass_block,dirt,stonebrick; materials are
-     * eligible candidates for the per-layer 51% whole-schematic majority gate.
+     * eligible candidates for the per-layer 51% majority gate over the actual connected footprint.
      * Namespaced IDs (minecraft:stone_bricks) are also permitted.
      */
     public static ConstructionOptions parse(String arguments){

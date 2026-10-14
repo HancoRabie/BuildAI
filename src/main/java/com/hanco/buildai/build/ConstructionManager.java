@@ -49,6 +49,7 @@ public final class ConstructionManager {
                         project.phase==ConstructionProject.Phase.COMMISSION||
                         project.phase==ConstructionProject.Phase.ROLLBACK_CHECK||
                         project.phase==ConstructionProject.Phase.ROLLBACK||
+                        project.phase==ConstructionProject.Phase.ROLLBACK_REFUND||
                         project.phase==ConstructionProject.Phase.CANCELLED||
                         project.phase==ConstructionProject.Phase.COMPLETE||
                         project.phase==ConstructionProject.Phase.PAUSED_ERROR)){

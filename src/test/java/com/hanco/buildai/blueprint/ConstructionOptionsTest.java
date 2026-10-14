@@ -199,4 +199,75 @@ public class ConstructionOptionsTest {
         assertFalse(skip.contains(b.index(0,0,1)),"Distinct basement masonry retained");
         assertTrue(skip.contains(b.index(5,0,1)),"No spatial interior exception for dirt");
     }
+
+    @Test void acceptsUsersExactStoneAndGrassCommand(){
+        var actual=ConstructionOptions.parse(
+            "foundation:no:stone, grass_block hollow:yes");
+        assertFalse(actual.foundation());
+        assertTrue(actual.hollow());
+        assertFalse(actual.excavate());
+        assertEquals(Set.of("minecraft:stone","minecraft:grass_block"),
+            actual.foundationMaterials());
+    }
+
+    @Test void floatingStoneBasementAndGrassTopAreBothRemovedWhenEachLayerQualifies(){
+        Blueprint b=new Blueprint("Floating stone basement",14,9,16);
+        for(int x=0;x<b.width;x++)for(int z=0;z<b.length;z++){
+            b.set(x,0,z,"minecraft:stone");
+            b.set(x,1,z,"minecraft:stone");
+            b.set(x,2,z,"minecraft:grass_block");
+        }
+        // Above the continuous platform: genuine asymmetric architecture.
+        for(int y=3;y<8;y++)for(int x=3;x<=11;x++)
+            b.set(x,y,4,"minecraft:stone_bricks");
+        var flags=ConstructionOptions.parse("foundation:no:stone, grass_block hollow:yes");
+        var analysis=FoundationPlan.analyze(b,flags.foundationMaterials());
+        assertEquals(3*14*16,analysis.omissions().size(),
+            "All fully occupied stone and grass layers are omitted");
+        assertEquals(3,analysis.qualifyingLayers());
+        assertEquals(3,analysis.stoppedAtY());
+        assertTrue(analysis.reason().contains("100%"));
+        assertFalse(analysis.omissions().contains(b.index(5,3,4)),
+            "The temple itself is left intact");
+    }
+
+    @Test void diagnosticExplainsWhyAlmostFullBottomLayerCannotBeOmitted(){
+        Blueprint b=new Blueprint("One air gap breaks coverage",12,7,12);
+        for(int x=0;x<12;x++)for(int z=0;z<12;z++)
+            b.set(x,0,z,"minecraft:stone");
+        b.set(4,0,4,"minecraft:air");
+        var diagnosis=FoundationPlan.analyze(b,Set.of("minecraft:stone"));
+        assertTrue(diagnosis.omissions().isEmpty());
+        assertEquals(0,diagnosis.stoppedAtY());
+        assertTrue(diagnosis.summary().contains("143/144"));
+        assertTrue(diagnosis.summary().contains("need 100%"));
+        assertTrue(diagnosis.summary().contains("stone"));
+    }
+
+    @Test void diagnosticExplainsMixedMaterialWithoutSingle51PercentMajority(){
+        Blueprint b=new Blueprint("Mixed base",10,4,10);
+        for(int z=0;z<10;z++)for(int x=0;x<10;x++){
+            int i=z*10+x;
+            b.set(x,0,z,i<40?"minecraft:stone":
+                i<80?"minecraft:grass_block":"minecraft:gold_block");
+        }
+        var diagnosis=FoundationPlan.analyze(b,Set.of("minecraft:stone",
+            "minecraft:grass_block"));
+        assertTrue(diagnosis.omissions().isEmpty(),
+            "Two distinct 40% block types may not combine into one 51% majority");
+        assertTrue(diagnosis.reason().contains("no SINGLE eligible"));
+        assertTrue(diagnosis.reason().contains("40.00%"));
+    }
+
+    @Test void diagnosticNamesDominantUnrecognizedMaterial(){
+        Blueprint b=new Blueprint("Nonstandard underside",8,5,8);
+        for(int x=0;x<8;x++)for(int z=0;z<8;z++)
+            b.set(x,0,z,"custommod:polished_rock");
+        var diagnosis=FoundationPlan.analyze(b,Set.of("minecraft:stone",
+            "minecraft:grass_block"));
+        assertTrue(diagnosis.omissions().isEmpty());
+        assertTrue(diagnosis.reason().contains("custommod:polished_rock"));
+        assertEquals(64,FoundationPlan.analyze(b,
+            Set.of("custommod:polished_rock")).omissions().size());
+    }
 }

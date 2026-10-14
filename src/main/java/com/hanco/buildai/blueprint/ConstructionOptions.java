@@ -7,7 +7,8 @@ import java.util.*;
  *
  * foundation:no uses the connected bottom-platform footprint instead of
  * schematic AIR padding; each consecutive bottom layer must fill >=90% of
- * that footprint and contain ONE eligible block ID in >=51% of ALL its cells.
+ * that footprint. Automatically selected material needs >=51% of FULL
+ * footprint; each explicitly listed foundation:no material needs >=20%.
  * Actual underground basement geometry is protected from omission. This
  * flag sanitizes schematic placement ONLY. It never instructs excavation
  * of an existing world block.
@@ -34,7 +35,8 @@ public record ConstructionOptions(boolean foundation,boolean excavate,boolean ho
     }
 
     /** Syntax: foundation:no:grass_block,dirt,stonebrick; materials are
-     * eligible candidates for the per-layer 51% majority gate over the actual connected footprint.
+     * separately eligible at >=20% of the full connected footprint.
+     * Unlisted automatic material detection still requires >=51%.
      * Namespaced IDs (minecraft:stone_bricks) are also permitted.
      */
     public static ConstructionOptions parse(String arguments){

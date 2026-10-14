@@ -210,4 +210,31 @@ public class BlueprintPipelineTest {
         packet.getAsJsonArray("cells").remove(0);
         assertThrows(IllegalArgumentException.class,()->BlueprintJson.decode(packet));
     }
+
+    @Test void dripstoneIsPlacedAfterSupportsAndHangingSegmentsTopFirst(){
+        Blueprint b=new Blueprint("Dripstone dependency check",8,9,8);
+        b.set(1,7,1,"minecraft:stone_bricks");
+        b.set(1,6,1,"minecraft:pointed_dripstone[vertical_direction=down,thickness=base]");
+        b.set(1,5,1,"minecraft:pointed_dripstone[vertical_direction=down,thickness=tip]");
+        b.set(3,0,3,"minecraft:stone_bricks");
+        b.set(3,1,3,"minecraft:pointed_dripstone[vertical_direction=up,thickness=base]");
+        b.set(3,2,3,"minecraft:pointed_dripstone[vertical_direction=up,thickness=tip]");
+        b.set(5,3,4,"minecraft:decorated_pot");
+        b.set(6,2,4,"minecraft:stone_slab[type=top]");
+        var order=b.ordered();
+        int ceiling=order.indexOf(new net.minecraft.util.math.BlockPos(1,7,1));
+        int hangingBase=order.indexOf(new net.minecraft.util.math.BlockPos(1,6,1));
+        int hangingTip=order.indexOf(new net.minecraft.util.math.BlockPos(1,5,1));
+        int floor=order.indexOf(new net.minecraft.util.math.BlockPos(3,0,3));
+        int risingBase=order.indexOf(new net.minecraft.util.math.BlockPos(3,1,3));
+        int risingTip=order.indexOf(new net.minecraft.util.math.BlockPos(3,2,3));
+        assertTrue(ceiling<hangingBase);
+        assertTrue(hangingBase<hangingTip,"Ceiling dripstone goes roof-to-tip");
+        assertTrue(floor<risingBase);
+        assertTrue(risingBase<risingTip,"Stalagmites grow base-to-tip");
+        assertTrue(order.indexOf(new net.minecraft.util.math.BlockPos(5,3,4))<hangingBase,
+            "Other building objects are placed before fragile dripstone");
+        assertTrue(order.indexOf(new net.minecraft.util.math.BlockPos(6,2,4))<risingBase,
+            "Top slabs are full schematic block states, not half-air voids");
+    }
 }

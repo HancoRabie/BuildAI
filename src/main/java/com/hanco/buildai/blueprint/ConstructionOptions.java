@@ -5,9 +5,10 @@ import java.util.*;
 /**
  * Confirmation-only construction modes.
  *
- * foundation:no removes only recognized FOOTPRINT-WIDE blueprint platforms,
- * not every occurrence of a listed material. A material override can expand
- * foundation recognition, but cannot force whole-building material deletion.
+ * foundation:no omits all occurrences of ONE majority foundation block type
+ * from each consecutive fully populated, full-schematic X/Z bottom layer.
+ * Every layer requires >=51% of its TOTAL positions to be that block ID;
+ * this deliberately has no extra basement/support/room exceptions.
  */
 public record ConstructionOptions(boolean foundation,boolean excavate,boolean hollow,
                                   Set<String> foundationMaterials) {
@@ -31,7 +32,7 @@ public record ConstructionOptions(boolean foundation,boolean excavate,boolean ho
     }
 
     /** Syntax: foundation:no:grass_block,dirt,stonebrick; materials are
-     * hints used by the footprint classifier, never a global delete list.
+     * eligible candidates for the per-layer 51% whole-schematic majority gate.
      * Namespaced IDs (minecraft:stone_bricks) are also permitted.
      */
     public static ConstructionOptions parse(String arguments){

@@ -268,20 +268,20 @@ public final class ConstructionProject {
             "Placement is not locked. Close F8, freeze/adjust the preview, "+
             "press ENTER, then /buildai confirm foundation:no excavate:no.");
         Objects.requireNonNull(requested,"Confirmation flags");
-        // This is computed from the design's interior AIR cells, never a
-        // generic cuboid. Non-air blueprint blocks, including decorations,
-        // are NEVER part of the hollow-excavation write set.
-        BitSet interior=requested.hollow()
-            ?InteriorHollowPlan.enclosedAir(blueprint):new BitSet();
-        if(requested.hollow()&&interior.isEmpty())
-            throw new IllegalStateException(
-                "hollow:yes found no wall-defined interior or bounded "+
-                "corridor (standing walls on opposing sides). "+
-                "Nothing was modified. Provide an enclosed room or "+
-                "continuous corridor walls instead of an isolated facade.");
+        // Calculate the foundation omissions FIRST. Suppressed podium
+        // blocks must be invisible to ALL interior ray scans (X, Y, Z).
+        // The actual original schematic remains unmodified; only original
+        // AIR positions may enter the hollow excavation/verification mask.
         Set<Integer> skip=requested.foundation()?Set.of():
             ConstructionOptions.identifiedFoundation(blueprint,
                 requested.foundationMaterials());
+        BitSet interior=requested.hollow()
+            ?InteriorHollowPlan.enclosedAir(blueprint,skip):new BitSet();
+        if(requested.hollow()&&interior.isEmpty())
+            throw new IllegalStateException(
+                "hollow:yes found no reliably bounded interior. No world "+
+                "blocks were modified. Add structural enclosure, inspect "+
+                "the schematic air volume, or choose an explicit mode.");
         List<BlockPos> selectedOrder=new ArrayList<>();
         for(BlockPos local:blueprint.ordered())
             if(!skip.contains(blueprint.index(local.getX(),local.getY(),local.getZ())))

@@ -288,7 +288,7 @@ public final class ConstructionProject {
                 "blocks; construction NOT started. "+
                 foundationAnalysis.summary()+". "+
                 "Check the actual bottom schematic layers and block IDs. "+
-                "Only 100%-occupied layers with one eligible block ID >=51% "+
+                "Only >=90%-occupied connected footprint layers with one eligible block ID >=51% "+
                 "qualify. Rebuild with foundation:yes if you want to keep it.");
         BitSet interior=requested.hollow()
             ?InteriorHollowPlan.enclosedAir(blueprint,skip):new BitSet();

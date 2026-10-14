@@ -401,6 +401,12 @@ public final class InteriorHollowPlan {
         // Independently include AIR between sustained opposing masonry
         // walls, even when an irregular corridor shifts X/Z boundaries.
         selected.or(opposingWallAir(b,w));
+        // A room/corridor may have shelves, stairwells, pots, glass,
+        // decorative pillars and short recessed wall segments. Every
+        // schematic block counts as an obstacle/anchor, never just stone.
+        // Extend validated interiors through AIR bounded by the schematic
+        // in two axes, without flooding into unconstrained outdoor air.
+        extendThroughBoundedAir(b,selected);
         return selected;
     }
 
@@ -453,6 +459,93 @@ public final class InteriorHollowPlan {
             }
         }
         return selected;
+    }
+
+
+    /**
+     * Widen already-confirmed interiors into adjacent schematic AIR pockets
+     * using ALL intentionally painted blocks as architectural evidence.
+     *
+     * A horizontal AIR span must be bounded at BOTH ends by schematic
+     * non-AIR, and at least one other independent axis must also be bounded
+     * (the other horizontal axis or floor+ceiling). This catches small
+     * alcoves, piston compartments, pot corners and stone-lined stairwells.
+     *
+     * The candidate must be connected through other bounded AIR cells to
+     * a previously confirmed room or corridor. Thus random vegetation,
+     * a pair of posts, and air beyond a facade are not independently
+     * reclassified as interior. No non-AIR schematic cell is ever selected.
+     * Empty courtyards with a genuine 3D architectural envelope remain an
+     * inherent geometric ambiguity, so a real schematic is needed to prove
+     * correctness for those designs.
+     */
+    private static void extendThroughBoundedAir(Blueprint b,BitSet interior){
+        if(interior.isEmpty())return;
+        int plane=b.width*b.length,volume=plane*b.height;
+        BitSet betweenX=new BitSet(volume),betweenZ=new BitSet(volume);
+        BitSet betweenY=new BitSet(volume);
+        // Horizontal runs. Count all design blocks as endpoints: piston,
+        // pot, glass, slab, pointed dripstone, lantern, moss, everything.
+        for(int y=0;y<b.height;y++){
+            for(int z=0;z<b.length;z++){
+                int prev=-1;
+                for(int x=0;x<b.width;x++){
+                    if(b.isAir(x,y,z))continue;
+                    if(prev>=0 && x-prev<=MAX_WALL_SPAN+1)
+                        for(int xx=prev+1;xx<x;xx++)
+                            betweenX.set(b.index(xx,y,z));
+                    prev=x;
+                }
+            }
+            for(int x=0;x<b.width;x++){
+                int prev=-1;
+                for(int z=0;z<b.length;z++){
+                    if(b.isAir(x,y,z))continue;
+                    if(prev>=0 && z-prev<=MAX_WALL_SPAN+1)
+                        for(int zz=prev+1;zz<z;zz++)
+                            betweenZ.set(b.index(x,y,zz));
+                    prev=z;
+                }
+            }
+        }
+        // Floors and ceilings (not necessarily full cubes) bound the vertical
+        // AIR interval. This includes top/bottom slabs; occupied is occupied.
+        for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
+            int prev=-1;
+            for(int y=0;y<b.height;y++){
+                if(b.isAir(x,y,z))continue;
+                if(prev>=0 && y-prev<=65)
+                    for(int yy=prev+1;yy<y;yy++)
+                        betweenY.set(b.index(x,yy,z));
+                prev=y;
+            }
+        }
+        BitSet candidates=(BitSet)betweenX.clone();
+        candidates.and(betweenZ);
+        BitSet floorCeiling=(BitSet)betweenX.clone();
+        floorCeiling.or(betweenZ);
+        floorCeiling.and(betweenY);
+        candidates.or(floorCeiling);
+        candidates.andNot(interior);
+        if(candidates.isEmpty())return;
+        // A 6-connected expansion through bounded cells, never through
+        // exterior AIR. Each voxel enters the queue at most once.
+        int[] queue=new int[volume];
+        int head=0,tail=0;
+        for(int i=interior.nextSetBit(0);i>=0;i=interior.nextSetBit(i+1))
+            queue[tail++]=i;
+        while(head<tail){
+            int i=queue[head++],x=i%b.width,z=(i/b.width)%b.length;
+            int[] adj={x>0?i-1:-1,x+1<b.width?i+1:-1,
+                z>0?i-b.width:-1,z+1<b.length?i+b.width:-1,
+                i>=plane?i-plane:-1,i+plane<volume?i+plane:-1};
+            for(int n:adj){
+                if(n<0||!candidates.get(n))continue;
+                candidates.clear(n);
+                interior.set(n);
+                queue[tail++]=n;
+            }
+        }
     }
 
     // A wall can have a one-layer decorative recess, but must exhibit a

@@ -29,12 +29,14 @@ public final class ConstructionProject {
     private List<BlockPos> order;
     private ConstructionOptions constructionOptions=ConstructionOptions.DEFAULT;
     private int omittedFoundationBlocks=0;
+    private String foundationScanSummary="not requested";
+    public String foundationScanSummary(){return foundationScanSummary;}
     public int omittedFoundationBlocks(){return omittedFoundationBlocks;}
     private Set<Integer> foundationOmissions=Set.of();
     /** Human-readable audit of the ACTUAL blueprint blocks intentionally
      * withheld by foundation:no, including every selected Y layer. */
     public String foundationOmissionSummary(){
-        if(foundationOmissions.isEmpty())return "none recognized";
+        if(foundationOmissions.isEmpty())return "none recognized; "+foundationScanSummary;
         Map<String,Integer> types=new HashMap<>();
         int minY=Integer.MAX_VALUE,maxY=-1;
         for(int i:foundationOmissions){
@@ -51,7 +53,8 @@ public final class ConstructionProject {
             .limit(5).map(e->e.getKey()+" x"+e.getValue())
             .reduce((a,b)->a+", "+b).orElse("");
         return "Y "+minY+".."+maxY+"; "+materials+
-            (types.size()>5?" (+"+(types.size()-5)+" more)":"");
+            (types.size()>5?" (+"+(types.size()-5)+" more)":"")+
+            "; "+foundationScanSummary;
     }
     private BitSet hollowInterior=new BitSet();
     // Every approved blueprint AIR voxel must still be AIR after the shell
@@ -216,6 +219,7 @@ public final class ConstructionProject {
         origin=BlockPos.ORIGIN;collisions=0;phase=Phase.SELECT_XZ;
         constructionOptions=ConstructionOptions.DEFAULT;
         foundationOmissions=Set.of();omittedFoundationBlocks=0;
+        foundationScanSummary="not requested";
         hollowInterior=new BitSet();
         interiorVerifyIndex=0; interiorVerificationClears=0; interiorVerified=true;
         finalAirAuditIndex=0;finalAirAuditPass=0;
@@ -272,9 +276,17 @@ public final class ConstructionProject {
         // blocks must be invisible to ALL interior ray scans (X, Y, Z).
         // The actual original schematic remains unmodified; only original
         // AIR positions may enter the hollow excavation/verification mask.
-        Set<Integer> skip=requested.foundation()?Set.of():
-            ConstructionOptions.identifiedFoundation(blueprint,
-                requested.foundationMaterials());
+        FoundationPlan.Analysis foundationAnalysis=requested.foundation()
+            ?null:FoundationPlan.analyze(blueprint,requested.foundationMaterials());
+        Set<Integer> skip=foundationAnalysis==null?Set.of():foundationAnalysis.omissions();
+        if(foundationAnalysis!=null&&skip.isEmpty())
+            throw new IllegalStateException(
+                "foundation:no could not recognize any qualifying foundation "+
+                "blocks; construction NOT started. "+
+                foundationAnalysis.summary()+". "+
+                "Check the actual bottom schematic layers and block IDs. "+
+                "Only 100%-occupied layers with one eligible block ID >=51% "+
+                "qualify. Rebuild with foundation:yes if you want to keep it.");
         BitSet interior=requested.hollow()
             ?InteriorHollowPlan.enclosedAir(blueprint,skip):new BitSet();
         if(requested.hollow()&&interior.isEmpty())
@@ -340,6 +352,8 @@ public final class ConstructionProject {
         finalSolidAuditIndex=-1;finalSolidAuditRepairs=0;
         interiorVerified=!requested.hollow();
         omittedFoundationBlocks=skip.size();
+        foundationScanSummary=foundationAnalysis==null?
+            "foundation kept":foundationAnalysis.summary();
         order=List.copyOf(selectedOrder);
         // Command approval is intentionally AFTER physical construction,
         // never a pre-confirm race for small, fast-build projects.

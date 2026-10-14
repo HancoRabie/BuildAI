@@ -366,4 +366,78 @@ public class InteriorHollowPlanTest {
         assertFalse(mask.get(b.index(4,1,1)),"Preserve open doorway");
         assertFalse(mask.get(b.index(0,3,4)),"Do not excavate exterior");
     }
+
+    @Test void wallBoundariesDependOnCoordinatesNotMinecraftBlockTypes(){
+        Blueprint b=new Blueprint("Any block is part of the build",12,8,12);
+        String[] wall={
+            "minecraft:piston[facing=north]",
+            "minecraft:flower_pot",
+            "minecraft:oak_fence",
+            "minecraft:repeater[facing=west,delay=1]",
+            "minecraft:stone_slab[type=top]",
+            "minecraft:pointed_dripstone[vertical_direction=up]",
+            "minecraft:oak_leaves"
+        };
+        for(int y=1;y<=5;y++){
+            for(int x=2;x<=9;x++){
+                b.set(x,y,2,wall[(x+y)%wall.length]);
+                b.set(x,y,9,wall[(x+y+1)%wall.length]);
+            }
+            for(int z=2;z<=9;z++){
+                b.set(2,y,z,wall[(z+y+2)%wall.length]);
+                b.set(9,y,z,wall[(z+y+3)%wall.length]);
+            }
+        }
+        var interior=InteriorHollowPlan.enclosedAir(b);
+        assertTrue(interior.get(b.index(5,3,5)),
+            "All retained nonair blocks can establish opposing wall faces");
+        assertTrue(interior.get(b.index(8,3,8)));
+        assertFalse(interior.get(b.index(1,3,5)),"Do not excavate outside facade");
+        for(int y=1;y<=5;y++)
+            assertFalse(interior.get(b.index(2,y,4)),
+                "Never treat an actual designed wall cell as AIR");
+    }
+
+    @Test void allSixDirectionsBoundASingleCellEvenWithOnlyDecorativeBlocks(){
+        Blueprint b=new Blueprint("Six-face cavity",7,7,7);
+        b.set(2,3,3,"minecraft:piston[facing=west]");
+        b.set(4,3,3,"minecraft:flower_pot");
+        b.set(3,3,2,"minecraft:redstone_wire");
+        b.set(3,3,4,"minecraft:pointed_dripstone[vertical_direction=up]");
+        b.set(3,2,3,"minecraft:stone_slab[type=top]");
+        b.set(3,4,3,"minecraft:oak_leaves");
+        var result=InteriorHollowPlan.enclosedAir(b);
+        assertTrue(result.get(b.index(3,3,3)),
+            "A schematic AIR voxel bounded north/south east/west up/down is interior");
+        assertFalse(result.get(b.index(3,4,3)),"Preserve leaf design block");
+        assertFalse(result.get(b.index(0,3,3)),"Do not clear unrelated exterior");
+    }
+
+    @Test void omittedFoundationCannotMasqueradeAsARealWallOrCeiling(){
+        Blueprint b=new Blueprint("Omitted pedestal",7,7,7);
+        b.set(2,3,3,"minecraft:piston");
+        b.set(4,3,3,"minecraft:flower_pot");
+        b.set(3,3,2,"minecraft:stone_bricks");
+        b.set(3,3,4,"minecraft:stone_bricks");
+        b.set(3,2,3,"minecraft:dirt");
+        b.set(3,4,3,"minecraft:stone_slab[type=top]");
+        int omitted=b.index(3,2,3);
+        assertTrue(InteriorHollowPlan.enclosedAir(b).get(b.index(3,3,3)),
+            "With floor present the six-face cavity is enclosed");
+        var after=InteriorHollowPlan.enclosedAir(b,java.util.Set.of(omitted));
+        assertFalse(after.get(b.index(3,3,3)),
+            "A suppressed support cannot be a valid enclosing floor");
+        assertFalse(after.get(omitted),
+            "foundation:no omitted blocks are NOT world excavation positions");
+        assertEquals("minecraft:dirt",b.get(3,2,3),
+            "Deriving effective geometry must not mutate source schematic");
+    }
+
+    @Test void mixedFullHeightPlatformDoesNotBecomeAnInteriorBecauseOfBlockType(){
+        Blueprint b=new Blueprint("Surface platform",12,6,12);
+        for(int y=0;y<3;y++)for(int x=0;x<12;x++)for(int z=0;z<12;z++)
+            b.set(x,y,z,(x+z)%2==0?"minecraft:flower_pot":"minecraft:stone_bricks");
+        assertTrue(InteriorHollowPlan.enclosedAir(b).isEmpty(),
+            "A full solid foundation by itself is not an interior room");
+    }
 }

@@ -293,28 +293,28 @@ public final class InteriorHollowPlan {
             BitSet original=(BitSet)boundary.clone();
             for(int z=0;z<b.length;z++)for(int x=1;x<b.width-1;x++){
                 if(original.get(columnIndex(b,x,z)))continue;
-                for(int gap=1;gap<=2&&x+gap<b.width-1;gap++){
-                    if(!original.get(columnIndex(b,x+gap+1,z)))continue;
+                for(int gap=1;gap<=2&&x+gap+1<b.width;gap++){
+                    if(!original.get(columnIndex(b,x+gap,z)))continue;
                     boolean empty=true;
                     for(int k=0;k<gap;k++)
                         if(original.get(columnIndex(b,x+k,z)))empty=false;
                     if(!empty)continue;
                     if(!original.get(columnIndex(b,x-1,z))||
-                       !original.get(columnIndex(b,x+gap+2,z)))continue;
+                       !original.get(columnIndex(b,x+gap+1,z)))continue;
                     for(int k=0;k<gap;k++)boundary.set(columnIndex(b,x+k,z));
                     break;
                 }
             }
             for(int x=0;x<b.width;x++)for(int z=1;z<b.length-1;z++){
                 if(original.get(columnIndex(b,x,z)))continue;
-                for(int gap=1;gap<=2&&z+gap<b.length-1;gap++){
-                    if(!original.get(columnIndex(b,x,z+gap+1)))continue;
+                for(int gap=1;gap<=2&&z+gap+1<b.length;gap++){
+                    if(!original.get(columnIndex(b,x,z+gap)))continue;
                     boolean empty=true;
                     for(int k=0;k<gap;k++)
                         if(original.get(columnIndex(b,x,z+k)))empty=false;
                     if(!empty)continue;
                     if(!original.get(columnIndex(b,x,z-1))||
-                       !original.get(columnIndex(b,x,z+gap+2)))continue;
+                       !original.get(columnIndex(b,x,z+gap+1)))continue;
                     for(int k=0;k<gap;k++)boundary.set(columnIndex(b,x,z+k));
                     break;
                 }

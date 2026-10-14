@@ -357,45 +357,44 @@ public final class InteriorHollowPlan {
             for(int z=1;z<b.length-1;z++){
                 int left=-1;
                 for(int x=1;x<b.width-1;x++){
-                    if(boundary.get(columnIndex(b,x,z))&&
-                       w.spans(b,x,z,y)&&
-                       faceAtHeight(b,w,x,z,y,EAST)){
-                        left=x;
-                        continue;
+                    if(!boundary.get(columnIndex(b,x,z))||
+                       !w.spans(b,x,z,y))continue;
+                    // A one-block-thick wall can face both in and out.
+                    // Close an existing corridor BEFORE considering this
+                    // column as the next potential start.
+                    if(left>=0&&faceAtHeight(b,w,x,z,y,WEST)){
+                        int right=x;
+                        if(between(left,right,left+1)&&
+                           runZ(b,w,left,z)>=MIN_CORRIDOR_RUN&&
+                           runZ(b,w,right,z)>=MIN_CORRIDOR_RUN&&
+                           w.spans(b,left,z-1,y)&&w.spans(b,right,z-1,y)&&
+                           w.spans(b,left,z+1,y)&&w.spans(b,right,z+1,y))
+                            for(int xx=left+1;xx<right;xx++)
+                                if(b.isAir(xx,y,z))
+                                    selected.set(b.index(xx,y,z));
+                        left=-1;
                     }
-                    if(left<0||!w.spans(b,x,z,y)||
-                       !faceAtHeight(b,w,x,z,y,WEST))continue;
-                    int right=x;
-                    if(!between(left,right,left+1)||
-                       runZ(b,w,left,z)<MIN_CORRIDOR_RUN||
-                       runZ(b,w,right,z)<MIN_CORRIDOR_RUN||
-                       !w.spans(b,left,z-1,y)||!w.spans(b,right,z-1,y)||
-                       !w.spans(b,left,z+1,y)||!w.spans(b,right,z+1,y))
-                        continue;
-                    for(int xx=left+1;xx<right;xx++)
-                        if(b.isAir(xx,y,z))selected.set(b.index(xx,y,z));
+                    if(faceAtHeight(b,w,x,z,y,EAST))left=x;
                 }
             }
             for(int x=1;x<b.width-1;x++){
                 int front=-1;
                 for(int z=1;z<b.length-1;z++){
-                    if(boundary.get(columnIndex(b,x,z))&&
-                       w.spans(b,x,z,y)&&
-                       faceAtHeight(b,w,x,z,y,SOUTH)){
-                        front=z;
-                        continue;
+                    if(!boundary.get(columnIndex(b,x,z))||
+                       !w.spans(b,x,z,y))continue;
+                    if(front>=0&&faceAtHeight(b,w,x,z,y,NORTH)){
+                        int back=z;
+                        if(between(front,back,front+1)&&
+                           runX(b,w,x,front)>=MIN_CORRIDOR_RUN&&
+                           runX(b,w,x,back)>=MIN_CORRIDOR_RUN&&
+                           w.spans(b,x-1,front,y)&&w.spans(b,x-1,back,y)&&
+                           w.spans(b,x+1,front,y)&&w.spans(b,x+1,back,y))
+                            for(int zz=front+1;zz<back;zz++)
+                                if(b.isAir(x,y,zz))
+                                    selected.set(b.index(x,y,zz));
+                        front=-1;
                     }
-                    if(front<0||!w.spans(b,x,z,y)||
-                       !faceAtHeight(b,w,x,z,y,NORTH))continue;
-                    int back=z;
-                    if(!between(front,back,front+1)||
-                       runX(b,w,x,front)<MIN_CORRIDOR_RUN||
-                       runX(b,w,x,back)<MIN_CORRIDOR_RUN||
-                       !w.spans(b,x-1,front,y)||!w.spans(b,x-1,back,y)||
-                       !w.spans(b,x+1,front,y)||!w.spans(b,x+1,back,y))
-                        continue;
-                    for(int zz=front+1;zz<back;zz++)
-                        if(b.isAir(x,y,zz))selected.set(b.index(x,y,zz));
+                    if(faceAtHeight(b,w,x,z,y,SOUTH))front=z;
                 }
             }
         }

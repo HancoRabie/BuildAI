@@ -306,14 +306,15 @@ public class ConstructionOptionsTest {
         for(int x=0;x<10;x++)for(int z=0;z<10;z++)
             b.set(x,0,z,"minecraft:stone");
         // 90 populated positions: 50 stone, 40 grass, 10 AIR.
-        // Stone is 55.55% of OCCUPIED but only 50% of the full
-        // anchored footprint, so the >=51% rule must reject it.
+        // Interior AIR holes remain part of the anchored footprint.
+        // Stone is 55.55% of OCCUPIED but only 50% of its true 10x10
+        // footprint, so the >=51% majority rule must reject it.
         for(int x=0;x<10;x++)for(int z=0;z<10;z++){
             int i=z*10+x;
-            if(i<50)b.set(x,0,z,"minecraft:stone");
-            else if(i<90)b.set(x,0,z,"minecraft:grass_block");
-            else b.set(x,0,z,"minecraft:air");
+            b.set(x,0,z,i<50?"minecraft:stone":"minecraft:grass_block");
         }
+        for(int z=3;z<8;z++)for(int x=4;x<6;x++)
+            b.set(x,0,z,"minecraft:air");
         var scan=FoundationPlan.analyze(b,Set.of());
         assertEquals(0,scan.qualifyingLayers());
         assertTrue(scan.omissions().isEmpty());

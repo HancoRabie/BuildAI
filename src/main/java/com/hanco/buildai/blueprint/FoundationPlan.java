@@ -61,53 +61,92 @@ public final class FoundationPlan {
     }
 
     /**
-     * Apply the same explicit material-majority rule at every consecutive
-     * fully populated bottom layer. No subsection may define its own
-     * denominator and no columns are exempt AFTER a layer has qualified.
+     * An inspectable foundation decision. The SAME analysis provides the
+     * omission set and a precise reason why layer scanning stopped. Keep
+     * its rules identical to the player's full-schematic 100% footprint
+     * and per-material >=51% majority contract.
      */
-    public static Set<Integer> identifiedFoundation(Blueprint b,Set<String> materials){
+    public record Analysis(Set<Integer> omissions,int firstOccupiedY,
+                           int qualifyingLayers,int stoppedAtY,String reason){
+        public Analysis{
+            omissions=Set.copyOf(omissions);
+        }
+        public String summary(){
+            return "Foundation: "+omissions.size()+" block(s) omitted across "+
+                qualifyingLayers+" qualifying layer(s); "+reason;
+        }
+    }
+
+    private static String pct(int numerator,int denominator){
+        return String.format(Locale.ROOT,"%.2f%%",(100.0*numerator)/denominator);
+    }
+
+    public static Analysis analyze(Blueprint b,Set<String> materials){
         Objects.requireNonNull(b,"blueprint");
         Set<String> extras=materials==null?Set.of():materials;
-        if(b.width<MIN_SIDE||b.length<MIN_SIDE)return Set.of();
-        final int layerArea=b.width*b.length;
+        if(b.width<MIN_SIDE||b.length<MIN_SIDE)
+            return new Analysis(Set.of(),-1,0,-1,
+                "schematic width/length is below the 4-block minimum");
+        final int area=b.width*b.length;
         int first=-1;
         outer:for(int y=0;y<b.height;y++)
             for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++)
                 if(!b.isAir(x,y,z)){first=y;break outer;}
-        if(first<0)return Set.of();
+        if(first<0)
+            return new Analysis(Set.of(),-1,0,-1,"schematic has no occupied blocks");
 
         Set<Integer> omissions=new HashSet<>();
+        int qualified=0;
         for(int y=first;y<b.height;y++){
             int occupied=0;
-            Map<String,Integer> frequencies=new HashMap<>();
+            Map<String,Integer> all=new HashMap<>(),eligible=new HashMap<>();
             for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
                 if(b.isAir(x,y,z))continue;
                 occupied++;
                 String id=Blueprint.id(b.get(x,y,z));
+                all.merge(id,1,Integer::sum);
                 if(!forbidden(id)&&foundationMaterial(id,extras))
-                    frequencies.merge(id,1,Integer::sum);
+                    eligible.merge(id,1,Integer::sum);
             }
-            // ALL horizontal positions, including the schematic's edges.
-            // Missing even one position stops bottom-up foundation scanning.
-            if(occupied!=layerArea)break;
+            Map.Entry<String,Integer> largest=all.entrySet().stream()
+                .max(Map.Entry.<String,Integer>comparingByValue()
+                    .thenComparing(Map.Entry::getKey)).orElse(null);
+            String top=largest==null?"none":largest.getKey()+" "+
+                pct(largest.getValue(),area);
 
-            String majorityBlock=null;
-            int majorityCount=0;
-            for(var entry:frequencies.entrySet())
-                if(entry.getValue()>majorityCount){
-                    majorityBlock=entry.getKey();
-                    majorityCount=entry.getValue();
-                }
-            if(majorityBlock==null||
-                (long)majorityCount*100<(long)MIN_PERCENT*layerArea)break;
+            // Full occupancy is a HARD prerequisite. A single AIR cell
+            // anywhere in this Y-layer invalidates the entire layer.
+            if(occupied!=area)
+                return new Analysis(omissions,first,qualified,y,
+                    "stopped at schematic Y="+y+": "+occupied+"/"+area+
+                    " cells occupied ("+pct(occupied,area)+"); need 100% "+
+                    "full-footprint coverage. Largest block type: "+top);
+            Map.Entry<String,Integer> majority=eligible.entrySet().stream()
+                .max(Map.Entry.<String,Integer>comparingByValue()
+                    .thenComparing(Map.Entry::getKey)).orElse(null);
+            if(majority==null||(long)majority.getValue()*100<(long)MIN_PERCENT*area)
+                return new Analysis(omissions,first,qualified,y,
+                    "stopped at schematic Y="+y+": no SINGLE eligible "+
+                    "foundation material reaches 51% of "+area+" cells. "+
+                    "Largest eligible: "+(majority==null?"none":
+                    majority.getKey()+" "+pct(majority.getValue(),area))+
+                    "; largest actual block type: "+top+
+                    ". Material hints add eligible IDs, not percentages.");
 
-            // Once a layer qualifies, delete this TYPE at every position.
-            // Do not silently preserve areas under walls, support columns,
-            // interiors or basements. Other block types remain untouched.
+            String majorityId=majority.getKey();
+            // No exception under walls, support columns or basements.
+            // Other material IDs on this same layer remain intact.
             for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++)
-                if(majorityBlock.equals(Blueprint.id(b.get(x,y,z))))
+                if(majorityId.equals(Blueprint.id(b.get(x,y,z))))
                     omissions.add(b.index(x,y,z));
+            qualified++;
         }
-        return Set.copyOf(omissions);
+        return new Analysis(omissions,first,qualified,b.height,
+            "every occupied layer from Y="+first+" to "+
+            (b.height-1)+" satisfied the full-footprint/51% rule");
+    }
+
+    public static Set<Integer> identifiedFoundation(Blueprint b,Set<String> materials){
+        return analyze(b,materials).omissions();
     }
 }

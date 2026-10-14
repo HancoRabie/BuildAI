@@ -28,7 +28,7 @@ public final class BuildAIHelpScreen extends Screen {
             "2) Select the intended ground or surface Y-layer, then Upload and Preview. Fly to the build site; the ghost starts in front of you.",
             "3) Press G to freeze the preview. Adjust it with arrows and mouse wheel; CTRL+arrows rotate or move forward/back. Press ENTER to lock. R retries.",
             "4) Inspect the space BEFORE confirming. /buildai confirm clears the full volume; /buildai confirm excavate:no overlays existing terrain.",
-            "5) For an existing landscape, /buildai confirm foundation:no hollow:yes omits recognized foundation and clears only verified interior schematic AIR.",
+            "5) foundation:no FORCE-REMOVES the identified foundation from the WORLD (even existing stone in overlay mode). hollow:yes clears additional verified interior schematic AIR.",
             "6) Creative building does not require or consume inventory resources. Follow /buildai status; inspect rooms and redstone before trusting the result.",
             "7) /buildai normalize repairs neighbor connections; /buildai undo restores recorded blocks after a safety check. Still use a backup."
         },
@@ -53,7 +53,7 @@ public final class BuildAIHelpScreen extends Screen {
         },
         {
             "Survival material accounting: The list counts actual BLOCK ITEMS, not temporary BuildAI scaffolds or the air in rooms.",
-            "foundation:no skips only foundation blocks classified for omission BEFORE the materials list is calculated, so you need not stock those blocks.",
+            "foundation:no excludes omitted foundation items from material costs AND force-clears those world positions with undo safety. You need not stock omitted foundation items.",
             "The original blocks intentionally retained for basements, walls, stairs, redstone, and decorations still cost their normal items.",
             "Two-block structures (such as doors/beds) are billed for the item once, not for both block-state halves.",
             "Water requires TWO starting water buckets total for a renewable supply; lava requires ONE bucket per designed lava source.",
@@ -65,11 +65,11 @@ public final class BuildAIHelpScreen extends Screen {
             "Choosing foundation and hollow options: Default /buildai confirm removes the ENTIRE selected volume. Be extremely careful.",
             "foundation:no identifies the real connected base footprint even when the schematic has empty padding around it.",
             "A candidate foundation layer needs at least 90% occupied positions over that footprint, plus ONE eligible block ID making up at least 51% of ALL footprint cells.",
-            "BuildAI scans upward layer-by-layer and stops at the first failure. Only that dominant material outside recognized wall, room and basement columns is omitted.",
+            "BuildAI scans upward until the first failure. Matching majority-material positions become a WORLD AIR override. Actual underground enclosed rooms are protected, not stone columns below aboveground walls.",
             "Ordinary stone, grass_block, dirt and common foundation types are recognized automatically. foundation:no:glowstone adds a custom eligible type.",
             "hollow:yes clears existing-world blocks ONLY where the schematic calls for AIR inside recognized X/Y/Z-bounded rooms and corridors.",
-            "Use /buildai confirm foundation:no hollow:yes to remove both unwanted platform and interior jungle while preserving exterior terrain.",
-            "No automatic geometry classifier can guarantee every basement or courtyard. Use a BACKUP and inspect the diagnostic summary before proceeding."
+            "Use /buildai confirm foundation:no hollow:yes to override selected foundation positions and clear verified interior jungle. Existing terrain IN selected foundation positions is destroyed.",
+            "A completely solid basement may be indistinguishable from foundation. FOUNDATION:NO is destructive, but undo-tracked and finally verified; BACK UP the world first."
         },
         {
             "Undo and Survival refunds: /buildai undo preflights protected blocks, then restores every recorded original blockstate in batches.",
@@ -127,7 +127,7 @@ public final class BuildAIHelpScreen extends Screen {
         {
             "After G, use arrows and wheel to fine tune the ghost, then ENTER locks its XYZ. R or /buildai retry resets it. F8 > Confirm & Build begins excavation only after server validation; protected containers and unloaded chunks are still rejected.",
             "DEFAULT /buildai confirm: clear all existing blocks in the blueprint volume before placing the build. /buildai confirm excavate:no: overlay blueprint blocks without clearing its empty spaces. Existing terrain in blueprint-AIR cells remains.",
-            "NEW /buildai confirm hollow:yes: remove existing terrain only where the blueprint defines interior AIR. Rooms are bounded by opposing structural walls; tunnels/corridors use long parallel standing walls even with OPEN ENTRANCES and no separate floor or roof. Blueprint furniture/decor and outside terrain are preserved. /buildai confirm foundation:no hollow:yes also omits recognizable base platforms.",
+            "NEW /buildai confirm hollow:yes: clear recognized interior schematic AIR only. Adding foundation:no ALSO force-removes identified majority-foundation blocks from the WORLD before construction (even in overlay). Both are undo-tracked; use a backup.",
             "In hollow mode, only existing terrain inside wall-defined blueprint AIR cells is excavated; generated decorations/floors/walls are never removed. Rooms with four-sided wall containment AND wall-defined corridors with long parallel standing walls qualify. No recognized area? The request fails safely. Protected containers/bedrock and unloaded chunks reject the whole operation before edits.",
         },
         {
@@ -150,7 +150,7 @@ public final class BuildAIHelpScreen extends Screen {
             "AFTER the physical build and naturalization finish, BuildAI pauses indefinitely at WAITING_COMMAND_APPROVAL and automatically opens the full command review IN Minecraft. Each script has a stable number, exact world location and matching block. You can close and reopen the review at F8 > Placement / Export > Design QA.",
             "With server OP4 and enable-command-block=true, choose Approve All or individually mark scripts in the review screen. Chat alternatives: /buildai commands approve all, /buildai commands approve 1,2,4,7, or /buildai commands 1,2,4. One-based numbering everywhere; nonapproved blocks remain empty/inert. Selected scripts program before any automatic activation. Test full game logic before public use.",
             "/buildai hide - dismiss the visual placement grid without modifying the real building.",
-            "/buildai confirm: excavate:no overlays; hollow:yes clears known interior schematic AIR. foundation:no finds a CONNECTED bottom platform footprint (not schematic AIR padding), then for each successive layer requires >=90% occupancy of that footprint and ONE eligible material type >=51% of the FULL footprint, including any holes. Only matching majority material OUTSIDE recognized walls/enclosed room/basement columns is omitted. Inspection reports qualifying layers, rejected Y, reason and protected count. Defaults include stone and grass_block; foundation:no:glowstone adds an eligible material. The rule affects NEW construction only, not previously placed terrain; hollow:yes excavate:yes is invalid.",
+            "/buildai confirm: excavate:no overlays; hollow:yes clears verified interior AIR. foundation:no selects consecutive bottom layers with >=90% of the connected platform footprint and ONE eligible material >=51% of the full footprint. It then FORCE-CLEARS those foundation positions from the CURRENT WORLD, even in overlay mode, and verifies they remain AIR after construction. Aboveground walls cannot preserve dangling pillars; actual underground enclosed rooms receive protection. This removal is undo-tracked but DESTRUCTIVE. hollow:yes excavate:yes is invalid.",
             "/buildai cancel - stop and keep already placed blocks.",
             "/buildai undo - safely restores the original world blockstates in batches, then returns Survival supplies to their original BuildAI chests without partial refunds. Full/missing chests hold the pending refund until fixed. /buildai undo force (OP4) can destroy edited inventories or scripts. Undo receipts are NOT crash-persistent yet."
         },

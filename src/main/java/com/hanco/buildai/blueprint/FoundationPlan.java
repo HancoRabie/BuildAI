@@ -204,6 +204,54 @@ public final class FoundationPlan {
         return String.format(Locale.ROOT,"%.2f%%",(100.0*numerator)/denominator);
     }
 
+
+    /** Lowest occupied slice can be a pair of dangling stone struts rather
+     * than the main foundation. Select the broadest eligible PLATFORM band
+     * among the first eight Y-levels, preferring repeated adjacent layers
+     * to a one-off upper building floor. An eligible candidate must cover
+     * >=90% of ITS true footprint with one foundation block ID >=51%.
+     */
+    private static boolean majorityOnFootprint(Blueprint b,int y,Footprint base,
+                                               Set<String> materials){
+        if(y<0||y>=b.height||base.area()<MIN_SIDE*MIN_SIDE)return false;
+        int occupied=0;
+        Map<String,Integer> types=new HashMap<>();
+        for(int p=base.mask().nextSetBit(0);p>=0;p=base.mask().nextSetBit(p+1)){
+            int x=p%b.width,z=p/b.width;
+            if(b.isAir(x,y,z))continue;
+            occupied++;
+            String id=Blueprint.id(b.get(x,y,z));
+            if(!forbidden(id)&&foundationMaterial(id,materials))
+                types.merge(id,1,Integer::sum);
+        }
+        if((long)occupied*100<(long)MIN_COVERAGE_PERCENT*base.area())return false;
+        return types.values().stream().anyMatch(count->
+            (long)count*100>=(long)MIN_PERCENT*base.area());
+    }
+
+    private record FoundationAnchor(Footprint footprint,int y){}
+    private static FoundationAnchor chooseAnchor(Blueprint b,int first,
+                                                  Set<String> materials){
+        Footprint fallback=footprint(b,first);
+        FoundationAnchor best=null;
+        int end=Math.min(b.height-1,first+8);
+        for(int y=first;y<=end;y++){
+            Footprint fp=footprint(b,y);
+            if(fp.area()<MIN_SIDE*MIN_SIDE||
+               fp.maxX()-fp.minX()+1<MIN_SIDE||
+               fp.maxZ()-fp.minZ()+1<MIN_SIDE||
+               !majorityOnFootprint(b,y,fp,materials))continue;
+            boolean stable=majorityOnFootprint(b,y-1,fp,materials)||
+                majorityOnFootprint(b,y+1,fp,materials);
+            // An isolated stone strut should not anchor the blueprint
+            // if a broad continuous platform begins slightly higher.
+            if(!stable && fp.area()<=fallback.area()*3L)continue;
+            if(best==null||fp.area()>best.footprint().area())
+                best=new FoundationAnchor(fp,y);
+        }
+        return best==null?new FoundationAnchor(fallback,first):best;
+    }
+
     public static Analysis analyze(Blueprint b,Set<String> materials){
         Objects.requireNonNull(b,"blueprint");
         Set<String> extras=materials==null?Set.of():materials;
@@ -216,7 +264,9 @@ public final class FoundationPlan {
                 if(!b.isAir(x,y,z)){first=y;break outer;}
         if(first<0)
             return new Analysis(Set.of(),-1,0,-1,"schematic has no blocks");
-        Footprint base=footprint(b,first);
+        FoundationAnchor anchor=chooseAnchor(b,first,extras);
+        Footprint base=anchor.footprint();
+        int coreStartY=anchor.y();
         if(base.area()<MIN_SIDE*MIN_SIDE||
            base.maxX()-base.minX()+1<MIN_SIDE||
            base.maxZ()-base.minZ()+1<MIN_SIDE)
@@ -226,7 +276,7 @@ public final class FoundationPlan {
         Set<Integer> provisional=new HashSet<>();
         int qualified=0,stop=b.height;
         String reason="all scanned layers qualified";
-        for(int y=first;y<b.height;y++){
+        for(int y=coreStartY;y<b.height;y++){
             int occupied=0;
             Map<String,Integer> counts=new HashMap<>(),allTypes=new HashMap<>();
             for(int p=base.mask().nextSetBit(0);p>=0;p=base.mask().nextSetBit(p+1)){
@@ -276,12 +326,30 @@ public final class FoundationPlan {
             qualified++;
         }
         if(qualified==0)return new Analysis(Set.of(),first,0,stop,reason);
+        // Scan BACK DOWN to the original lowest occupied Y to include
+        // narrow foundation support tails. They need not satisfy 90%
+        // themselves, but every removed cell must be an eligible material
+        // and vertically attach to an already selected foundation cell.
+        int tails=0;
+        for(int yy=coreStartY-1;yy>=first;yy--){
+            for(int p=base.mask().nextSetBit(0);p>=0;p=base.mask().nextSetBit(p+1)){
+                int x0=p%b.width,z0=p/b.width;
+                if(b.isAir(x0,yy,z0))continue;
+                String id=Blueprint.id(b.get(x0,yy,z0));
+                if(forbidden(id)||!foundationMaterial(id,extras))continue;
+                if(provisional.contains(b.index(x0,yy+1,z0))){
+                    if(provisional.add(b.index(x0,yy,z0)))tails++;
+                }
+            }
+        }
         Set<Integer> protectedBlocks=protectedBasementBlocks(
-            b,provisional,first,first+qualified-1);
+            b,provisional,first,coreStartY+qualified-1);
         Set<Integer> omitted=new HashSet<>(provisional);
         omitted.removeAll(protectedBlocks);
         int retained=protectedBlocks.size();
-        reason+="; >=90% layer coverage and >=51% single-type majority; footprint "+base.area()+" cells ("+base.size()+
+        reason+="; anchored at schematic Y="+coreStartY+
+            " (lowest occupied Y="+first+"), connected lower support-tail cells "+tails+
+            "; >=90% core coverage and >=51% single-type majority; footprint "+base.area()+" cells ("+base.size()+
             ") inside schematic "+b.width+"x"+b.length+
             "; retained "+retained+" candidate blocks at ACTUAL underground "+
             "enclosed room walls/floors (no projected aboveground columns)";

@@ -64,6 +64,13 @@ public final class ConstructionProject {
     private int finalAirAuditIndex=0,finalAirAuditPass=0;
     private int finalAirAuditMismatches=0,finalAirAuditRepairs=0;
     private int finalSolidAuditIndex=-1,finalSolidAuditRepairs=0;
+    private final List<String> finalAuditExamples=new ArrayList<>(5);
+    private void noteAuditMismatch(String kind,BlockPos position,
+                                   BlockState actual,BlockState expected){
+        if(finalAuditExamples.size()<5)
+            finalAuditExamples.add(kind+" at "+position.toShortString()+
+                " expected="+expected+" actual="+actual);
+    }
     public int finalAirAuditRepairs(){return finalAirAuditRepairs;}
     public int finalSolidAuditRepairs(){return finalSolidAuditRepairs;}
     public int hollowInteriorCells(){return hollowInterior.cardinality();}
@@ -443,6 +450,7 @@ public final class ConstructionProject {
         finalAirAuditIndex=0;finalAirAuditPass=0;
         finalAirAuditMismatches=0;finalAirAuditRepairs=0;
         finalSolidAuditIndex=-1;finalSolidAuditRepairs=0;
+        finalAuditExamples.clear();
         normalizedPanes=0;
         normalizedRedstone=0;
         refreshedRedstone=0;
@@ -546,6 +554,8 @@ public final class ConstructionProject {
                         BlockPos at=origin.add(x,y,z);
                         if(!world.isChunkLoaded(at))return;
                         if(!world.getBlockState(at).isAir()){
+                            noteAuditMismatch("AIR",at,world.getBlockState(at),
+                                Blocks.AIR.getDefaultState());
                             finalAirAuditMismatches++;
                             recordOriginal(at);
                             world.setBlockState(at,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
@@ -564,6 +574,7 @@ public final class ConstructionProject {
                     BlockState desired=BlockStates.parse(effective(local));
                     BlockState actual=world.getBlockState(at);
                     if(!essentialPropertiesMatch(actual,desired)){
+                        noteAuditMismatch("DESIGN",at,actual,desired);
                         finalAirAuditMismatches++;
                         recordOriginal(at);
                         world.setBlockState(at,desired,Block.NOTIFY_ALL|Block.FORCE_STATE);
@@ -578,10 +589,14 @@ public final class ConstructionProject {
                             "World differs from expected schematic after 3 "+
                             "repair passes. Last pass repaired "+
                             finalAirAuditMismatches+" AIR/structure cells. "+
-                            "Check unsupported dripstone, plants, slabs and "+
-                            "foundation:no support removal. Project paused.");
+                            "First mismatches: "+
+                            String.join(" | ",finalAuditExamples)+
+                            ". Check unsupported support geometry, fluid "+
+                            "physics, or conflicting blocks at these positions. "+
+                            "Project paused for safety.");
                     finalAirAuditPass++;
                     finalAirAuditMismatches=0;
+                    finalAuditExamples.clear();
                     finalAirAuditIndex=0;
                     finalSolidAuditIndex=-1;
                     return;

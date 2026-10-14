@@ -54,6 +54,11 @@ public final class ConstructionProject {
             (types.size()>5?" (+"+(types.size()-5)+" more)":"");
     }
     private BitSet hollowInterior=new BitSet();
+        interiorVerifyIndex=0; interiorVerificationClears=0; interiorVerified=true;
+    // Every approved blueprint AIR voxel must still be AIR after the shell
+    // has been built, not merely after preliminary excavation.
+    private int interiorVerifyIndex=0, interiorVerificationClears=0;
+    private boolean interiorVerified=true;
     public int hollowInteriorCells(){return hollowInterior.cardinality();}
     public ConstructionOptions constructionOptions(){return constructionOptions;}
     private boolean plannedSupport(int x,int y,int z){
@@ -321,6 +326,8 @@ public final class ConstructionProject {
         constructionOptions=requested;
         foundationOmissions=skip;
         hollowInterior=interior;
+        interiorVerifyIndex=0; interiorVerificationClears=0;
+        interiorVerified=!requested.hollow();
         omittedFoundationBlocks=skip.size();
         order=List.copyOf(selectedOrder);
         // Command approval is intentionally AFTER physical construction,
@@ -366,6 +373,8 @@ public final class ConstructionProject {
     private void beginNormalization(boolean manualRepair) {
         normalizeIndex=0;
         normalizePass=0;
+        interiorVerifyIndex=0;
+        interiorVerified=!constructionOptions.hollow()||manualRepair;
         normalizedPanes=0;
         normalizedRedstone=0;
         refreshedRedstone=0;
@@ -432,6 +441,36 @@ public final class ConstructionProject {
             return;
         }
         if(phase==Phase.NORMALIZE) {
+            // The blueprint's intended ROOM/CORRIDOR AIR is a real end-state,
+            // not merely a preliminary excavation attempt. In particular,
+            // no terrain, fallen foliage or construction-side updates may
+            // remain inside after the physical shell is placed.
+            // These are *exactly* the preflight-approved interior AIR voxels.
+            if(!interiorVerified){
+                int scanned=0, volume=blueprint.width*blueprint.length*blueprint.height;
+                while(scanned++<4096){
+                    int i=hollowInterior.nextSetBit(interiorVerifyIndex);
+                    if(i<0){interiorVerified=true;break;}
+                    int x=i%blueprint.width,z=(i/blueprint.width)%blueprint.length;
+                    int y=i/(blueprint.width*blueprint.length);
+                    if(!blueprint.isAir(x,y,z))
+                        throw new IllegalStateException("Hollow mask attempts to clear actual "+
+                            "blueprint block at "+x+","+y+","+z);
+                    BlockPos at=origin.add(x,y,z);
+                    if(!world.isChunkLoaded(at))return;
+                    BlockState existing=world.getBlockState(at);
+                    if(!existing.isAir()){
+                        // Respect protected containers/bedrock even if someone
+                        // modifies the site after the initial preflight.
+                        recordOriginal(at);
+                        world.setBlockState(at,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
+                        interiorVerificationClears++;
+                    }
+                    interiorVerifyIndex=i+1;
+                }
+                if(!interiorVerified)return;
+                // Done. No second unbounded pass or model request required.
+            }
             int scanned=0;
             // Four bounded passes: decorative connections, redstone dust,
             // FLUIDS (with survival material charge), then power signals.
@@ -706,7 +745,10 @@ public final class ConstructionProject {
                   "and 1 lava bucket per source, then fluid normalization resumes"
                 : "Waiting for supply chests to receive materials";
             case CLEANUP->"Removing temporary construction supports";
-            case NORMALIZE->switch(normalizePass){
+            case NORMALIZE->!interiorVerified
+                ?"Verifying every intended interior AIR position ("+
+                    interiorVerifyIndex+"/"+cells()+", recleared "+interiorVerificationClears+")"
+                :switch(normalizePass){
                 case 0->"Normalizing glass panes, fences, walls and iron bars ("+
                     normalizeIndex+"/"+order.size()+")";
                 case 1->"Connecting redstone dust using vanilla 1.21.1 wire shapes ("+

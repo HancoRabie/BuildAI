@@ -6,8 +6,10 @@ import java.util.*;
  * Foundation detection based on the actual connected footprint of the
  * bottom platform, not the full schematic bounding rectangle (which often
  * has arbitrary AIR padding). Each candidate layer must retain at least
- * 90% of the anchored footprint and ONE eligible block type must occupy
- * at least 51% of the entire anchored footprint, not just its filled cells.
+ * 90% of the anchored footprint. A naturally detected majority type needs
+ * >=51% of the FULL footprint; material IDs explicitly supplied via
+ * foundation:no:id1,id2 need >=20% each and are processed independently.
+ * The selected material thresholds never combine to manufacture a majority.
  *
  * A two-phase plan keeps architectural walls and enclosed basements:
  * (1) identify provisional foundation layers with >=90% footprint coverage;
@@ -35,6 +37,26 @@ public final class FoundationPlan {
         "basalt","smooth_basalt","bedrock","obsidian",
         "quartz_block","smooth_quartz","iron_block");
     private static final int MIN_PERCENT=51;
+    private static final int EXPLICIT_MIN_PERCENT=20;
+    /** Return the actual material IDs on a layer that may be omitted. */
+    private static Set<String> qualifyingTypes(Map<String,Integer> counts,
+                        int footprintArea,Set<String> materials){
+        Set<String> selected=new HashSet<>();
+        // Implicit mode picks ONE majority material, matching historical
+        // 51% semantics. Explicit hints may also independently select
+        // 20%-or-higher types in that SAME qualifying layer.
+        counts.entrySet().stream()
+            .filter(e->(long)e.getValue()*100>=(long)MIN_PERCENT*footprintArea)
+            .max(Map.Entry.<String,Integer>comparingByValue()
+                .thenComparing(Map.Entry::getKey))
+            .ifPresent(e->selected.add(e.getKey()));
+        for(String material:materials)
+            if(counts.containsKey(material) &&
+               (long)counts.get(material)*100>=
+                   (long)EXPLICIT_MIN_PERCENT*footprintArea)
+                selected.add(material);
+        return selected;
+    }
     private static final int MIN_COVERAGE_PERCENT=90;
     private static final int MIN_SIDE=4;
 
@@ -186,8 +208,8 @@ public final class FoundationPlan {
     /**
      * An inspectable foundation decision. The SAME analysis provides the
      * omission set and a precise reason why layer scanning stopped.
-     * Each layer needs >=90% of the bottom connected footprint occupied,
-     * plus a single eligible block type >=51% of that full footprint.
+     * Each layer needs >=90% of the connected footprint occupied, plus
+     * an eligible implicit majority >=51% OR explicit material >=20%.
      */
     public record Analysis(Set<Integer> omissions,int firstOccupiedY,
                            int qualifyingLayers,int stoppedAtY,String reason){
@@ -209,7 +231,7 @@ public final class FoundationPlan {
      * than the main foundation. Select the broadest eligible PLATFORM band
      * among the first eight Y-levels, preferring repeated adjacent layers
      * to a one-off upper building floor. An eligible candidate must cover
-     * >=90% of ITS true footprint with one foundation block ID >=51%.
+     * >=90% of ITS true footprint with implicit >=51% or explicit >=20%.
      */
     private static boolean majorityOnFootprint(Blueprint b,int y,Footprint base,
                                                Set<String> materials){
@@ -225,8 +247,7 @@ public final class FoundationPlan {
                 types.merge(id,1,Integer::sum);
         }
         if((long)occupied*100<(long)MIN_COVERAGE_PERCENT*base.area())return false;
-        return types.values().stream().anyMatch(count->
-            (long)count*100>=(long)MIN_PERCENT*base.area());
+        return !qualifyingTypes(types,base.area(),materials).isEmpty();
     }
 
     private record FoundationAnchor(Footprint footprint,int y){}
@@ -303,24 +324,24 @@ public final class FoundationPlan {
                     " schematic positions; largest actual block type: "+actualTop;
                 break;
             }
-            Map.Entry<String,Integer> dominant=counts.entrySet().stream()
-                .max(Map.Entry.<String,Integer>comparingByValue()
-                    .thenComparing(Map.Entry::getKey)).orElse(null);
-            if(dominant==null||
-                (long)dominant.getValue()*100<(long)MIN_PERCENT*base.area()){
+            Set<String> chosen=qualifyingTypes(counts,base.area(),extras);
+            if(chosen.isEmpty()){
+                Map.Entry<String,Integer> largestEligible=counts.entrySet().stream()
+                    .max(Map.Entry.<String,Integer>comparingByValue()
+                        .thenComparing(Map.Entry::getKey)).orElse(null);
                 stop=y;
                 reason="stopped at schematic Y="+y+
-                    ": no single eligible block type reaches 51% over "+
-                    base.area()+" connected-footprint cells. Largest eligible: "+
-                    (dominant==null?"none":dominant.getKey()+" "+
-                    pct(dominant.getValue(),base.area()))+
+                    ": no natural material reaches 51% AND no explicitly named "+
+                    "material reaches 20% of the "+base.area()+
+                    "-cell footprint. Largest eligible: "+
+                    (largestEligible==null?"none":largestEligible.getKey()+" "+
+                    pct(largestEligible.getValue(),base.area()))+
                     "; largest actual block type: "+actualTop;
                 break;
             }
-            String block=dominant.getKey();
             for(int p=base.mask().nextSetBit(0);p>=0;p=base.mask().nextSetBit(p+1)){
                 int x=p%b.width,z=p/b.width;
-                if(block.equals(Blueprint.id(b.get(x,y,z))))
+                if(chosen.contains(Blueprint.id(b.get(x,y,z))))
                     provisional.add(b.index(x,y,z));
             }
             qualified++;
@@ -349,7 +370,8 @@ public final class FoundationPlan {
         int retained=protectedBlocks.size();
         reason+="; anchored at schematic Y="+coreStartY+
             " (lowest occupied Y="+first+"), connected lower support-tail cells "+tails+
-            "; >=90% core coverage and >=51% single-type majority; footprint "+base.area()+" cells ("+base.size()+
+            "; >=90% core coverage; automatic types >=51%, explicitly listed types >=20% "+
+            "(each independently); footprint "+base.area()+" cells ("+base.size()+
             ") inside schematic "+b.width+"x"+b.length+
             "; retained "+retained+" candidate blocks at ACTUAL underground "+
             "enclosed room walls/floors (no projected aboveground columns)";

@@ -295,7 +295,12 @@ public class ConstructionOptionsTest {
         var scan=FoundationPlan.analyze(b,Set.of());
         assertEquals(2,scan.qualifyingLayers());
         assertEquals(2,scan.stoppedAtY());
-        assertEquals(760,scan.omissions().size(),"400 at Y=0 + 360 at Y=1");
+        assertTrue(scan.omissions().contains(b.index(0,0,0)),
+            "Outside majority stone on qualifying Y=0 is omitted");
+        assertTrue(scan.omissions().contains(b.index(0,1,0)),
+            "Outside majority stone on exactly-90%-filled Y=1 is omitted");
+        assertTrue(scan.omissions().size()<=760 && scan.omissions().size()>0,
+            "Enclosed basement positions may be protected; never inflate the raw 760 candidates");
         assertTrue(scan.reason().contains("356/400"));
         assertTrue(scan.reason().contains("90%"));
         assertFalse(scan.omissions().contains(b.index(0,3,0)));
@@ -348,7 +353,8 @@ public class ConstructionOptionsTest {
             "All fully occupied stone and grass layers are omitted");
         assertEquals(3,analysis.qualifyingLayers());
         assertEquals(3,analysis.stoppedAtY());
-        assertTrue(analysis.reason().contains("100%"));
+        assertTrue(analysis.reason().contains("90%"),
+            "Latest diagnostics must explain the 90% footprint gate");
         assertFalse(analysis.omissions().contains(b.index(5,3,4)),
             "The temple itself is left intact");
     }

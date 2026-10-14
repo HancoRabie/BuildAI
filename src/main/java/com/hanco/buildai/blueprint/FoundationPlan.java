@@ -243,9 +243,9 @@ public final class FoundationPlan {
                !majorityOnFootprint(b,y,fp,materials))continue;
             boolean stable=majorityOnFootprint(b,y-1,fp,materials)||
                 majorityOnFootprint(b,y+1,fp,materials);
-            // An isolated stone strut should not anchor the blueprint
-            // if a broad continuous platform begins slightly higher.
-            if(!stable && fp.area()<=fallback.area()*3L)continue;
+            // Require an adjacent eligible Y-layer, so a single broad
+            // architectural floor can't overrule a thinner true foundation.
+            if(!stable)continue;
             if(best==null||fp.area()>best.footprint().area())
                 best=new FoundationAnchor(fp,y);
         }

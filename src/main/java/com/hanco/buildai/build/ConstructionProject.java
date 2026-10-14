@@ -58,6 +58,9 @@ public final class ConstructionProject {
     // has been built, not merely after preliminary excavation.
     private int interiorVerifyIndex=0, interiorVerificationClears=0;
     private boolean interiorVerified=true;
+    private int finalAirAuditIndex=0,finalAirAuditPass=0;
+    private int finalAirAuditMismatches=0,finalAirAuditRepairs=0;
+    public int finalAirAuditRepairs(){return finalAirAuditRepairs;}
     public int hollowInteriorCells(){return hollowInterior.cardinality();}
     public ConstructionOptions constructionOptions(){return constructionOptions;}
     private boolean plannedSupport(int x,int y,int z){
@@ -213,6 +216,8 @@ public final class ConstructionProject {
         foundationOmissions=Set.of();omittedFoundationBlocks=0;
         hollowInterior=new BitSet();
         interiorVerifyIndex=0; interiorVerificationClears=0; interiorVerified=true;
+        finalAirAuditIndex=0;finalAirAuditPass=0;
+        finalAirAuditMismatches=0;finalAirAuditRepairs=0;
         commandsApproved=false;approvedCommandIndices=Set.of();programmingIndex=0;armingIndex=0;
     }
     /** Preview is free to move client-side; only this method locks a server-approved XYZ origin. */
@@ -327,6 +332,8 @@ public final class ConstructionProject {
         foundationOmissions=skip;
         hollowInterior=interior;
         interiorVerifyIndex=0; interiorVerificationClears=0;
+        finalAirAuditIndex=0;finalAirAuditPass=0;
+        finalAirAuditMismatches=0;finalAirAuditRepairs=0;
         interiorVerified=!requested.hollow();
         omittedFoundationBlocks=skip.size();
         order=List.copyOf(selectedOrder);
@@ -375,6 +382,8 @@ public final class ConstructionProject {
         normalizePass=0;
         interiorVerifyIndex=0;
         interiorVerified=!constructionOptions.hollow()||manualRepair;
+        finalAirAuditIndex=0;finalAirAuditPass=0;
+        finalAirAuditMismatches=0;finalAirAuditRepairs=0;
         normalizedPanes=0;
         normalizedRedstone=0;
         refreshedRedstone=0;
@@ -441,6 +450,47 @@ public final class ConstructionProject {
             return;
         }
         if(phase==Phase.NORMALIZE) {
+            // Compare final world against the expected air in the original
+            // schematic's confirmed interior, AFTER normalization. Correct
+            // unexpected world blocks; repeat comparison until the mask is
+            // clean. A persistent mismatch must pause, never report Complete.
+            if(normalizePass>=4&&!manualNormalize&&constructionOptions.hollow()){
+                int scanned=0;
+                while(scanned++<4096){
+                    int i=hollowInterior.nextSetBit(finalAirAuditIndex);
+                    if(i<0){
+                        if(finalAirAuditMismatches>0){
+                            if(finalAirAuditPass>=2)
+                                throw new IllegalStateException(
+                                    "World/schematic interior comparison still has "+
+                                    finalAirAuditMismatches+
+                                    " unexpected blocks after 3 passes. Build paused.");
+                            finalAirAuditPass++;
+                            finalAirAuditMismatches=0;
+                            finalAirAuditIndex=0;
+                            return;
+                        }
+                        phase=commandCount()>0?
+                            Phase.WAITING_COMMAND_APPROVAL:Phase.COMPLETE;
+                        return;
+                    }
+                    int x=i%blueprint.width,z=(i/blueprint.width)%blueprint.length;
+                    int y=i/(blueprint.width*blueprint.length);
+                    if(!blueprint.isAir(x,y,z))
+                        throw new IllegalStateException("Interior audit would clear "+
+                            "a designed block at "+x+","+y+","+z);
+                    BlockPos at=origin.add(x,y,z);
+                    if(!world.isChunkLoaded(at))return;
+                    if(!world.getBlockState(at).isAir()){
+                        finalAirAuditMismatches++;
+                        recordOriginal(at);
+                        world.setBlockState(at,Blocks.AIR.getDefaultState(),Block.NOTIFY_ALL);
+                        finalAirAuditRepairs++;
+                    }
+                    finalAirAuditIndex=i+1;
+                }
+                return;
+            }
             // The blueprint's intended ROOM/CORRIDOR AIR is a real end-state,
             // not merely a preliminary excavation attempt. In particular,
             // no terrain, fallen foliage or construction-side updates may
@@ -531,8 +581,9 @@ public final class ConstructionProject {
                 normalizeIndex=0;
                 normalizePass++;
                 if(normalizePass>=4){
-                    phase=manualNormalize?Phase.COMPLETE:
-                        (commandCount()>0?Phase.WAITING_COMMAND_APPROVAL:Phase.COMPLETE);
+                    if(manualNormalize||!constructionOptions.hollow())
+                        phase=manualNormalize?Phase.COMPLETE:
+                            (commandCount()>0?Phase.WAITING_COMMAND_APPROVAL:Phase.COMPLETE);
                     manualNormalize=false;
                 }
             }
@@ -746,8 +797,12 @@ public final class ConstructionProject {
                 : "Waiting for supply chests to receive materials";
             case CLEANUP->"Removing temporary construction supports";
             case NORMALIZE->!interiorVerified
-                ?"Verifying every intended interior AIR position ("+
+                ?"Verifying intended interior schematic AIR ("+
                     interiorVerifyIndex+"/"+cells()+", recleared "+interiorVerificationClears+")"
+                :normalizePass>=4&&!manualNormalize&&constructionOptions.hollow()
+                ?"Final world/schematic AIR comparison: pass "+(finalAirAuditPass+1)+
+                    ", index "+finalAirAuditIndex+"/"+cells()+
+                    ", unexpected blocks repaired "+finalAirAuditRepairs
                 :switch(normalizePass){
                 case 0->"Normalizing glass panes, fences, walls and iron bars ("+
                     normalizeIndex+"/"+order.size()+")";

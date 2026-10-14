@@ -63,9 +63,9 @@ public final class BuildAIHelpScreen extends Screen {
         },
         {
             "Choosing foundation and hollow options: Default /buildai confirm removes the ENTIRE selected volume. Be extremely careful.",
-            "foundation:no identifies the real connected base footprint even when the schematic has empty padding around it.",
+            "foundation:no finds the broad repeated connected base footprint in the lower build levels, ignoring schematic AIR padding and tiny dangling stone supports beneath it.",
             "A candidate foundation layer needs at least 90% occupied positions over that footprint, plus ONE eligible block ID making up at least 51% of ALL footprint cells.",
-            "BuildAI scans upward until the first failure. Matching majority-material positions become a WORLD AIR override. Actual underground enclosed rooms are protected, not stone columns below aboveground walls.",
+            "BuildAI scans qualifying layers upward until failure, then also removes attached eligible foundation tails below the main base. Matching positions become a WORLD AIR override; actual underground rooms are protected, not hanging columns below upper walls.",
             "Ordinary stone, grass_block, dirt and common foundation types are recognized automatically. foundation:no:glowstone adds a custom eligible type.",
             "hollow:yes clears existing-world blocks ONLY where the schematic calls for AIR inside recognized X/Y/Z-bounded rooms and corridors.",
             "Use /buildai confirm foundation:no hollow:yes to override selected foundation positions and clear verified interior jungle. Existing terrain IN selected foundation positions is destroyed.",

@@ -25,21 +25,16 @@ public final class InteriorHollowPlan {
     private static final int MIN_CORRIDOR_RUN=3;
 
     private static boolean structural(Blueprint b,int x,int y,int z){
-        if(x<0||z<0||x>=b.width||z>=b.length||
-           y<0||y>=b.height||b.isAir(x,y,z))return false;
-        String id=Blueprint.id(b.get(x,y,z));
-        return !id.contains("redstone")&&!id.contains("repeater")&&
-            !id.contains("comparator")&&!id.contains("torch")&&
-            !id.contains("lever")&&!id.contains("button")&&
-            !id.contains("sign")&&!id.contains("rail")&&
-            !id.contains("hopper")&&!id.contains("chest")&&
-            !id.contains("carpet")&&!id.contains("flower")&&
-            !id.contains("tall_grass")&&!id.contains("vine")&&
-            !id.contains("fence")&&!id.contains("trapdoor")&&
-            !id.contains("piston")&&!id.contains("observer")&&
-            !id.contains("dispenser")&&!id.contains("dropper")&&
-            !id.contains("scaffolding")&&!id.contains("ladder")&&
-            !id.equals("minecraft:water")&&!id.equals("minecraft:lava");
+        // Geometry-only rule: every retained non-AIR block is part of the
+        // design, regardless of registry ID. A chest, redstone component,
+        // pot, flower, rail, slab or pointed dripstone is an architectural
+        // boundary just as surely as a stone brick. Coherent standing-wall
+        // checks (vertical pairs, inward AIR face and horizontal continuity)
+        // provide spatial evidence; block TYPE never disqualifies a boundary.
+        // Foundation omissions are first turned into AIR in a temporary
+        // geometry-only view by the overloaded enclosedAir() method.
+        return x>=0&&z>=0&&y>=0&&
+            x<b.width&&z<b.length&&y<b.height&&!b.isAir(x,y,z);
     }
 
 
@@ -266,6 +261,32 @@ public final class InteriorHollowPlan {
      * An exposed roof/terrace is not a room merely because its border is tall:
      * walls need an inward-facing opening and a continuing wall run.
      */
+    /**
+     * Analyze only the geometry that will actually be built. Suppressed
+     * foundation blocks are ignored as potential "walls" in every ray
+     * (east/west, north/south and up/down); temporary construction supports
+     * are never part of the schematic and are already absent.
+     *
+     * Omitted foundation cells themselves must NOT be excavated by
+     * hollow:yes. The write-set contains original schematic AIR only.
+     */
+    public static BitSet enclosedAir(Blueprint original,java.util.Set<Integer> omitted){
+        java.util.Objects.requireNonNull(original);
+        if(omitted==null||omitted.isEmpty())return enclosedAir(original);
+        Blueprint geometry=original.withoutBlocks(omitted);
+        BitSet result=enclosedAir(geometry);
+        for(int i:omitted)result.clear(i);
+        for(int i=result.nextSetBit(0);i>=0;i=result.nextSetBit(i+1)){
+            int x=i%original.width,z=(i/original.width)%original.length;
+            int y=i/(original.width*original.length);
+            if(!original.isAir(x,y,z))
+                throw new IllegalStateException(
+                    "Interior classification selected original design block "+
+                    x+","+y+","+z);
+        }
+        return result;
+    }
+
     public static BitSet enclosedAir(Blueprint b){
         BitSet selected=new BitSet(b.width*b.length*b.height);
         if(b.width<4||b.length<4||b.height<2)return selected;

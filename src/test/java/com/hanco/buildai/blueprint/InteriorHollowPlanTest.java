@@ -228,6 +228,76 @@ public class InteriorHollowPlanTest {
             "Exterior remains outside the wall");
     }
 
+
+    @Test void lShapedRoomsClearAllBlueprintAirButNeverOutsideConcaveCourtyard(){
+        Blueprint b=new Blueprint("Irregular L temple",16,9,16);
+        // Nonrectangular room envelope. A simple four-direction ray test
+        // missed alcoves because a wall exists only around the turning corner.
+        for(int y=1;y<=6;y++){
+            for(int x=2;x<=8;x++)b.set(x,y,2,"minecraft:stone_bricks");
+            for(int z=2;z<=8;z++)b.set(8,y,z,"minecraft:stone_bricks");
+            for(int x=8;x<=13;x++)b.set(x,y,8,"minecraft:stone_bricks");
+            for(int z=8;z<=13;z++)b.set(13,y,z,"minecraft:stone_bricks");
+            for(int x=2;x<=13;x++)b.set(x,y,13,"minecraft:stone_bricks");
+            for(int z=2;z<=13;z++)b.set(2,y,z,"minecraft:stone_bricks");
+        }
+        var mask=InteriorHollowPlan.enclosedAir(b);
+        assertTrue(mask.get(b.index(5,2,5)),"Clear northern wing");
+        assertTrue(mask.get(b.index(11,2,11)),"Clear southern wing");
+        assertTrue(mask.get(b.index(7,2,10)),"Clear room behind internal bend");
+        assertFalse(mask.get(b.index(11,2,4)),
+            "Concave outdoor garden must never be classified as indoor AIR");
+        assertFalse(mask.get(b.index(14,2,10)),"Leave outer jungle untouched");
+        assertFalse(mask.get(b.index(8,2,8)),"Preserve the actual wall corner");
+    }
+
+    @Test void doubleDoorDoesNotAllowOutsideFloodToEraseInterior(){
+        Blueprint b=house(true,false,false);
+        for(int y=1;y<=2;y++){
+            b.set(4,y,1,"minecraft:air");
+            b.set(5,y,1,"minecraft:air");
+        }
+        var mask=InteriorHollowPlan.enclosedAir(b);
+        assertTrue(mask.get(b.index(4,1,4)),"Interior behind doorway is AIR");
+        assertTrue(mask.get(b.index(5,2,7)),"Far interior air must clear too");
+        assertFalse(mask.get(b.index(4,1,1)),"Do not excavate opening itself");
+        assertFalse(mask.get(b.index(4,1,0)),"Do not clear outside doorway");
+    }
+
+    @Test void unrelatedParallelFacadesAtDifferentHeightsAreNotAnInterior(){
+        Blueprint b=new Blueprint("Upper terrace and lower yard",18,14,19);
+        for(int z=2;z<=16;z++){
+            for(int y=1;y<=4;y++)b.set(3,y,z,"minecraft:stone_bricks");
+            for(int y=8;y<=11;y++)b.set(13,y,z,"minecraft:stone_bricks");
+        }
+        var mask=InteriorHollowPlan.enclosedAir(b);
+        assertFalse(mask.get(b.index(8,2,10)),
+            "Do not use walls from upper floors to clear outside at lower Y");
+        assertFalse(mask.get(b.index(8,9,10)),
+            "Do not use walls from lower floors to clear outside at upper Y");
+    }
+
+    @Test void irregularTempleHallClearsEntireInteriorAirColumnNotJustCenterline(){
+        Blueprint b=new Blueprint("Jungle hallway with overgrowth",16,9,25);
+        for(int z=2;z<=22;z++)for(int y=1;y<=6;y++){
+            b.set(3,y,z,"minecraft:mossy_stone_bricks");
+            b.set(12,y,z,"minecraft:chiseled_stone_bricks");
+        }
+        for(int x=3;x<=12;x++)for(int z=2;z<=22;z++)
+            b.set(x,7,z,"minecraft:stone_bricks");
+        b.set(6,2,12,"minecraft:lantern");
+        var mask=InteriorHollowPlan.enclosedAir(b);
+        for(int y=1;y<=6;y++)for(int x=4;x<=11;x++)for(int z=3;z<=21;z++)
+            if(b.isAir(x,y,z))
+                assertTrue(mask.get(b.index(x,y,z)),
+                    "All planned interior AIR voxels need explicit removal ("+
+                        x+","+y+","+z+")");
+        assertFalse(mask.get(b.index(2,3,10)),"Never clear left jungle");
+        assertFalse(mask.get(b.index(13,3,10)),"Never clear right jungle");
+        assertFalse(mask.get(b.index(7,8,10)),"Never clear canopy above the roof");
+        assertFalse(mask.get(b.index(6,2,12)),"Preserve blueprint lantern");
+    }
+
     @Test void thickPlatformAloneIsNotARoomOrHallway(){
         // A three-layer podium has exposed OUTWARD sides but no inward
         // standing wall faces. Hollow mode must never excavate the space

@@ -25,6 +25,33 @@ public class ConstructionOptionsTest {
             ConstructionOptions.parse("foundation:no excavate:yes"),
             "Full world excavation requires explicit opt-in when omitting foundation");
     }
+    @Test void schematicFoundationSanitizationNeverMutatesSourceBlocks(){
+        Blueprint blueprint=new Blueprint("Sanitize, don't excavate",12,7,12);
+        for(int y=0;y<3;y++)for(int x=0;x<12;x++)for(int z=0;z<12;z++)
+            blueprint.set(x,y,z,y==2?"minecraft:grass_block":"minecraft:stone");
+        for(int y=3;y<6;y++){
+            blueprint.set(3,y,3,"minecraft:stone_bricks");
+            blueprint.set(8,y,8,"minecraft:stone_bricks");
+        }
+        var omissions=FoundationPlan.analyze(blueprint,Set.of()).omissions();
+        assertEquals(3*12*12,omissions.size(),
+            "All qualifying foundation layers should be removed from the placement plan");
+        var queue=blueprint.orderedOmitting(omissions);
+        assertEquals(6,queue.size(),
+            "Only the six actual design blocks should be queued for construction");
+        for(var p:queue)
+            assertFalse(omissions.contains(blueprint.index(p.getX(),p.getY(),p.getZ())),
+                "A foundation block must NEVER re-enter the build queue");
+        assertEquals("minecraft:stone",blueprint.get(0,0,0),
+            "Source schematic data remains unchanged after sanitization");
+        assertEquals("minecraft:grass_block",blueprint.get(0,2,0),
+            "No omitted schematic voxel gets overwritten with AIR");
+        assertEquals(3*12*12+6,blueprint.ordered().size(),
+            "Original schematic must still contain all its original blocks");
+        assertThrows(IllegalArgumentException.class,()->
+            blueprint.orderedOmitting(Set.of(blueprint.width*blueprint.height*blueprint.length)));
+    }
+
     @Test void sanitizeFoundationIsNotAnExcavationRequest(){
         var onlyFoundation=ConstructionOptions.parse("foundation:no");
         assertFalse(onlyFoundation.foundation());

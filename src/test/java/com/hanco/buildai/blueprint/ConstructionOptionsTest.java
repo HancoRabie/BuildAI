@@ -403,6 +403,49 @@ public class ConstructionOptionsTest {
     }
 
 
+    @Test void narrowLowestStoneSupportsCannotShrinkBroadFoundationFootprint(){
+        Blueprint b=new Blueprint("Wide moss platform with hanging stone tails",30,16,30);
+        // Lowest occupied level is JUST two disconnected stone columns.
+        // Above them sit five full, 24x24 stone/moss foundation layers.
+        for(int z=5;z<9;z++)for(int x=5;x<8;x++)
+            b.set(x,0,z,"minecraft:stone");
+        for(int z=17;z<20;z++)for(int x=19;x<22;x++)
+            b.set(x,0,z,"minecraft:stone");
+        for(int y=1;y<=5;y++)for(int z=3;z<27;z++)for(int x=3;x<27;x++)
+            b.set(x,y,z,y==5?"minecraft:moss_block":"minecraft:stone");
+        // Upper temple only starts AFTER foundation layers.
+        for(int y=6;y<=12;y++)for(int z=6;z<=23;z++){
+            b.set(6,y,z,"minecraft:stone_bricks");
+            b.set(23,y,z,"minecraft:stone_bricks");
+        }
+        var analysis=FoundationPlan.analyze(b,Set.of());
+        assertEquals(5,analysis.qualifyingLayers(),
+            "Recognize five broad main foundation layers, not tiny lowest struts");
+        assertEquals(5*24*24+21,analysis.omissions().size(),
+            "Remove all broad layers plus the 21 vertically attached low stone tails");
+        assertTrue(analysis.reason().contains("anchored at schematic Y=1"));
+        assertTrue(analysis.reason().contains("support-tail cells 21"));
+        assertTrue(analysis.omissions().contains(b.index(6,0,6)));
+        assertTrue(analysis.omissions().contains(b.index(20,0,18)));
+        assertTrue(analysis.omissions().contains(b.index(25,5,25)));
+        assertFalse(analysis.omissions().contains(b.index(6,7,10)),
+            "Real upper masonry must remain intact");
+    }
+
+    @Test void loneWiderUpperFloorDoesNotReplaceRealRepeatedBottomFoundation(){
+        Blueprint b=new Blueprint("Two real base layers and a wide one-off terrace",30,13,30);
+        for(int y=0;y<2;y++)for(int z=5;z<17;z++)for(int x=5;x<17;x++)
+            b.set(x,y,z,"minecraft:stone");
+        for(int z=2;z<28;z++)for(int x=2;x<28;x++)
+            b.set(x,6,z,"minecraft:stone");
+        var analysis=FoundationPlan.analyze(b,Set.of());
+        assertTrue(analysis.reason().contains("anchored at schematic Y=0"),
+            "A decorative standalone upper floor must not expand the foundation footprint");
+        assertEquals(2,analysis.qualifyingLayers());
+        assertTrue(analysis.omissions().contains(b.index(6,0,6)));
+        assertFalse(analysis.omissions().contains(b.index(6,6,6)));
+    }
+
     @Test void foundationNoRemovesAllSixMajorityLayersBelowWallsAndDecorations(){
         Blueprint b=new Blueprint("Temple on intrusive stone and moss platform",24,17,24);
         for(int y=0;y<6;y++)for(int z=1;z<23;z++)for(int x=1;x<23;x++)

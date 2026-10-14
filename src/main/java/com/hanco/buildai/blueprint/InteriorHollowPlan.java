@@ -511,7 +511,6 @@ public final class InteriorHollowPlan {
      * correctness for those designs.
      */
     private static void extendThroughBoundedAir(Blueprint b,BitSet interior,BitSet sealedOpenings){
-        if(interior.isEmpty())return;
         int plane=b.width*b.length,volume=plane*b.height;
         BitSet betweenX=new BitSet(volume),betweenZ=new BitSet(volume);
         BitSet betweenY=new BitSet(volume);
@@ -561,7 +560,30 @@ public final class InteriorHollowPlan {
         // The edge of a room may contain a real DOORWAY. Its schematic AIR
         // opens to the outside, so it must not be excavated by this bridge.
         candidates.andNot(sealedOpenings);
+
+        // Six-face geometric cavity: no wall material classifier or
+        // pre-existing room seed is needed to prove this voxel belongs to
+        // a fully enclosed interior. Check east/west, north/south AND
+        // floor/ceiling, all at the actual voxel coordinates. This includes
+        // redstone, flower pots, fences, top slabs, dripstone and ANY other
+        // retained schematic block as a valid enclosing face.
+        BitSet allThree=(BitSet)betweenX.clone();
+        allThree.and(betweenZ);
+        allThree.and(betweenY);
+        allThree.andNot(sealedOpenings);
+        for(int i=allThree.nextSetBit(0);i>=0;i=allThree.nextSetBit(i+1)){
+            int x=i%b.width,z=(i/b.width)%b.length,y=i/plane;
+            if(x==0||x+1>=b.width||z==0||z+1>=b.length||
+               y==0||y+1>=b.height)continue;
+            if(!b.isAir(x-1,y,z)&&!b.isAir(x+1,y,z)&&
+               !b.isAir(x,y,z-1)&&!b.isAir(x,y,z+1)&&
+               !b.isAir(x,y-1,z)&&!b.isAir(x,y+1,z)){
+                interior.set(i);
+                candidates.clear(i);
+            }
+        }
         if(candidates.isEmpty())return;
+        if(interior.isEmpty())return;
         // A 6-connected expansion through bounded cells, never through
         // exterior AIR. Each voxel enters the queue at most once.
         int[] queue=new int[volume];

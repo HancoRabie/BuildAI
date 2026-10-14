@@ -30,79 +30,82 @@ public final class SupplyLedger {
     public boolean isEmpty(){return entries.isEmpty();}
     public int pending(){return entries.size();}
 
-    private static boolean insert(List<ItemStack> slots,Inventory inv,int preferred,ItemStack template){
-        int left=template.getCount();
-        if(preferred>=0&&preferred<slots.size()){
-            ItemStack existing=slots.get(preferred);
-            if(!existing.isEmpty()&&ItemStack.areItemsAndComponentsEqual(existing,template)
-                &&inv.isValid(preferred,template)){
-                int take=Math.min(left,existing.getMaxCount()-existing.getCount());
-                if(take>0){existing.increment(take);left-=take;}
-            }else if(existing.isEmpty()&&inv.isValid(preferred,template)){
-                int take=Math.min(left,template.getMaxCount());
-                slots.set(preferred,template.copyWithCount(take));left-=take;
-            }
+
+    private static final class ItemTypes{
+        final List<ItemStack> templates=new ArrayList<>();
+        ItemTypes(){templates.add(ItemStack.EMPTY);}
+        int id(ItemStack stack){
+            if(stack.isEmpty())return 0;
+            for(int i=1;i<templates.size();i++)
+                if(ItemStack.areItemsAndComponentsEqual(templates.get(i),stack))return i;
+            templates.add(stack.copyWithCount(1));
+            return templates.size()-1;
         }
-        for(int i=0;i<slots.size()&&left>0;i++){
-            ItemStack existing=slots.get(i);
-            if(existing.isEmpty()||!ItemStack.areItemsAndComponentsEqual(existing,template)||
-                !inv.isValid(i,template))continue;
-            int take=Math.min(left,existing.getMaxCount()-existing.getCount());
-            if(take>0){existing.increment(take);left-=take;}
+        ItemStack stack(int id,int amount){
+            return id==0?ItemStack.EMPTY:templates.get(id).copyWithCount(amount);
         }
-        for(int i=0;i<slots.size()&&left>0;i++){
-            if(!slots.get(i).isEmpty()||!inv.isValid(i,template))continue;
-            int take=Math.min(left,template.getMaxCount());
-            slots.set(i,template.copyWithCount(take));left-=take;
-        }
-        return left==0;
-    }
-    private static boolean reclaimBucket(List<ItemStack> slots,int preferred){
-        if(preferred>=0&&preferred<slots.size()&&slots.get(preferred).isOf(Items.BUCKET)){
-            slots.get(preferred).decrement(1);return true;
-        }
-        for(ItemStack stack:slots)if(!stack.isEmpty()&&stack.isOf(Items.BUCKET)){
-            stack.decrement(1);return true;
-        }
-        return false;
     }
 
     /**
-     * Simulate all refunds before changing any inventory. Water/lava buckets
-     * require their EMPTY counterparts returned to the original supply chest:
-     * otherwise undo would duplicate a bucket the player took away.
+     * PLAN every original source chest first, then commit all or none. Only
+     * exact item+component matches stack together. The pure slot planner is
+     * independently unit-tested without Minecraft registry initialization.
      */
     public Refund refund(Function<BlockPos,Inventory> source){
         Objects.requireNonNull(source);
         if(entries.isEmpty())return new Refund(true,0,"No consumed supplies");
         Map<BlockPos,Inventory> containers=new LinkedHashMap<>();
-        Map<BlockPos,List<ItemStack>> proposed=new LinkedHashMap<>();
+        Map<BlockPos,List<RefundSlotPlanner.Slot>> originals=new LinkedHashMap<>();
+        Map<BlockPos,List<RefundSlotPlanner.Receipt>> receipts=new LinkedHashMap<>();
+        ItemTypes types=new ItemTypes();
+        int emptyBucket=types.id(new ItemStack(Items.BUCKET));
         for(Entry e:entries){
-            if(proposed.containsKey(e.chest()))continue;
-            Inventory inv=source.apply(e.chest());
-            if(inv==null)return new Refund(false,0,
-                "Restore the original BuildAI supply chest at "+e.chest().toShortString());
-            List<ItemStack> copy=new ArrayList<>(inv.size());
-            for(int i=0;i<inv.size();i++)copy.add(inv.getStack(i).copy());
-            proposed.put(e.chest(),copy);containers.put(e.chest(),inv);
+            if(!containers.containsKey(e.chest())){
+                Inventory inv=source.apply(e.chest());
+                if(inv==null)return new Refund(false,0,"Original BuildAI supply chest missing at "+
+                    e.chest().toShortString());
+                containers.put(e.chest(),inv);
+                List<RefundSlotPlanner.Slot> slots=new ArrayList<>(inv.size());
+                for(int i=0;i<inv.size();i++){
+                    ItemStack stack=inv.getStack(i);
+                    slots.add(stack.isEmpty()?RefundSlotPlanner.Slot.empty():
+                        new RefundSlotPlanner.Slot(types.id(stack),stack.getCount(),
+                        Math.min(stack.getMaxCount(),inv.getMaxCountPerStack())));
+                }
+                originals.put(e.chest(),slots);
+                receipts.put(e.chest(),new ArrayList<>());
+            }
+            Inventory inv=containers.get(e.chest());
+            receipts.get(e.chest()).add(new RefundSlotPlanner.Receipt(
+                e.slot(),types.id(e.stack()),1,
+                Math.min(e.stack().getMaxCount(),inv.getMaxCountPerStack()),
+                e.bucketExchange()));
         }
-        for(Entry e:entries){
-            List<ItemStack> slots=proposed.get(e.chest());
-            if(e.bucketExchange()&&!reclaimBucket(slots,e.slot()))
-                return new Refund(false,0,"Return an empty bucket to original BuildAI chest "+
-                    e.chest().toShortString()+" to reverse a fluid supply exchange");
-            if(!insert(slots,containers.get(e.chest()),e.slot(),e.stack()))
-                return new Refund(false,0,"Not enough free space in original BuildAI chest "+
-                    e.chest().toShortString()+". Clear space to complete the refund");
+        Map<BlockPos,List<RefundSlotPlanner.Slot>> planned=new LinkedHashMap<>();
+        for(var group:containers.entrySet()){
+            BlockPos chest=group.getKey();
+            Inventory inv=group.getValue();
+            RefundSlotPlanner.Result plan=RefundSlotPlanner.plan(
+                originals.get(chest),receipts.get(chest),emptyBucket,
+                (slot,itemId)->inv.isValid(slot,types.templates.get(itemId)));
+            if(!plan.valid())return new Refund(false,0,
+                "BuildAI chest "+chest.toShortString()+": "+plan.failure()+
+                ". Refund remains pending until you restore its contents or capacity");
+            planned.put(chest,plan.slots());
         }
-        for(var group:proposed.entrySet()){
+        // No inventory is changed until EVERY chest passed its simulation.
+        for(var group:planned.entrySet()){
             Inventory inv=containers.get(group.getKey());
-            for(int i=0;i<group.getValue().size();i++)
-                inv.setStack(i,group.getValue().get(i));
+            List<RefundSlotPlanner.Slot> slots=group.getValue();
+            for(int i=0;i<slots.size();i++){
+                RefundSlotPlanner.Slot slot=slots.get(i);
+                inv.setStack(i,types.stack(slot.type(),slot.count()));
+            }
             inv.markDirty();
         }
-        int count=entries.size();entries.clear();
-        return new Refund(true,count,"Refunded "+count+
-            " consumed item(s) to their original BuildAI supply chests");
+        int count=entries.size();
+        entries.clear();
+        return new Refund(true,count,"Returned "+count+
+            " consumed items to their ORIGINAL BuildAI source chests");
     }
 }

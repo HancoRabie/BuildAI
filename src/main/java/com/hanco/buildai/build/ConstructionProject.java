@@ -16,7 +16,7 @@ import net.minecraft.util.math.*;
  * This first version deliberately refuses excavating block entities and bedrock.
  */
 public final class ConstructionProject {
-    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, WAITING_COMMAND_APPROVAL, COMMISSION, CINEMATIC_PULL, COMPLETE, CANCELLED, ROLLBACK_CHECK, ROLLBACK, PAUSED_ERROR }
+    public enum Phase { SELECT_XZ, SELECT_SURFACE, REVIEW, EXCAVATE, BUILD, WAITING_SUPPLIES, CLEANUP, NORMALIZE, WAITING_COMMAND_APPROVAL, COMMISSION, CINEMATIC_PULL, COMPLETE, CANCELLED, ROLLBACK_CHECK, ROLLBACK, ROLLBACK_REFUND, PAUSED_ERROR }
     public Blueprint blueprint;
     private final Blueprint sourceBlueprint;
     private int rotation=0;
@@ -86,6 +86,9 @@ public final class ConstructionProject {
     private static final int BLACK_HOLE_TICKS=80;
     private java.util.Iterator<BlockPos> cleanupIterator;
     private final Map<String,Integer> consumed=new TreeMap<>();
+    private final SupplyLedger supplyLedger=new SupplyLedger();
+    private String refundHoldReason="";
+    private int refundedSupplies=0;
     private final Map<String,String> substitutions=new LinkedHashMap<>();
     private final List<BlockPos> supplies=new ArrayList<>();
     private final Set<BlockPos> linkedChests=new LinkedHashSet<>();
@@ -384,6 +387,13 @@ public final class ConstructionProject {
                         List.copyOf(excavationSampleIds):List.of(),duration));
         }
     }
+    private void finishRollback(){
+        rollbackFinished=true;
+        phase=Phase.CANCELLED;
+        modified.clear();originals.clear();rollbackOrder=List.of();
+        hasSnapshot=false;
+        consumed.clear();
+    }
     private void recordOriginal(BlockPos position) {
         BlockPos key=position.toImmutable();
         BlockState previous=world.getBlockState(position);
@@ -482,11 +492,27 @@ public final class ConstructionProject {
                 rollbackIndex++;
             }
             if(rollbackIndex>=rollbackOrder.size()){
-                rollbackFinished=true;
-                phase=Phase.CANCELLED;
-                modified.clear();originals.clear();rollbackOrder=List.of();
-                hasSnapshot=false;
+                // The physical world is restored before a supply refund.
+                // The receipt is NOT erased until all original chests have
+                // room for their complete, exact-source refund.
+                if(!creative&&!supplyLedger.isEmpty()){
+                    phase=Phase.ROLLBACK_REFUND;
+                }else finishRollback();
             }
+            return;
+        }
+        if(phase==Phase.ROLLBACK_REFUND){
+            if(world.getTime()%20!=0)return;
+            SupplyLedger.Refund result=supplyLedger.refund(pos->
+                world.isChunkLoaded(pos)&&
+                world.getBlockEntity(pos) instanceof Inventory inv ? inv:null);
+            if(!result.success()){
+                refundHoldReason=result.message();
+                return;
+            }
+            refundedSupplies+=result.returned();
+            refundHoldReason="";
+            finishRollback();
             return;
         }
         if(phase==Phase.CINEMATIC_PULL){
@@ -893,10 +919,14 @@ public final class ConstructionProject {
                 commandCount()+" command scripts; unapproved blocks remain inert";
             case ROLLBACK_CHECK->"Undo safety scan: checking "+rollbackCheckIndex+"/"+rollbackOrder.size()+" affected positions";
             case ROLLBACK->"Restoring original block states: "+rollbackIndex+"/"+rollbackOrder.size();
+            case ROLLBACK_REFUND->"World restored. Returning "+supplyLedger.pending()+
+                " consumed items to original BuildAI chests"+
+                (refundHoldReason.isBlank()?"":": "+refundHoldReason);
             case COMPLETE->"Construction complete";
             case PAUSED_ERROR->"Construction paused due to a safety issue";
             case CANCELLED->rollbackFinished
-                ?"Undo finished: original block states restored; supplies not refunded"
+                ?"Undo complete: original world blocks restored; "+refundedSupplies+
+                    " Survival supplies returned to source chests"
                 :"Project cancelled";
             case REVIEW->"Placement locked; awaiting confirmation";
             default->"Positioning blueprint";
@@ -912,8 +942,12 @@ public final class ConstructionProject {
             String value=effective(local);
             if(BuildFluidRules.isWater(value)){water++;continue;}
             if(BuildFluidRules.isLava(value)){lava++;continue;}
-            if(!blueprint.secondHalf(value) && !CommandBlockPlan.isCommandBlock(value))
-                result.merge(Blueprint.id(value),1,Integer::sum);
+            if(!blueprint.secondHalf(value)&&!CommandBlockPlan.isCommandBlock(value)){
+                Item item=BlockStates.parse(value).getBlock().asItem();
+                String key=item==Items.AIR?Blueprint.id(value):
+                    Registries.ITEM.getId(item).toString();
+                result.merge(key,1,Integer::sum);
+            }
         }
         if(water>0)result.merge("minecraft:water_bucket",
             BuildFluidRules.requiredWaterBuckets(water),Integer::sum);
@@ -957,8 +991,10 @@ public final class ConstructionProject {
                 if(stack.getCount()!=1)
                     throw new IllegalStateException("Fluid bucket stack has invalid count at "+
                         chest.toShortString());
+                ItemStack receipt=stack.copyWithCount(1);
                 inv.setStack(i,new ItemStack(Items.BUCKET));
                 inv.markDirty();
+                supplyLedger.record(chest,i,receipt,true);
                 consumed.merge(Registries.ITEM.getId(fluidItem).toString(),1,Integer::sum);
                 return true;
             }
@@ -973,7 +1009,10 @@ public final class ConstructionProject {
             for(int i=0;i<inv.size();i++) {
                 ItemStack stack=inv.getStack(i);
                 if(stack.isOf(item)&&!stack.isEmpty()) {
-                    inv.removeStack(i,1);inv.markDirty();return true;
+                    ItemStack receipt=stack.copyWithCount(1);
+                    inv.removeStack(i,1);inv.markDirty();
+                    supplyLedger.record(chest,i,receipt,false);
+                    return true;
                 }
             }
         }
@@ -1075,7 +1114,8 @@ public final class ConstructionProject {
      * cancellation; no state is claimed restored until ROLLBACK actually ends.
      */
     public int requestUndo(boolean override) {
-        if(phase==Phase.ROLLBACK||phase==Phase.ROLLBACK_CHECK)
+        if(phase==Phase.ROLLBACK||phase==Phase.ROLLBACK_CHECK||
+            phase==Phase.ROLLBACK_REFUND)
             throw new IllegalStateException("Undo already in progress: "+phaseDescription());
         if(!hasSnapshot||modified.isEmpty())
             throw new IllegalStateException("No in-memory construction changes to undo. "+
@@ -1086,6 +1126,7 @@ public final class ConstructionProject {
         rollbackOrder.sort(Comparator.comparingInt(BlockPos::getY)
             .thenComparingInt(BlockPos::getZ).thenComparingInt(BlockPos::getX).reversed());
         rollbackOverride=override;rollbackFinished=false;
+        refundedSupplies=0;refundHoldReason="";
         rollbackIndex=0;rollbackCheckIndex=0;
         phase=Phase.ROLLBACK_CHECK;
         return rollbackOrder.size();
@@ -1093,7 +1134,8 @@ public final class ConstructionProject {
 
     public void cancel(boolean undo) {
         if(undo){requestUndo(false);return;}
-        if(phase==Phase.ROLLBACK||phase==Phase.ROLLBACK_CHECK)
+        if(phase==Phase.ROLLBACK||phase==Phase.ROLLBACK_CHECK||
+            phase==Phase.ROLLBACK_REFUND)
             throw new IllegalStateException("Undo is in progress; wait for rollback to finish");
         disarmCommands();
         excavationCue(com.hanco.buildai.net.CinematicExcavationPayload.STOP,0);

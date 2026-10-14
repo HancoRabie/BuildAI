@@ -274,6 +274,8 @@ public final class InteriorHollowPlan {
         int[] queue=new int[cells];
         BitSet boundary=new BitSet(cells);
         BitSet outside=new BitSet(cells);
+        // AIR in wall doorway openings is intentionally NOT indoor volume.
+        BitSet sealedOpenings=new BitSet(cells*b.height);
         for(int y=0;y<b.height;y++){
             boundary.clear();
             outside.clear();
@@ -301,7 +303,11 @@ public final class InteriorHollowPlan {
                     if(!empty)continue;
                     if(!original.get(columnIndex(b,x-1,z))||
                        !original.get(columnIndex(b,x+gap+1,z)))continue;
-                    for(int k=0;k<gap;k++)boundary.set(columnIndex(b,x+k,z));
+                    for(int k=0;k<gap;k++){
+                        boundary.set(columnIndex(b,x+k,z));
+                        if(b.isAir(x+k,y,z))
+                            sealedOpenings.set(b.index(x+k,y,z));
+                    }
                     break;
                 }
             }
@@ -315,7 +321,11 @@ public final class InteriorHollowPlan {
                     if(!empty)continue;
                     if(!original.get(columnIndex(b,x,z-1))||
                        !original.get(columnIndex(b,x,z+gap+1)))continue;
-                    for(int k=0;k<gap;k++)boundary.set(columnIndex(b,x,z+k));
+                    for(int k=0;k<gap;k++){
+                        boundary.set(columnIndex(b,x,z+k));
+                        if(b.isAir(x,y,z+k))
+                            sealedOpenings.set(b.index(x,y,z+k));
+                    }
                     break;
                 }
             }
@@ -406,7 +416,7 @@ public final class InteriorHollowPlan {
         // schematic block counts as an obstacle/anchor, never just stone.
         // Extend validated interiors through AIR bounded by the schematic
         // in two axes, without flooding into unconstrained outdoor air.
-        extendThroughBoundedAir(b,selected);
+        extendThroughBoundedAir(b,selected,sealedOpenings);
         return selected;
     }
 
@@ -479,7 +489,7 @@ public final class InteriorHollowPlan {
      * inherent geometric ambiguity, so a real schematic is needed to prove
      * correctness for those designs.
      */
-    private static void extendThroughBoundedAir(Blueprint b,BitSet interior){
+    private static void extendThroughBoundedAir(Blueprint b,BitSet interior,BitSet sealedOpenings){
         if(interior.isEmpty())return;
         int plane=b.width*b.length,volume=plane*b.height;
         BitSet betweenX=new BitSet(volume),betweenZ=new BitSet(volume);
@@ -527,6 +537,9 @@ public final class InteriorHollowPlan {
         floorCeiling.and(betweenY);
         candidates.or(floorCeiling);
         candidates.andNot(interior);
+        // The edge of a room may contain a real DOORWAY. Its schematic AIR
+        // opens to the outside, so it must not be excavated by this bridge.
+        candidates.andNot(sealedOpenings);
         if(candidates.isEmpty())return;
         // A 6-connected expansion through bounded cells, never through
         // exterior AIR. Each voxel enters the queue at most once.
@@ -534,12 +547,16 @@ public final class InteriorHollowPlan {
         int head=0,tail=0;
         for(int i=interior.nextSetBit(0);i>=0;i=interior.nextSetBit(i+1))
             queue[tail++]=i;
+        int[] adjacent=new int[6];
         while(head<tail){
             int i=queue[head++],x=i%b.width,z=(i/b.width)%b.length;
-            int[] adj={x>0?i-1:-1,x+1<b.width?i+1:-1,
-                z>0?i-b.width:-1,z+1<b.length?i+b.width:-1,
-                i>=plane?i-plane:-1,i+plane<volume?i+plane:-1};
-            for(int n:adj){
+            adjacent[0]=x>0?i-1:-1;
+            adjacent[1]=x+1<b.width?i+1:-1;
+            adjacent[2]=z>0?i-b.width:-1;
+            adjacent[3]=z+1<b.length?i+b.width:-1;
+            adjacent[4]=i>=plane?i-plane:-1;
+            adjacent[5]=i+plane<volume?i+plane:-1;
+            for(int n:adjacent){
                 if(n<0||!candidates.get(n))continue;
                 candidates.clear(n);
                 interior.set(n);

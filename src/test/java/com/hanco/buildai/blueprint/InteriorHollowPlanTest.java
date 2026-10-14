@@ -310,4 +310,41 @@ public class InteriorHollowPlanTest {
             "Thick podium exterior must not become a fake enclosed interior");
     }
 
+
+    @Test void curvedOpposingWallsClearTheirInteriorButNotTheJungleOutside(){
+        Blueprint b=new Blueprint("Zigzag temple passage",22,9,22);
+        for(int y=1;y<=6;y++)for(int z=2;z<=19;z++){
+            int offset=z/4;
+            b.set(3+offset,y,z,"minecraft:mossy_stone_bricks");
+            b.set(13+offset,y,z,"minecraft:chiseled_stone_bricks");
+        }
+        BitSet mask=InteriorHollowPlan.enclosedAir(b);
+        assertTrue(mask.get(b.index(8,3,7)),
+            "Schematic AIR between shifted wall pairs must be enforced");
+        assertTrue(mask.get(b.index(10,3,15)),
+            "The deeper hallway must not leave world dirt");
+        assertFalse(mask.get(b.index(1,3,10)),
+            "Exterior jungle outside left wall stays intact");
+        assertFalse(mask.get(b.index(20,3,10)),
+            "Exterior jungle outside right wall stays intact");
+        assertFalse(mask.get(b.index(8,8,7)),
+            "Above the highest walls is outdoor air");
+    }
+
+    @Test void interiorComparisonNeverClearsSchematicLeavesAndDirt(){
+        Blueprint b=new Blueprint("Decorated hall",18,8,18);
+        for(int y=1;y<=6;y++)for(int z=2;z<=15;z++){
+            b.set(3,y,z,"minecraft:stone_bricks");
+            b.set(14,y,z,"minecraft:stone_bricks");
+        }
+        b.set(8,3,8,"minecraft:oak_leaves");
+        b.set(9,2,8,"minecraft:dirt");
+        BitSet mask=InteriorHollowPlan.enclosedAir(b);
+        assertTrue(mask.get(b.index(7,3,8)),
+            "Unspecified position between walls must be designated AIR");
+        assertFalse(mask.get(b.index(8,3,8)),
+            "Do not erase leaves explicitly present in the schematic");
+        assertFalse(mask.get(b.index(9,2,8)),
+            "Do not erase dirt explicitly present in the schematic");
+    }
 }

@@ -39,8 +39,7 @@ public final class ConstructionManager {
                         net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(
                             owner,com.hanco.buildai.net.CommandReviewPayload.of(project));
                     }
-                    if(last!=project.phase && (project.phase==ConstructionProject.Phase.FOUNDATION_CLEAR||
-                         project.phase==ConstructionProject.Phase.EXCAVATE||
+                    if(last!=project.phase && (project.phase==ConstructionProject.Phase.EXCAVATE||
                         project.phase==ConstructionProject.Phase.CINEMATIC_PULL||
                         project.phase==ConstructionProject.Phase.BUILD||
                         project.phase==ConstructionProject.Phase.WAITING_SUPPLIES||

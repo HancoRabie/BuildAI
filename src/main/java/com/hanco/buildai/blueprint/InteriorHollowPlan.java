@@ -251,72 +251,173 @@ public final class InteriorHollowPlan {
     }
 
     /**
-     * Pair nearest opposing wall COLUMNS in the plan view. For a cell to
-     * clear, it must be inside a bounded room (X and Z wall pairs), or in
-     * a corridor between two CONTINUOUS parallel walls.
+     * Build the interior AIR write-set for hollow:yes. This is an EXPLICIT
+     * construction contract: the world must be AIR at each selected position,
+     * regardless of whether it currently contains dirt, logs or leaves.
      *
-     * Wall pairs must span that cell's height (using the standing wall
-     * column, not an exact same-Y material lookup). Final blueprint
-     * non-air positions are never cleared.
+     * At each standing-wall elevation:
+     *   1. Identify room interiors by flood-filling the PLAN from outside.
+     *      Seal only small, verified gaps between continuous wall segments
+     *      (doors); never flood out of a doorway into the jungle.
+     *   2. Separately accept sustained paired-wall corridors with open ends.
+     *      Their longitudinal extent MUST stop where both walls stop.
+     *   3. Only select actual blueprint AIR, never furniture/wiring/walls.
+     *
+     * An exposed roof/terrace is not a room merely because its border is tall:
+     * walls need an inward-facing opening and a continuing wall run.
      */
     public static BitSet enclosedAir(Blueprint b){
         BitSet selected=new BitSet(b.width*b.length*b.height);
         if(b.width<4||b.length<4||b.height<2)return selected;
         WallColumns w=analyze(b);
-        int columns=b.width*b.length;
-        boolean[] xBound=new boolean[columns],xCorridor=new boolean[columns];
-        int[] xLeft=new int[columns],xRight=new int[columns];
+        int cells=b.width*b.length;
+        int[] queue=new int[cells];
+        BitSet boundary=new BitSet(cells);
+        BitSet outside=new BitSet(cells);
         for(int y=0;y<b.height;y++){
-            java.util.Arrays.fill(xBound,false);
-            java.util.Arrays.fill(xCorridor,false);
-            java.util.Arrays.fill(xLeft,-1);
-            java.util.Arrays.fill(xRight,-1);
-            for(int z=0;z<b.length;z++){
-                int left=-1;
-                int[] last=new int[b.width];
-                for(int x=0;x<b.width;x++){
-                    if(w.spans(b,x,z,y))left=x;
-                    last[x]=left;
-                }
-                int right=-1;
-                for(int x=b.width-1;x>=0;x--){
-                    if(w.spans(b,x,z,y))right=x;
-                    if(!b.isAir(x,y,z))continue;
-                    int l=last[x],p=columnIndex(b,x,z);
-                    if(between(l,right,x)&&face(b,w,l,z,EAST)&&
-                       face(b,w,right,z,WEST)){
-                        xBound[p]=true;
-                        xLeft[p]=l;xRight[p]=right;
-                        xCorridor[p]=corridorAlongZ(b,w,l,right,z,y);
-                    }
+            boundary.clear();
+            outside.clear();
+            // Standing walls with an inward face form our room perimeter.
+            // Never interpret the exposed *outer* face of a solid platform
+            // as a boundary enclosing the platform itself.
+            for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
+                if(!w.spans(b,x,z,y))continue;
+                int p=columnIndex(b,x,z);
+                if((runX(b,w,x,z)>=2||runZ(b,w,x,z)>=2)&&
+                   faceAtHeight(b,w,x,z,y))
+                    boundary.set(p);
+            }
+            // Seal doorway-sized gaps only if they are within an actual
+            // continuous wall run. This affects classification alone;
+            // door AIR remains open in the constructed world.
+            BitSet original=(BitSet)boundary.clone();
+            for(int z=0;z<b.length;z++)for(int x=1;x<b.width-1;x++){
+                if(original.get(columnIndex(b,x,z)))continue;
+                for(int gap=1;gap<=2&&x+gap<b.width-1;gap++){
+                    if(!original.get(columnIndex(b,x+gap+1,z)))continue;
+                    boolean empty=true;
+                    for(int k=0;k<gap;k++)
+                        if(original.get(columnIndex(b,x+k,z)))empty=false;
+                    if(!empty)continue;
+                    if(!original.get(columnIndex(b,x-1,z))||
+                       !original.get(columnIndex(b,x+gap+2,z)))continue;
+                    for(int k=0;k<gap;k++)boundary.set(columnIndex(b,x+k,z));
+                    break;
                 }
             }
-            for(int x=0;x<b.width;x++){
-                int front=-1;
-                int[] last=new int[b.length];
-                for(int z=0;z<b.length;z++){
-                    if(w.spans(b,x,z,y))front=z;
-                    last[z]=front;
+            for(int x=0;x<b.width;x++)for(int z=1;z<b.length-1;z++){
+                if(original.get(columnIndex(b,x,z)))continue;
+                for(int gap=1;gap<=2&&z+gap<b.length-1;gap++){
+                    if(!original.get(columnIndex(b,x,z+gap+1)))continue;
+                    boolean empty=true;
+                    for(int k=0;k<gap;k++)
+                        if(original.get(columnIndex(b,x,z+k)))empty=false;
+                    if(!empty)continue;
+                    if(!original.get(columnIndex(b,x,z-1))||
+                       !original.get(columnIndex(b,x,z+gap+2)))continue;
+                    for(int k=0;k<gap;k++)boundary.set(columnIndex(b,x,z+k));
+                    break;
                 }
-                int back=-1;
-                for(int z=b.length-1;z>=0;z--){
-                    if(w.spans(b,x,z,y))back=z;
-                    if(!b.isAir(x,y,z))continue;
-                    int f=last[z],p=columnIndex(b,x,z);
-                    boolean zBound=between(f,back,z)&&
-                        face(b,w,x,f,SOUTH)&&face(b,w,x,back,NORTH);
-                    // The two-axis room rule requires its boundaries to
-                    // have LATERAL wall continuity, avoiding isolated posts.
-                    boolean room=xBound[p]&&zBound&&
-                        runZ(b,w,xLeft[p],z)>=2&&
-                        runZ(b,w,xRight[p],z)>=2&&
-                        runX(b,w,x,f)>=2&&runX(b,w,x,back)>=2;
-                    boolean corridor=xCorridor[p]||
-                        (zBound&&corridorAlongX(b,w,f,back,x,y));
-                    if(room||corridor)selected.set(b.index(x,y,z));
+            }
+            // Iterative BFS, bounded to a single slice. No recursion and no
+            // 4-million-cell queue; safe for the full blueprint volume cap.
+            int head=0,tail=0;
+            for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
+                if(x!=0&&z!=0&&x!=b.width-1&&z!=b.length-1)continue;
+                int p=columnIndex(b,x,z);
+                if(!boundary.get(p)&&!outside.get(p)){
+                    outside.set(p);queue[tail++]=p;
+                }
+            }
+            while(head<tail){
+                int p=queue[head++],x=p%b.width,z=p/b.width;
+                if(x>0&& !boundary.get(p-1)&&!outside.get(p-1)){
+                    outside.set(p-1);queue[tail++]=p-1;
+                }
+                if(x+1<b.width&&!boundary.get(p+1)&&!outside.get(p+1)){
+                    outside.set(p+1);queue[tail++]=p+1;
+                }
+                if(z>0&&!boundary.get(p-b.width)&&!outside.get(p-b.width)){
+                    outside.set(p-b.width);queue[tail++]=p-b.width;
+                }
+                if(z+1<b.length&&!boundary.get(p+b.width)&&!outside.get(p+b.width)){
+                    outside.set(p+b.width);queue[tail++]=p+b.width;
+                }
+            }
+            // True enclosed planar rooms (including interior turns/alcoves)
+            // and roofless rooms are selected if blueprint specifies AIR.
+            for(int z=0;z<b.length;z++)for(int x=0;x<b.width;x++){
+                int p=columnIndex(b,x,z);
+                if(!boundary.get(p)&&!outside.get(p)&&b.isAir(x,y,z))
+                    selected.set(b.index(x,y,z));
+            }
+            // Open-ended tunnels cannot be found by exterior flood-fill.
+            // Require continuously facing, paired standing sidewalls at this
+            // elevation, and don't clear beyond either end of the walls.
+            for(int z=1;z<b.length-1;z++){
+                int left=-1;
+                for(int x=1;x<b.width-1;x++){
+                    if(boundary.get(columnIndex(b,x,z))&&
+                       w.spans(b,x,z,y)&&
+                       faceAtHeight(b,w,x,z,y,EAST)){
+                        left=x;
+                        continue;
+                    }
+                    if(left<0||!w.spans(b,x,z,y)||
+                       !faceAtHeight(b,w,x,z,y,WEST))continue;
+                    int right=x;
+                    if(!between(left,right,left+1)||
+                       runZ(b,w,left,z)<MIN_CORRIDOR_RUN||
+                       runZ(b,w,right,z)<MIN_CORRIDOR_RUN||
+                       !w.spans(b,left,z-1,y)||!w.spans(b,right,z-1,y)||
+                       !w.spans(b,left,z+1,y)||!w.spans(b,right,z+1,y))
+                        continue;
+                    for(int xx=left+1;xx<right;xx++)
+                        if(b.isAir(xx,y,z))selected.set(b.index(xx,y,z));
+                }
+            }
+            for(int x=1;x<b.width-1;x++){
+                int front=-1;
+                for(int z=1;z<b.length-1;z++){
+                    if(boundary.get(columnIndex(b,x,z))&&
+                       w.spans(b,x,z,y)&&
+                       faceAtHeight(b,w,x,z,y,SOUTH)){
+                        front=z;
+                        continue;
+                    }
+                    if(front<0||!w.spans(b,x,z,y)||
+                       !faceAtHeight(b,w,x,z,y,NORTH))continue;
+                    int back=z;
+                    if(!between(front,back,front+1)||
+                       runX(b,w,x,front)<MIN_CORRIDOR_RUN||
+                       runX(b,w,x,back)<MIN_CORRIDOR_RUN||
+                       !w.spans(b,x-1,front,y)||!w.spans(b,x-1,back,y)||
+                       !w.spans(b,x+1,front,y)||!w.spans(b,x+1,back,y))
+                        continue;
+                    for(int zz=front+1;zz<back;zz++)
+                        if(b.isAir(x,y,zz))selected.set(b.index(x,y,zz));
                 }
             }
         }
         return selected;
+    }
+
+    // A wall can have a one-layer decorative recess, but must exhibit a
+    // real inward AIR-facing side at approximately this Y. The previous
+    // algorithm ORed faces across ALL floors, misclassifying outside space.
+    private static boolean faceAtHeight(Blueprint b,WallColumns w,int x,int z,int y){
+        return faceAtHeight(b,w,x,z,y,EAST)||
+            faceAtHeight(b,w,x,z,y,WEST)||
+            faceAtHeight(b,w,x,z,y,SOUTH)||
+            faceAtHeight(b,w,x,z,y,NORTH);
+    }
+    private static boolean faceAtHeight(Blueprint b,WallColumns w,int x,int z,int y,int direction){
+        if(!w.spans(b,x,z,y)||!face(b,w,x,z,direction))return false;
+        int dx=direction==EAST?1:direction==WEST?-1:0;
+        int dz=direction==SOUTH?1:direction==NORTH?-1:0;
+        if(!in2d(b,x+dx,z+dz))return false;
+        for(int yy=Math.max(0,y-1);yy<=Math.min(b.height-1,y+1);yy++)
+            if(structural(b,x,yy,z)&&b.isAir(x+dx,yy,z+dz))return true;
+        return false;
     }
 }

@@ -19,9 +19,30 @@ public class ConstructionOptionsTest {
             ConstructionOptions.parse("excavate:no foundation:no"));
         assertEquals(new ConstructionOptions(true,false),
             ConstructionOptions.parse("excavate:no"));
-        assertEquals(new ConstructionOptions(false,true),
+        assertEquals(new ConstructionOptions(false,false),
             ConstructionOptions.parse("foundation:no"));
+        assertEquals(new ConstructionOptions(false,true),
+            ConstructionOptions.parse("foundation:no excavate:yes"),
+            "Full world excavation requires explicit opt-in when omitting foundation");
     }
+    @Test void sanitizeFoundationIsNotAnExcavationRequest(){
+        var onlyFoundation=ConstructionOptions.parse("foundation:no");
+        assertFalse(onlyFoundation.foundation());
+        assertFalse(onlyFoundation.excavate(),
+            "foundation:no NEVER turns on full world excavation by default");
+        assertFalse(onlyFoundation.hollow(),
+            "No interior excavation without explicit hollow:yes");
+        var overlay=ConstructionOptions.parse("foundation:no excavate:no");
+        assertFalse(overlay.excavate());
+        assertFalse(overlay.hollow());
+        var chosenHollow=ConstructionOptions.parse("foundation:no excavate:no hollow:yes");
+        assertFalse(chosenHollow.excavate());
+        assertTrue(chosenHollow.hollow(),
+            "Hollowing is the separately requested interior-terrain edit");
+        var explicitFull=ConstructionOptions.parse("foundation:no excavate:yes");
+        assertTrue(explicitFull.excavate(),"Player can still explicitly request full clearing");
+    }
+
     @Test void rejectsUnsafeTyposAndDuplicates(){
         for(String bad:new String[]{"foundation:maybe","excavate:false",
             "force:yes","foundation:no foundation:yes","foundation:",

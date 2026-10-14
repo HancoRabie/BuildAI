@@ -59,6 +59,25 @@ public final class Blueprint {
         states[index(x,y,z)] = Objects.requireNonNull(state);
     }
     public static String id(String state) { return state.split("\\[",2)[0]; }
+    /**
+     * Classification-only representation of the structure AFTER foundation
+     * omissions. These positions must not masquerade as architectural
+     * walls, floors, or ceilings while deriving interior AIR. Never mutate
+     * the source blueprint: the real build and audit still use its exact
+     * original block states.
+     */
+    Blueprint withoutBlocks(Set<Integer> omitted){
+        if(omitted==null||omitted.isEmpty())return this;
+        Blueprint effective=new Blueprint(name,width,height,length);
+        System.arraycopy(states,0,effective.states,0,states.length);
+        for(int index:omitted){
+            if(index<0||index>=states.length)
+                throw new IllegalArgumentException("Foundation omission outside blueprint: "+index);
+            effective.states[index]="minecraft:air";
+        }
+        return effective;
+    }
+
     public boolean isAir(int x,int y,int z) {
         String id=id(get(x,y,z));
         return id.equals("minecraft:air")||id.equals("minecraft:cave_air")||id.equals("minecraft:void_air");

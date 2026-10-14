@@ -313,8 +313,9 @@ public class ConstructionOptionsTest {
             int i=z*10+x;
             b.set(x,0,z,i<50?"minecraft:stone":"minecraft:grass_block");
         }
-        for(int z=3;z<8;z++)for(int x=4;x<6;x++)
+        for(int z=5;z<=7;z++)for(int x=3;x<=5;x++)
             b.set(x,0,z,"minecraft:air");
+        b.set(4,0,8,"minecraft:air");
         var scan=FoundationPlan.analyze(b,Set.of());
         assertEquals(0,scan.qualifyingLayers());
         assertTrue(scan.omissions().isEmpty());

@@ -130,11 +130,13 @@ public class ConstructionOptionsTest {
             "Connected 10x10 platform qualifies despite 12x12 AIR-padded schematic");
     }
 
-    @Test void aSingleMissingCellDisqualifiesWholeLayer(){
+    @Test void singleMissingCellStillQualifiesAtNinetyPercent(){
         Blueprint b=filled("One gap",10,5,10,"minecraft:grass_block");
         b.set(5,0,5,"minecraft:air");
-        assertTrue(ConstructionOptions.identifiedFoundation(b).isEmpty(),
-            "99% coverage is NOT full schematic coverage");
+        var result=FoundationPlan.analyze(b,Set.of());
+        assertEquals(1,result.qualifyingLayers());
+        assertEquals(99,result.omissions().size(),
+            "A hole in an anchored 10x10 footprint must NOT veto a 99%-filled foundation layer");
     }
 
     @Test void consecutiveQualifyingLayersAreIndependentlyClassified(){
@@ -149,13 +151,14 @@ public class ConstructionOptionsTest {
         assertFalse(skip.contains(b.index(0,2,0)),"Stop at 50% third layer");
     }
 
-    @Test void missingSecondLayerStopsScanWithoutDeletingHigherLayers(){
+    @Test void ninetyNinePercentSecondLayerDoesNotStopScan(){
         Blueprint b=filled("Interrupted platform",10,5,10,
             "minecraft:dirt","minecraft:grass_block","minecraft:dirt");
         b.set(9,1,9,"minecraft:air");
         var skip=ConstructionOptions.identifiedFoundation(b);
-        assertEquals(100,skip.size());
-        assertFalse(skip.contains(b.index(9,2,9)),"Stop at first incomplete layer");
+        assertEquals(299,skip.size(),
+            "100% + 99% + 100% qualifying layers must all be omitted");
+        assertTrue(skip.contains(b.index(9,2,9)),"Keep scanning after 99%-filled layer");
     }
 
     @Test void respectsBlankYPaddingButNotHorizontalPadding(){
@@ -172,7 +175,8 @@ public class ConstructionOptionsTest {
         var hints=ConstructionOptions.parse("foundation:no:glowstone").foundationMaterials();
         assertEquals(200,ConstructionOptions.identifiedFoundation(b,hints).size());
         b.set(4,0,5,"minecraft:air");
-        assertTrue(ConstructionOptions.identifiedFoundation(b,hints).isEmpty());
+        assertEquals(199,ConstructionOptions.identifiedFoundation(b,hints).size(),
+            "A single air cell in the 100-cell bottom layer still exceeds 90% coverage");
     }
 
     @Test void functionalMaterialsCannotBecomeFoundationWithExplicitHints(){
@@ -225,14 +229,14 @@ public class ConstructionOptionsTest {
         assertTrue(result.reason().contains("16x16"));
     }
 
-    @Test void interiorGapStillDisqualifiesConnectedFootprint(){
+    @Test void interiorGapIsAllowedWithinNinetyPercentFootprint(){
         Blueprint b=new Blueprint("Foundation with missing cell",14,6,14);
         for(int x=2;x<=11;x++)for(int z=2;z<=11;z++)
             b.set(x,0,z,"minecraft:stone");
         b.set(6,0,6,"minecraft:air");
         var result=FoundationPlan.analyze(b,Set.of());
-        assertTrue(result.omissions().isEmpty());
-        assertTrue(result.reason().contains("99/100"));
+        assertEquals(99,result.omissions().size(),
+            "A single basement opening is not grounds to reject a 99%-filled stone base");
     }
 
     @Test void lShapedPlatformUsesRealSilhouetteNotRectangle(){
@@ -242,6 +246,78 @@ public class ConstructionOptionsTest {
         var result=FoundationPlan.analyze(b,Set.of());
         assertEquals(72,result.omissions().size());
         assertFalse(result.omissions().contains(b.index(10,0,10)));
+    }
+
+    @Test void sixFoundationLayersWithBasementVoidsPassAtNinetyPercent(){
+        Blueprint b=new Blueprint("Six-level underground platform",26,17,27);
+        // 20x20 true connected footprint within a padded schematic.
+        for(int y=0;y<6;y++)for(int x=3;x<23;x++)for(int z=4;z<24;z++)
+            b.set(x,y,z,y==5?"minecraft:grass_block":"minecraft:stone");
+        // Interior basement voids reach 10% on each of the six levels,
+        // while leaving a four-connected platform surrounding them.
+        for(int y=0;y<6;y++)for(int x=10;x<18;x++)for(int z=11;z<16;z++)
+            b.set(x,y,z,"minecraft:air");
+        // Genuine architectural room above: protect its belowground area.
+        for(int y=6;y<=13;y++){
+            for(int x=9;x<=18;x++){
+                b.set(x,y,10,"minecraft:stone_bricks");
+                b.set(x,y,17,"minecraft:stone_bricks");
+            }
+            for(int z=10;z<=17;z++){
+                b.set(9,y,z,"minecraft:stone_bricks");
+                b.set(18,y,z,"minecraft:stone_bricks");
+            }
+        }
+        var scan=FoundationPlan.analyze(b,Set.of());
+        assertEquals(6,scan.qualifyingLayers(),"Exactly 90% of the real footprint qualifies");
+        assertTrue(scan.omissions().contains(b.index(4,1,5)),
+            "Majority stone OUTSIDE building walls should be omitted");
+        assertTrue(scan.omissions().contains(b.index(4,5,5)),
+            "The grass top cap also qualifies when >=51% of the footprint");
+        assertFalse(scan.omissions().contains(b.index(12,1,12)),
+            "Actual basement air never enters omissions");
+        assertFalse(scan.omissions().contains(b.index(9,1,12)),
+            "Basement wall footprint and underlying support remain");
+    }
+
+    @Test void coverageBelowNinetyPercentStopsAtTheFirstFailedLayer(){
+        Blueprint b=new Blueprint("Stop at 89%",20,7,20);
+        for(int y=0;y<4;y++)for(int x=0;x<20;x++)for(int z=0;z<20;z++)
+            b.set(x,y,z,"minecraft:stone");
+        // 360/400 = 90% at Y=1.
+        for(int x=5;x<13;x++)for(int z=5;z<10;z++)
+            b.set(x,1,z,"minecraft:air");
+        // 356/400 = 89% at Y=2. The third layer must fail,
+        // and no Y=3 blocks may be included even though it's solid.
+        for(int x=5;x<13;x++)for(int z=5;z<10;z++)
+            b.set(x,2,z,"minecraft:air");
+        for(int x=5;x<9;x++)b.set(x,2,10,"minecraft:air");
+        var scan=FoundationPlan.analyze(b,Set.of());
+        assertEquals(2,scan.qualifyingLayers());
+        assertEquals(2,scan.stoppedAtY());
+        assertEquals(760,scan.omissions().size(),"400 at Y=0 + 360 at Y=1");
+        assertTrue(scan.reason().contains("356/400"));
+        assertTrue(scan.reason().contains("90%"));
+        assertFalse(scan.omissions().contains(b.index(0,3,0)));
+    }
+
+    @Test void majorityStillUsesWholeFootprintRatherThanOnlyOccupiedCells(){
+        Blueprint b=new Blueprint("Coverage with mixed types",10,5,10);
+        for(int x=0;x<10;x++)for(int z=0;z<10;z++)
+            b.set(x,0,z,"minecraft:stone");
+        // 90 populated positions: 50 stone, 40 grass, 10 AIR.
+        // Stone is 55.55% of OCCUPIED but only 50% of the full
+        // anchored footprint, so the >=51% rule must reject it.
+        for(int x=0;x<10;x++)for(int z=0;z<10;z++){
+            int i=z*10+x;
+            if(i<50)b.set(x,0,z,"minecraft:stone");
+            else if(i<90)b.set(x,0,z,"minecraft:grass_block");
+            else b.set(x,0,z,"minecraft:air");
+        }
+        var scan=FoundationPlan.analyze(b,Set.of());
+        assertEquals(0,scan.qualifyingLayers());
+        assertTrue(scan.omissions().isEmpty());
+        assertTrue(scan.reason().contains("51%"));
     }
 
     @Test void acceptsUsersExactStoneAndGrassCommand(){
@@ -275,16 +351,19 @@ public class ConstructionOptionsTest {
             "The temple itself is left intact");
     }
 
-    @Test void diagnosticExplainsWhyAlmostFullBottomLayerCannotBeOmitted(){
+    @Test void diagnosticExplainsRejectionBelowNinetyPercentCoverage(){
         Blueprint b=new Blueprint("One air gap breaks coverage",12,7,12);
         for(int x=0;x<12;x++)for(int z=0;z<12;z++)
             b.set(x,0,z,"minecraft:stone");
-        b.set(4,0,4,"minecraft:air");
+        // 15 interior holes in a 12x12 anchored footprint leave
+        // 129/144 = 89.58% occupancy, just below the 90% requirement.
+        for(int z=3;z<=7;z++)for(int x=3;x<=5;x++)
+            b.set(x,0,z,"minecraft:air");
         var diagnosis=FoundationPlan.analyze(b,Set.of("minecraft:stone"));
         assertTrue(diagnosis.omissions().isEmpty());
         assertEquals(0,diagnosis.stoppedAtY());
-        assertTrue(diagnosis.summary().contains("143/144"));
-        assertTrue(diagnosis.summary().contains("need 100%"));
+        assertTrue(diagnosis.summary().contains("129/144"));
+        assertTrue(diagnosis.summary().contains("at least 90%"));
         assertTrue(diagnosis.summary().contains("stone"));
     }
 

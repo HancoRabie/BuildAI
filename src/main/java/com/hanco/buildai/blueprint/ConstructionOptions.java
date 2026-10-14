@@ -8,7 +8,9 @@ import java.util.*;
  * foundation:no uses the connected bottom-platform footprint instead of
  * schematic AIR padding; each consecutive bottom layer must fill >=90% of
  * that footprint and contain ONE eligible block ID in >=51% of ALL its cells.
- * Recognized wall/interior/basement columns are protected from omission.
+ * Actual underground basement geometry is protected from omission. This
+ * flag sanitizes schematic placement ONLY. It never instructs excavation
+ * of an existing world block.
  */
 public record ConstructionOptions(boolean foundation,boolean excavate,boolean hollow,
                                   Set<String> foundationMaterials) {
@@ -87,8 +89,14 @@ public record ConstructionOptions(boolean foundation,boolean excavate,boolean ho
             }
         }
         boolean onlyInterior=Boolean.TRUE.equals(interior);
-        return new ConstructionOptions(base==null||base,
-            clear==null?!onlyInterior:clear,onlyInterior,materials);
+        boolean includeFoundation=base==null||base;
+        // Critical safety invariant: foundation:no alone MUST NOT trigger
+        // full-site excavation merely because excavate was omitted. The
+        // player can still explicitly select excavate:yes if desired.
+        boolean fullExcavation=clear==null?
+            includeFoundation&&!onlyInterior:clear;
+        return new ConstructionOptions(includeFoundation,
+            fullExcavation,onlyInterior,materials);
     }
 
     private static String normalizeMaterial(String input){

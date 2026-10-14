@@ -97,18 +97,19 @@ public class ConstructionOptionsTest {
             "Each block type needs its own >=51% share");
     }
 
-    @Test void stripEntireQualifyingGrassTypeWithoutRoomAndSupportExceptions(){
+    @Test void protectsUnderRoomsButDeletesExposedPlatform(){
         Blueprint b=filled("Temple podium",10,8,10,"minecraft:grass_block");
         for(int y=1;y<=6;y++)for(int z=2;z<=7;z++){
             b.set(2,y,z,"minecraft:stone_bricks");
             b.set(7,y,z,"minecraft:stone_bricks");
         }
         var skip=ConstructionOptions.identifiedFoundation(b);
-        assertEquals(100,skip.size(),
-            "All grass from the qualifying layer must be omitted, including beneath walls");
-        assertTrue(skip.contains(b.index(2,0,4)),"Do not hide foundation grass beneath walls");
-        assertTrue(skip.contains(b.index(5,0,5)),"Do not hide foundation grass beneath rooms");
-        assertFalse(skip.contains(b.index(2,2,4)),"Masonry is not part of the grass layer");
+        assertTrue(skip.size()>0&&skip.size()<100,
+            "Keep actual wall-enclosed columns; remove exposed majority foundation");
+        assertFalse(skip.contains(b.index(2,0,4)),"Protect under temple wall");
+        assertFalse(skip.contains(b.index(5,0,5)),"Protect basement beneath corridor");
+        assertTrue(skip.contains(b.index(0,0,0)),"Exterior grass skirt must be omitted");
+        assertFalse(skip.contains(b.index(2,2,4)),"Masonry remains");
     }
 
     @Test void omitOnlyDominantMaterialNotAllEligibleTypes(){
@@ -121,12 +122,12 @@ public class ConstructionOptionsTest {
         assertFalse(skip.contains(b.index(0,0,1)),"Minority dirt is NOT silently included");
     }
 
-    @Test void platformMustCoverEntireSchematicNotOnlyItsOwnBounds(){
+    @Test void bottomPlatformMayExcludeSchematicAirPadding(){
         Blueprint b=new Blueprint("Full schematic coverage",12,7,12);
         for(int x=1;x<=10;x++)for(int z=1;z<=10;z++)
             b.set(x,0,z,"minecraft:grass_block");
-        assertTrue(ConstructionOptions.identifiedFoundation(b).isEmpty(),
-            "A fully filled 10x10 island inside a 12x12 schematic does not qualify");
+        assertEquals(100,ConstructionOptions.identifiedFoundation(b).size(),
+            "Connected 10x10 platform qualifies despite 12x12 AIR-padded schematic");
     }
 
     @Test void aSingleMissingCellDisqualifiesWholeLayer(){
@@ -200,6 +201,49 @@ public class ConstructionOptionsTest {
         assertTrue(skip.contains(b.index(5,0,1)),"No spatial interior exception for dirt");
     }
 
+
+    @Test void fiveLayerPaddedStoneAndGrassPlatformWithBasement(){
+        Blueprint b=new Blueprint("Elevated jungle temple",20,14,21);
+        for(int y=0;y<5;y++)for(int x=2;x<=17;x++)for(int z=3;z<=18;z++)
+            b.set(x,y,z,y==4?"minecraft:grass_block":"minecraft:stone");
+        for(int y=5;y<=11;y++){
+            for(int x=7;x<=12;x++){
+                b.set(x,y,7,"minecraft:stone_bricks");
+                b.set(x,y,12,"minecraft:stone_bricks");
+            }
+            for(int z=7;z<=12;z++){
+                b.set(7,y,z,"minecraft:stone_bricks");
+                b.set(12,y,z,"minecraft:stone_bricks");
+            }
+        }
+        var result=FoundationPlan.analyze(b,Set.of("minecraft:stone","minecraft:grass_block"));
+        assertEquals(5,result.qualifyingLayers());
+        assertTrue(result.omissions().contains(b.index(3,1,4)),"Outside stone skirt");
+        assertTrue(result.omissions().contains(b.index(3,4,4)),"Outside grass cap");
+        assertFalse(result.omissions().contains(b.index(9,1,9)),"Protected basement floor");
+        assertFalse(result.omissions().contains(b.index(7,3,9)),"Protected wall support");
+        assertTrue(result.reason().contains("16x16"));
+    }
+
+    @Test void interiorGapStillDisqualifiesConnectedFootprint(){
+        Blueprint b=new Blueprint("Foundation with missing cell",14,6,14);
+        for(int x=2;x<=11;x++)for(int z=2;z<=11;z++)
+            b.set(x,0,z,"minecraft:stone");
+        b.set(6,0,6,"minecraft:air");
+        var result=FoundationPlan.analyze(b,Set.of());
+        assertTrue(result.omissions().isEmpty());
+        assertTrue(result.reason().contains("99/100"));
+    }
+
+    @Test void lShapedPlatformUsesRealSilhouetteNotRectangle(){
+        Blueprint b=new Blueprint("L shaped base",16,5,16);
+        for(int x=2;x<=12;x++)for(int z=2;z<=12;z++)
+            if(x<=5||z<=5)b.set(x,0,z,"minecraft:stone");
+        var result=FoundationPlan.analyze(b,Set.of());
+        assertEquals(72,result.omissions().size());
+        assertFalse(result.omissions().contains(b.index(10,0,10)));
+    }
+
     @Test void acceptsUsersExactStoneAndGrassCommand(){
         var actual=ConstructionOptions.parse(
             "foundation:no:stone, grass_block hollow:yes");
@@ -255,7 +299,7 @@ public class ConstructionOptionsTest {
             "minecraft:grass_block"));
         assertTrue(diagnosis.omissions().isEmpty(),
             "Two distinct 40% block types may not combine into one 51% majority");
-        assertTrue(diagnosis.reason().contains("no SINGLE eligible"));
+        assertTrue(diagnosis.reason().contains("no single eligible"));
         assertTrue(diagnosis.reason().contains("40.00%"));
     }
 

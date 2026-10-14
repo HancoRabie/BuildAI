@@ -76,12 +76,27 @@ public final class Blueprint {
         // Complete walls, rail supports, wiring and mechanical internals
         // BEFORE placing any water/lava source. Fluids can flow into exposed
         // construction and wash away dust if installed during early Y passes.
+        // Vanilla pointed dripstone needs an anchored end. The normal Y
+        // sweep places hanging tips BEFORE the ceiling-side support exists,
+        // and neighbor updates break them before the build has finished.
+        // Build the architectural shell first, then dripstone; stalagmites
+        // rise from the floor, while hanging stalactites descend from roof.
         result.sort(Comparator.comparingInt((BlockPos p)->
-                BuildFluidRules.isFluidSource(get(p.getX(),p.getY(),p.getZ()))?1:0)
-            .thenComparingInt(BlockPos::getY)
+                placementPhase(get(p.getX(),p.getY(),p.getZ())))
+            .thenComparingInt(p->dripstoneDown(get(p.getX(),p.getY(),p.getZ()))
+                ?-p.getY():p.getY())
             .thenComparingInt(p->priority(get(p.getX(),p.getY(),p.getZ())))
             .thenComparingInt(BlockPos::getZ).thenComparingInt(BlockPos::getX));
         return result;
+    }
+    private static int placementPhase(String state){
+        if(BuildFluidRules.isFluidSource(state))return 2;
+        if(id(state).equals("minecraft:pointed_dripstone"))return 1;
+        return 0;
+    }
+    private static boolean dripstoneDown(String state){
+        return id(state).equals("minecraft:pointed_dripstone") &&
+            state.contains("vertical_direction=down");
     }
     private static int priority(String state) {
         String id=id(state);

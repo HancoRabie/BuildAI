@@ -216,7 +216,76 @@ public class ConstructionOptionsTest {
         assertEquals(64,ConstructionOptions.identifiedFoundation(b).size());
     }
 
-    @Test void customHintOnlyQualifiesWhenFullFootprintAndMajorityHold(){
+    @Test void mossCapAt30PercentQualifiesOnlyWhenExplicitlyRequested(){
+        Blueprint b=new Blueprint("Moss cap above stone foundation",10,7,10);
+        for(int z=0;z<10;z++)for(int x=0;x<10;x++){
+            int i=z*10+x;
+            b.set(x,0,z,"minecraft:stone");
+            b.set(x,1,z,i<60?"minecraft:stone":i<90?"minecraft:moss_block":
+                "minecraft:gold_block");
+            b.set(x,2,z,i<30?"minecraft:moss_block":
+                i<76?"minecraft:stone":"minecraft:gold_block");
+        }
+        var natural=FoundationPlan.analyze(b,Set.of());
+        assertEquals(2,natural.qualifyingLayers(),
+            "Unspecified 30%-moss layer must still stop at the unchanged 51% threshold");
+        assertEquals(160,natural.omissions().size(),
+            "Natural detection selects stone in the bottom two layers");
+        var hinted=FoundationPlan.analyze(b,Set.of("minecraft:moss_block"));
+        assertEquals(3,hinted.qualifyingLayers(),
+            "Explicit moss_block qualifies even at 30%, allowing the scan to continue");
+        assertEquals(220,hinted.omissions().size(),
+            "Remove both 60%-stone and explicit 30%-moss on Y=1, then 30%-moss on Y=2");
+        assertTrue(hinted.omissions().contains(b.index(0,2,0)),
+            "The 30%-moss cap must not survive");
+        assertFalse(hinted.omissions().contains(b.index(5,2,5)),
+            "Keep the 46%-stone layer material when not an explicit hint");
+        assertFalse(hinted.omissions().contains(b.index(9,2,9)),
+            "Never remove other non-target materials");
+        assertEquals("minecraft:moss_block",b.get(0,2,0),
+            "foundation:no sanitizes a placement plan, not the original schematic");
+        assertEquals(b.ordered().size()-hinted.omissions().size(),
+            b.orderedOmitting(hinted.omissions()).size(),
+            "Only the sanitized placement queue loses omitted moss and stone");
+    }
+
+    @Test void explicitTwentyPercentIncludesBoundaryButNineteenDoesNot(){
+        Blueprint b=new Blueprint("Twenty percent boundary",10,4,10);
+        for(int z=0;z<10;z++)for(int x=0;x<10;x++){
+            int i=z*10+x;
+            b.set(x,0,z,i<20?"minecraft:moss_block":
+                i<60?"minecraft:stone":"minecraft:gold_block");
+        }
+        assertTrue(FoundationPlan.analyze(b,Set.of()).omissions().isEmpty());
+        assertEquals(20,FoundationPlan.analyze(b,Set.of("minecraft:moss_block"))
+            .omissions().size(),"20 of 100 full-footprint cells qualifies");
+        b.set(0,0,0,"minecraft:gold_block");
+        var rejected=FoundationPlan.analyze(b,Set.of("minecraft:moss_block"));
+        assertTrue(rejected.omissions().isEmpty(),
+            "19% explicit moss cannot qualify a layer on its own");
+        assertTrue(rejected.reason().contains("20%"));
+    }
+
+    @Test void twentyPercentHintNeverOverridesNinetyPercentCoverage(){
+        Blueprint b=new Blueprint("89% sparse foundation",12,4,12);
+        for(int z=0;z<12;z++)for(int x=0;x<12;x++)
+            b.set(x,0,z,x<4?"minecraft:moss_block":"minecraft:gold_block");
+        for(int z=3;z<=6;z++)for(int x=3;x<=6;x++)
+            b.set(x,0,z,"minecraft:air");
+        var scan=FoundationPlan.analyze(b,Set.of("minecraft:moss_block"));
+        assertTrue(scan.omissions().isEmpty(),"Hint cannot relax 90% footprint coverage");
+        assertTrue(scan.reason().contains("90%"));
+    }
+
+    @Test void namedChestNeverQualifiesAtTwentyPercent(){
+        Blueprint b=new Blueprint("Protected inventories",10,4,10);
+        for(int z=0;z<10;z++)for(int x=0;x<10;x++)
+            b.set(x,0,z,z<3?"minecraft:chest":"minecraft:gold_block");
+        assertTrue(FoundationPlan.analyze(b,Set.of("minecraft:chest"))
+            .omissions().isEmpty(),"Explicit hints must not bypass functional-block safety");
+    }
+
+    @Test void customHintHonorsActualFootprintAndCoverage(){
         Blueprint b=filled("Glowstone",10,6,10,
             "minecraft:glowstone","minecraft:glowstone");
         assertTrue(ConstructionOptions.identifiedFoundation(b).isEmpty());
@@ -541,19 +610,21 @@ public class ConstructionOptionsTest {
         assertTrue(diagnosis.summary().contains("stone"));
     }
 
-    @Test void diagnosticExplainsMixedMaterialWithoutSingle51PercentMajority(){
+    @Test void explicitMaterialsQualifyIndividuallyEvenWhenNeitherHas51Percent(){
         Blueprint b=new Blueprint("Mixed base",10,4,10);
         for(int z=0;z<10;z++)for(int x=0;x<10;x++){
             int i=z*10+x;
             b.set(x,0,z,i<40?"minecraft:stone":
                 i<80?"minecraft:grass_block":"minecraft:gold_block");
         }
-        var diagnosis=FoundationPlan.analyze(b,Set.of("minecraft:stone",
+        assertTrue(FoundationPlan.analyze(b,Set.of()).omissions().isEmpty(),
+            "Implicit detection does not merge independent 40% types into a majority");
+        var specified=FoundationPlan.analyze(b,Set.of("minecraft:stone",
             "minecraft:grass_block"));
-        assertTrue(diagnosis.omissions().isEmpty(),
-            "Two distinct 40% block types may not combine into one 51% majority");
-        assertTrue(diagnosis.reason().contains("no single eligible"));
-        assertTrue(diagnosis.reason().contains("40.00%"));
+        assertEquals(80,specified.omissions().size(),
+            "Each explicit type at 40% independently meets the new 20% threshold");
+        assertFalse(specified.omissions().contains(b.index(9,0,9)),
+            "Do not remove an unrelated gold block from the qualifying layer");
     }
 
     @Test void diagnosticNamesDominantUnrecognizedMaterial(){

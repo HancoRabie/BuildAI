@@ -54,7 +54,6 @@ public final class ConstructionProject {
             (types.size()>5?" (+"+(types.size()-5)+" more)":"");
     }
     private BitSet hollowInterior=new BitSet();
-        interiorVerifyIndex=0; interiorVerificationClears=0; interiorVerified=true;
     // Every approved blueprint AIR voxel must still be AIR after the shell
     // has been built, not merely after preliminary excavation.
     private int interiorVerifyIndex=0, interiorVerificationClears=0;
@@ -213,6 +212,7 @@ public final class ConstructionProject {
         constructionOptions=ConstructionOptions.DEFAULT;
         foundationOmissions=Set.of();omittedFoundationBlocks=0;
         hollowInterior=new BitSet();
+        interiorVerifyIndex=0; interiorVerificationClears=0; interiorVerified=true;
         commandsApproved=false;approvedCommandIndices=Set.of();programmingIndex=0;armingIndex=0;
     }
     /** Preview is free to move client-side; only this method locks a server-approved XYZ origin. */

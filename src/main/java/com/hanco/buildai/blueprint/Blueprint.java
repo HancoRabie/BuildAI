@@ -108,6 +108,25 @@ public final class Blueprint {
             .thenComparingInt(BlockPos::getZ).thenComparingInt(BlockPos::getX));
         return result;
     }
+    /**
+     * Foundation sanitization is a BLUEPRINT placement operation: remove
+     * omitted local coordinates from the queue WITHOUT changing the source
+     * schematic or writing AIR into the world.
+     */
+    public List<BlockPos> orderedOmitting(Set<Integer> omissionIndices){
+        Objects.requireNonNull(omissionIndices,"foundation omissions");
+        if(omissionIndices.isEmpty())return ordered();
+        for(int index:omissionIndices){
+            if(index<0||index>=width*height*length)
+                throw new IllegalArgumentException("Omitted schematic index outside bounds: "+index);
+        }
+        List<BlockPos> sanitized=new ArrayList<>();
+        for(BlockPos p:ordered())
+            if(!omissionIndices.contains(index(p.getX(),p.getY(),p.getZ())))
+                sanitized.add(p);
+        return List.copyOf(sanitized);
+    }
+
     private static int placementPhase(String state){
         if(BuildFluidRules.isFluidSource(state))return 2;
         if(id(state).equals("minecraft:pointed_dripstone"))return 1;

@@ -97,19 +97,19 @@ public class ConstructionOptionsTest {
             "Each block type needs its own >=51% share");
     }
 
-    @Test void protectsUnderRoomsButDeletesExposedPlatform(){
+    @Test void abovegroundCorridorDoesNotProtectFloatingFoundationStone(){
         Blueprint b=filled("Temple podium",10,8,10,"minecraft:grass_block");
         for(int y=1;y<=6;y++)for(int z=2;z<=7;z++){
             b.set(2,y,z,"minecraft:stone_bricks");
             b.set(7,y,z,"minecraft:stone_bricks");
         }
         var skip=ConstructionOptions.identifiedFoundation(b);
-        assertTrue(skip.size()>0&&skip.size()<100,
-            "Keep actual wall-enclosed columns; remove exposed majority foundation");
-        assertFalse(skip.contains(b.index(2,0,4)),"Protect under temple wall");
-        assertFalse(skip.contains(b.index(5,0,5)),"Protect basement beneath corridor");
-        assertTrue(skip.contains(b.index(0,0,0)),"Exterior grass skirt must be omitted");
-        assertFalse(skip.contains(b.index(2,2,4)),"Masonry remains");
+        assertEquals(100,skip.size(),
+            "An ABOVE-ground hallway does not justify keeping a pillar underneath");
+        assertTrue(skip.contains(b.index(2,0,4)),"Delete dangling support below temple side wall");
+        assertTrue(skip.contains(b.index(5,0,5)),"Delete platform below aboveground corridor");
+        assertTrue(skip.contains(b.index(0,0,0)),"Outside grass skirt is omitted");
+        assertFalse(skip.contains(b.index(2,2,4)),"Retain actual masonry");
     }
 
     @Test void omitOnlyDominantMaterialNotAllEligibleTypes(){
@@ -224,8 +224,10 @@ public class ConstructionOptionsTest {
         assertEquals(5,result.qualifyingLayers());
         assertTrue(result.omissions().contains(b.index(3,1,4)),"Outside stone skirt");
         assertTrue(result.omissions().contains(b.index(3,4,4)),"Outside grass cap");
-        assertFalse(result.omissions().contains(b.index(9,1,9)),"Protected basement floor");
-        assertFalse(result.omissions().contains(b.index(7,3,9)),"Protected wall support");
+        assertTrue(result.omissions().contains(b.index(9,1,9)),
+            "Upper-floor AIR must not preserve five floating stone layers");
+        assertTrue(result.omissions().contains(b.index(7,3,9)),
+            "Supporting stone under an aboveground wall is foundation, not a basement room");
         assertTrue(result.reason().contains("16x16"));
     }
 
@@ -398,6 +400,38 @@ public class ConstructionOptionsTest {
             "Latest diagnostics must explain the 90% footprint gate");
         assertFalse(analysis.omissions().contains(b.index(5,3,4)),
             "The temple itself is left intact");
+    }
+
+
+    @Test void foundationNoRemovesAllSixMajorityLayersBelowWallsAndDecorations(){
+        Blueprint b=new Blueprint("Temple on intrusive stone and moss platform",24,17,24);
+        for(int y=0;y<6;y++)for(int z=1;z<23;z++)for(int x=1;x<23;x++)
+            b.set(x,y,z,y==5?"minecraft:moss_block":"minecraft:stone");
+        // Real upper building is visually rich and includes paired walls,
+        // columns, leaves, pistons, and a six-faced AIR pocket. None of that
+        // can protect a 6-block-high stone pillar BELOW the foundation.
+        for(int y=6;y<14;y++)for(int z=5;z<=18;z++){
+            b.set(5,y,z,"minecraft:stone_bricks");
+            b.set(18,y,z,"minecraft:stone_bricks");
+        }
+        b.set(8,12,8,"minecraft:oak_leaves");
+        b.set(8,14,8,"minecraft:oak_leaves");
+        b.set(7,13,8,"minecraft:oak_leaves");
+        b.set(9,13,8,"minecraft:oak_leaves");
+        b.set(8,13,7,"minecraft:oak_leaves");
+        b.set(8,13,9,"minecraft:oak_leaves");
+        var result=FoundationPlan.analyze(b,Set.of());
+        assertEquals(6,result.qualifyingLayers());
+        assertEquals(6*22*22,result.omissions().size(),
+            "Remove all six fully qualifying layers; no vertical pillar exemptions");
+        for(int y=0;y<6;y++){
+            assertTrue(result.omissions().contains(b.index(5,y,10)),
+                "Omit stone directly under temple wall at Y="+y);
+            assertTrue(result.omissions().contains(b.index(8,y,8)),
+                "Omit stone under six-sided decorative cavity at Y="+y);
+        }
+        assertFalse(result.omissions().contains(b.index(5,7,10)),
+            "Keep the real aboveground wall");
     }
 
     @Test void diagnosticExplainsRejectionBelowNinetyPercentCoverage(){

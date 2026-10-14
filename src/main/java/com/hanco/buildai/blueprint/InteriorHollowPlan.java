@@ -398,6 +398,60 @@ public final class InteriorHollowPlan {
                 }
             }
         }
+        // Independently include AIR between sustained opposing masonry
+        // walls, even when an irregular corridor shifts X/Z boundaries.
+        selected.or(opposingWallAir(b,w));
+        return selected;
+    }
+
+
+    /**
+     * A second same-elevation interior classifier independent of the strict
+     * exact-column corridor scan. Opposing inward-facing masonry boundaries
+     * on three neighbouring rows form an interior band even when the walls
+     * curve or shift sideways. Two isolated pillars never qualify.
+     * Only SCHEMATIC AIR is selected, so painted vegetation is preserved.
+     */
+    private static BitSet opposingWallAir(Blueprint b,WallColumns w){
+        int plane=b.width*b.length;
+        BitSet selected=new BitSet(plane*b.height);
+        BitSet betweenX=new BitSet(plane),betweenZ=new BitSet(plane);
+        for(int y=0;y<b.height;y++){
+            betweenX.clear();betweenZ.clear();
+            for(int z=0;z<b.length;z++){
+                int left=-1;
+                for(int x=0;x<b.width;x++){
+                    if(left>=0&&faceAtHeight(b,w,x,z,y,WEST)){
+                        if(between(left,x,left+1))
+                            for(int xx=left+1;xx<x;xx++)
+                                if(b.isAir(xx,y,z))
+                                    betweenX.set(columnIndex(b,xx,z));
+                        left=-1;
+                    }
+                    if(faceAtHeight(b,w,x,z,y,EAST))left=x;
+                }
+            }
+            for(int x=0;x<b.width;x++){
+                int north=-1;
+                for(int z=0;z<b.length;z++){
+                    if(north>=0&&faceAtHeight(b,w,x,z,y,NORTH)){
+                        if(between(north,z,north+1))
+                            for(int zz=north+1;zz<z;zz++)
+                                if(b.isAir(x,y,zz))
+                                    betweenZ.set(columnIndex(b,x,zz));
+                        north=-1;
+                    }
+                    if(faceAtHeight(b,w,x,z,y,SOUTH))north=z;
+                }
+            }
+            for(int z=1;z<b.length-1;z++)for(int x=1;x<b.width-1;x++){
+                if(!b.isAir(x,y,z))continue;
+                int p=columnIndex(b,x,z);
+                if((betweenX.get(p)&&betweenX.get(p-b.width)&&betweenX.get(p+b.width))||
+                    (betweenZ.get(p)&&betweenZ.get(p-1)&&betweenZ.get(p+1)))
+                    selected.set(b.index(x,y,z));
+            }
+        }
         return selected;
     }
 

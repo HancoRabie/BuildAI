@@ -299,10 +299,9 @@ public final class ConstructionProject {
                 "hollow:yes found no reliably bounded interior. No world "+
                 "blocks were modified. Add structural enclosure, inspect "+
                 "the schematic air volume, or choose an explicit mode.");
-        List<BlockPos> selectedOrder=new ArrayList<>();
-        for(BlockPos local:blueprint.ordered())
-            if(!skip.contains(blueprint.index(local.getX(),local.getY(),local.getZ())))
-                selectedOrder.add(local);
+        // Foundation omitted indices are removed from the immutable
+        // schematic placement plan. They are NEVER a world excavation set.
+        List<BlockPos> selectedOrder=blueprint.orderedOmitting(skip);
         if(selectedOrder.isEmpty())
             throw new IllegalStateException("No blueprint blocks remain after "+
                 "foundation selection. Construction was not started.");

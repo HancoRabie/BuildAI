@@ -280,7 +280,7 @@ public final class BuildAIMod implements ModInitializer {
             try {
                 if(world.getBlockEntity(hit.getBlockPos()) instanceof net.minecraft.inventory.Inventory) {
                     project.linkChest(hit.getBlockPos());
-                    reply(server,"BuildAI supply chest linked and protected. /buildai materials shows progress.");
+                    reply(server,"BuildAI chest linked. Any adjacent sign reading BuildAI also auto-registers its chest; manual linking is optional. /buildai materials shows progress.");
                     return ActionResult.SUCCESS;
                 }
             }catch(Exception e){reply(server,"Could not select: "+e.getMessage());return ActionResult.SUCCESS;}
@@ -526,7 +526,7 @@ public final class BuildAIMod implements ModInitializer {
                             clearGhost(player);
                             reply(player,"Safe undo started for "+changed+
                                 " positions. Checking for protected block entities first; "+
-                                "restoration runs in batches. Follow /buildai status. Materials are not refunded.");
+                                "restoration runs in batches. Consumed Survival materials are returned to their original signed chests afterward. Full/missing chests pause refunds. Follow /buildai status.");
                             return 1;
                         }catch(Exception e){reply(player,"Undo unavailable: "+e.getMessage());return 0;}
                     })
@@ -540,7 +540,7 @@ public final class BuildAIMod implements ModInitializer {
                             reply(player,"FORCE UNDO started on "+changed+
                                 " positions. WARNING: new containers, command scripts and edits "+
                                 "inside this construction area may be destroyed; bedrock is still protected. "+
-                                "Follow /buildai status. Materials and inventory contents are NOT refunded.");
+                                "Follow /buildai status. BuildAI-consumed supplies are returned to source chests; player-edited inventory contents destroyed by force undo cannot be recovered.");
                             return 1;
                         }catch(Exception e){reply(player,"Force undo unavailable: "+e.getMessage());return 0;}
                     })))

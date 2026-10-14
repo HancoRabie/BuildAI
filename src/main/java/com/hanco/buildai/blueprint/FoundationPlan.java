@@ -5,11 +5,12 @@ import java.util.*;
 /**
  * Foundation detection based on the actual connected footprint of the
  * bottom platform, not the full schematic bounding rectangle (which often
- * has arbitrary AIR padding). For each qualifying Y-layer, a SINGLE
- * eligible block type must occupy >=51% of the anchored footprint.
+ * has arbitrary AIR padding). Each candidate layer must retain at least
+ * 90% of the anchored footprint and ONE eligible block type must occupy
+ * at least 51% of the entire anchored footprint, not just its filled cells.
  *
  * A two-phase plan keeps architectural walls and enclosed basements:
- * (1) identify provisional foundation layers from their stable footprint;
+ * (1) identify provisional foundation layers with >=90% footprint coverage;
  * (2) project actual enclosed schematic interior and its wall columns,
  * omitting only majority-material cells OUTSIDE that protected plan.
  *
@@ -33,6 +34,7 @@ public final class FoundationPlan {
         "basalt","smooth_basalt","bedrock","obsidian",
         "quartz_block","smooth_quartz","iron_block");
     private static final int MIN_PERCENT=51;
+    private static final int MIN_COVERAGE_PERCENT=90;
     private static final int MIN_SIDE=4;
 
     private static boolean foundationMaterial(String block,Set<String> extras){
@@ -73,8 +75,8 @@ public final class FoundationPlan {
     /**
      * Find the largest four-connected occupied island on the bottom layer.
      * Preserve its TRUE non-rectangular silhouette (an L-shaped platform
-     * is not made rectangular). Any holes fully enclosed by that island
-     * count as part of the footprint and cause incomplete-layer rejection.
+     * is not made rectangular). Holes fully enclosed by that island
+     * count as part of the footprint for the 90% occupancy check.
      */
     private static Footprint footprint(Blueprint b,int y){
         int plane=b.width*b.length;
@@ -176,9 +178,9 @@ public final class FoundationPlan {
 
     /**
      * An inspectable foundation decision. The SAME analysis provides the
-     * omission set and a precise reason why layer scanning stopped. Keep
-     * its rules identical to the player's full-schematic 100% footprint
-     * and per-material >=51% majority contract.
+     * omission set and a precise reason why layer scanning stopped.
+     * Each layer needs >=90% of the bottom connected footprint occupied,
+     * plus a single eligible block type >=51% of that full footprint.
      */
     public record Analysis(Set<Integer> omissions,int firstOccupiedY,
                            int qualifyingLayers,int stoppedAtY,String reason){
@@ -235,12 +237,12 @@ public final class FoundationPlan {
             String actualTop=actualDominant==null?"none":
                 actualDominant.getKey()+" "+
                     pct(actualDominant.getValue(),base.area());
-            if(occupied!=base.area()){
+            if((long)occupied*100<(long)MIN_COVERAGE_PERCENT*base.area()){
                 stop=y;
                 reason="stopped at schematic Y="+y+": "+occupied+"/"+base.area()+
                     " footprint positions occupied ("+pct(occupied,base.area())+
-                    "); need 100% of the connected "+base.size()+
-                    " platform footprint, NOT all "+b.width+"x"+b.length+
+                    "); need at least 90% of the connected "+base.size()+
+                    " platform footprint (basement voids allowed), NOT all "+b.width+"x"+b.length+
                     " schematic positions; largest actual block type: "+actualTop;
                 break;
             }
@@ -274,7 +276,7 @@ public final class FoundationPlan {
             if(protectedXZ.get(i%plane))retained++;
             else omitted.add(i);
         }
-        reason+="; footprint "+base.area()+" cells ("+base.size()+
+        reason+="; >=90% layer coverage and >=51% single-type majority; footprint "+base.area()+" cells ("+base.size()+
             ") inside schematic "+b.width+"x"+b.length+
             "; retained "+retained+" candidate blocks within recognized "+
             "room/wall columns (basement protection)";

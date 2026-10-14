@@ -6,10 +6,12 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.util.math.BlockPos;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 public final class SupplyLedgerTest {
+    @BeforeAll static void setupVanillaRegistries(){net.minecraft.Bootstrap.initialize();}
     private static int count(Inventory inv,net.minecraft.item.Item item){
         int total=0;
         for(int slot=0;slot<inv.size();slot++)
@@ -72,7 +74,7 @@ public final class SupplyLedgerTest {
         assertTrue(ledger.refund(containers::get).success());
         assertEquals(1,count(inv,Items.WATER_BUCKET));
         assertEquals(0,count(inv,Items.BUCKET));
-        assertEquals(1,ledger.refund(containers::get).returned()==0?1:0,
+        assertEquals(0,ledger.refund(containers::get).returned(),
             "Second invocation must be a harmless no-op");
     }
 

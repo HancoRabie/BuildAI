@@ -11,8 +11,9 @@ import java.util.*;
  *
  * A two-phase plan keeps architectural walls and enclosed basements:
  * (1) identify provisional foundation layers with >=90% footprint coverage;
- * (2) project actual enclosed schematic interior and its wall columns,
- * omitting only majority-material cells OUTSIDE that protected plan.
+ * (2) protect only verified inward-facing standing walls and their
+ * architectural room/corridor footprints, rather than projecting arbitrary
+ * AIR cavities throughout the schematic onto every foundation layer.
  *
  * No inference from a schematic can prove a completely solid region is a
  * basement rather than disposable terrain. Such ambiguity must be inspected
@@ -145,35 +146,23 @@ public final class FoundationPlan {
     }
 
     /**
-     * A basement (including its dirt/stone floors and redstone) must not
-     * disappear because its block ID happens to be the layer majority.
-     * Protect proven enclosed space and the adjacent ACTUAL design walls.
-     * This projected X/Z mask protects underground rooms too, without
-     * preserving the entire surrounding stone/grass platform.
+     * Project only wall-defined architecture onto the foundation, NEVER
+     * arbitrary schematic AIR found anywhere above the platform.
+     *
+     * The old version invoked enclosedAir(), projected ALL its AIR cells
+     * into X/Z and expanded around any nearby building block. A six-faced
+     * pocket in leaves, a hanging decorative cavity, or a distant corridor
+     * therefore protected columns of otherwise disposable stone through
+     * EVERY foundation Y layer: exactly the floating pillars reported.
+     *
+     * Reuse the intended FOUNDATION-specific wall/room classifier. It
+     * requires sustained, inward-facing standing walls or verified corridor
+     * pairs, not a vertical projection of unrelated "hollow" AIR.
+     * Provisional omitted blocks must be invisible as boundary anchors.
      */
     private static BitSet protectedInterior(Blueprint b,Set<Integer> provisional,
                                              int lastFoundationY){
-        int plane=b.width*b.length;
-        BitSet rooms=InteriorHollowPlan.enclosedAir(b,provisional);
-        BitSet protectedXZ=new BitSet(plane);
-        for(int i=rooms.nextSetBit(0);i>=0;i=rooms.nextSetBit(i+1))
-            protectedXZ.set(i%plane);
-        BitSet interior=(BitSet)protectedXZ.clone();
-        for(int p=interior.nextSetBit(0);p>=0;p=interior.nextSetBit(p+1)){
-            int x=p%b.width,z=p/b.width;
-            int[] neighbors={x>0?p-1:-1,x+1<b.width?p+1:-1,
-                z>0?p-b.width:-1,z+1<b.length?p+b.width:-1};
-            for(int n:neighbors){
-                if(n<0||protectedXZ.get(n))continue;
-                int nx=n%b.width,nz=n/b.width;
-                for(int y=lastFoundationY+1;y<b.height;y++)
-                    if(!b.isAir(nx,y,nz)){
-                        protectedXZ.set(n);
-                        break;
-                    }
-            }
-        }
-        return protectedXZ;
+        return InteriorHollowPlan.protectedFootprint(b.withoutBlocks(provisional));
     }
 
     /**

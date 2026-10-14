@@ -1026,12 +1026,10 @@ public final class ConstructionProject {
     private boolean projectSupplyArea(BlockPos pos){
         // A player may put the chest at ANY face/side of a large building,
         // not just within 12 blocks of one placement corner.
-        return pos.getX()>=origin.getX()-24&&
-            pos.getX()<=origin.getX()+blueprint.width+24&&
-            pos.getZ()>=origin.getZ()-24&&
-            pos.getZ()<=origin.getZ()+blueprint.length+24&&
-            pos.getY()>=origin.getY()-24&&
-            pos.getY()<=origin.getY()+blueprint.height+24;
+        return SupplyChestDiscovery.inProjectArea(
+            pos.getX(),pos.getY(),pos.getZ(),
+            origin.getX(),origin.getY(),origin.getZ(),
+            blueprint.width,blueprint.height,blueprint.length);
     }
     private void discoverSignedChestsNear(BlockPos focus,int radius,int yRange){
         for(int dx=-radius;dx<=radius;dx++)
@@ -1064,8 +1062,8 @@ public final class ConstructionProject {
             BlockPos candidate=chest.offset(direction);
             if(world.getBlockEntity(candidate) instanceof SignBlockEntity sign) {
                 for(int line=0;line<4;line++) {
-                    if("BuildAI".equalsIgnoreCase(sign.getFrontText().getMessage(line,false).getString().trim())||
-                       "BuildAI".equalsIgnoreCase(sign.getBackText().getMessage(line,false).getString().trim()))
+                    if(SupplyChestDiscovery.marked(sign.getFrontText().getMessage(line,false).getString())||
+                       SupplyChestDiscovery.marked(sign.getBackText().getMessage(line,false).getString()))
                         return true;
                 }
             }

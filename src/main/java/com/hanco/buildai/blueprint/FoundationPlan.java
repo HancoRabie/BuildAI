@@ -11,9 +11,9 @@ import java.util.*;
  *
  * A two-phase plan keeps architectural walls and enclosed basements:
  * (1) identify provisional foundation layers with >=90% footprint coverage;
- * (2) protect only verified inward-facing standing walls and their
- * architectural room/corridor footprints, rather than projecting arbitrary
- * AIR cavities throughout the schematic onto every foundation layer.
+ * (2) protect only recognized basement interiors and adjacent actual
+ * underground walls/floors at their own Y-level; NEVER protect stone merely
+ * because an aboveground wall occupies the same X/Z column.
  *
  * No inference from a schematic can prove a completely solid region is a
  * basement rather than disposable terrain. Such ambiguity must be inspected
@@ -146,23 +146,41 @@ public final class FoundationPlan {
     }
 
     /**
-     * Project only wall-defined architecture onto the foundation, NEVER
-     * arbitrary schematic AIR found anywhere above the platform.
+     * Protect actual BELOW-GROUND enclosed rooms, not a 2D projection of
+     * ABOVE-ground architecture. The old projection retained foundation
+     * stone in vertical columns below any wall/corridor, producing hanging
+     * slabs and pillars. foundation:no should remove those lower layers.
      *
-     * The old version invoked enclosedAir(), projected ALL its AIR cells
-     * into X/Z and expanded around any nearby building block. A six-faced
-     * pocket in leaves, a hanging decorative cavity, or a distant corridor
-     * therefore protected columns of otherwise disposable stone through
-     * EVERY foundation Y layer: exactly the floating pillars reported.
-     *
-     * Reuse the intended FOUNDATION-specific wall/room classifier. It
-     * requires sustained, inward-facing standing walls or verified corridor
-     * pairs, not a vertical projection of unrelated "hollow" AIR.
-     * Provisional omitted blocks must be invisible as boundary anchors.
+     * Only original schematic AIR INSIDE the qualifying foundation Y-range
+     * establishes basement evidence. A two-block masonry collar plus one
+     * floor layer is retained around that proven basement volume.
+     * Decorative/room AIR above the foundation does not protect ANY stone
+     * below, no matter how tall the temple is.
      */
-    private static BitSet protectedInterior(Blueprint b,Set<Integer> provisional,
-                                             int lastFoundationY){
-        return InteriorHollowPlan.protectedFootprint(b.withoutBlocks(provisional));
+    private static Set<Integer> protectedBasementBlocks(Blueprint b,
+                    Set<Integer> provisional,int firstY,int lastY){
+        BitSet enclosed=InteriorHollowPlan.enclosedAir(b);
+        Set<Integer> protectedBlocks=new HashSet<>();
+        int plane=b.width*b.length;
+        for(int i=enclosed.nextSetBit(0);i>=0;i=enclosed.nextSetBit(i+1)){
+            int y=i/plane;
+            if(y<firstY||y>lastY)continue;
+            int x=i%b.width,z=(i/b.width)%b.length;
+            // Basement wall thickness and occupied basement floor.
+            for(int dy=-1;dy<=0;dy++){
+                int yy=y+dy;
+                if(yy<firstY)continue;
+                for(int dx=-2;dx<=2;dx++)for(int dz=-2;dz<=2;dz++){
+                    if(Math.abs(dx)+Math.abs(dz)>2)continue;
+                    int xx=x+dx,zz=z+dz;
+                    if(xx<0||zz<0||xx>=b.width||zz>=b.length)continue;
+                    int candidate=b.index(xx,yy,zz);
+                    if(provisional.contains(candidate))
+                        protectedBlocks.add(candidate);
+                }
+            }
+        }
+        return protectedBlocks;
     }
 
     /**
@@ -258,17 +276,15 @@ public final class FoundationPlan {
             qualified++;
         }
         if(qualified==0)return new Analysis(Set.of(),first,0,stop,reason);
-        BitSet protectedXZ=protectedInterior(b,provisional,first+qualified-1);
-        Set<Integer> omitted=new HashSet<>();
-        int retained=0,plane=b.width*b.length;
-        for(int i:provisional){
-            if(protectedXZ.get(i%plane))retained++;
-            else omitted.add(i);
-        }
+        Set<Integer> protectedBlocks=protectedBasementBlocks(
+            b,provisional,first,first+qualified-1);
+        Set<Integer> omitted=new HashSet<>(provisional);
+        omitted.removeAll(protectedBlocks);
+        int retained=protectedBlocks.size();
         reason+="; >=90% layer coverage and >=51% single-type majority; footprint "+base.area()+" cells ("+base.size()+
             ") inside schematic "+b.width+"x"+b.length+
-            "; retained "+retained+" candidate blocks within recognized "+
-            "room/wall columns (basement protection)";
+            "; retained "+retained+" candidate blocks at ACTUAL underground "+
+            "enclosed room walls/floors (no projected aboveground columns)";
         return new Analysis(omitted,first,qualified,stop,reason);
     }
 

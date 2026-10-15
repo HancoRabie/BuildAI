@@ -84,10 +84,12 @@ public final class BuildAIScreen extends Screen {
         add("Placement / Export",left+third+gap,row(1),third,buttonHeight,b->switchTab(1));
         add("How To",left+2*(third+gap),row(1),panelWidth-2*(third+gap),buttonHeight,
             b->{saveFields();client.setScreen(new BuildAIHelpScreen(this));});
-        add("Feedback & Styles | Personal Building Library",
-            left,row(2),panelWidth,buttonHeight,b->{
-                saveFields();client.setScreen(new BuildAIFeedbackScreen(this));
-            });
+        add("Feedback & Styles",left,row(2),half,buttonHeight,b->{
+            saveFields();client.setScreen(new BuildAIFeedbackScreen(this));
+        });
+        add("Permissions / Server Access",left+half+gap,row(2),half,buttonHeight,b->{
+            saveFields();client.setScreen(new BuildAIAccessScreen(this));
+        });
 
         if(tab==0){
             // One unified prompt row: text entry plus a small trailing

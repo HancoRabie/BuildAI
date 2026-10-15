@@ -45,7 +45,7 @@ public final class BuildAIHelpScreen extends Screen {
         {
             "Labeling Survival supply chests: Put a sign immediately adjacent to the chest (side, above or below) and write BuildAI, any capitalization.",
             "BuildAI automatically searches for marked chests near the locked site's corner and near the active builder anywhere along the structure.",
-            "The label is the only required step. Sneak-right-clicking a marked chest remains an OPTIONAL manual link for special cases.",
+            "The label is the only step. You do NOT need to sneak-right-click or link the chest; normal sign placement and chest opening work as vanilla Minecraft.",
             "The chest must stay in loaded chunks and near the building. You can move around a very large site so newly labeled chests are discovered.",
             "Double-chest halves are treated as real inventory sources. BuildAI remembers the EXACT chest position used for each withdrawal.",
             "The signed chests are protected from being broken during active construction. Removing labels mid-project can interrupt future supply discovery.",
@@ -131,7 +131,7 @@ public final class BuildAIHelpScreen extends Screen {
             "In hollow mode, only existing terrain inside wall-defined blueprint AIR cells is excavated; generated decorations/floors/walls are never removed. Rooms with four-sided wall containment AND wall-defined corridors with long parallel standing walls qualify. No recognized area? The request fails safely. Protected containers/bedrock and unloaded chunks reject the whole operation before edits.",
         },
         {
-            "Place a chest at or near the building and put an adjacent sign saying BuildAI. That alone enables automatic discovery; manual sneak-right-click linking is OPTIONAL.",
+            "Place a chest near the building, then attach or place an adjacent sign saying BuildAI (any line, front or back). No BuildAI right-click interaction exists; G freezes ONLY the building preview.",
             "Keep the sign and source chest where they are. BuildAI searches near the site and near you while you work, and draws from multiple chests as required.",
             "The material total is based on actual placed item requirements. Omitted foundation, temporary construction blocks and temporary slabs are NOT charged.",
             "Use /buildai materials for supplied, needed and used counts. Projects pause safely when materials run out and resume when the signed chest is refilled.",

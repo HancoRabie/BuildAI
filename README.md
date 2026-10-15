@@ -348,7 +348,7 @@ git pull origin main
 
 The last command starts a separate **Minecraft 1.21.1 Fabric development client** with BuildAI loaded. No manual JAR copying is needed for this development test. The first launch may download the Minecraft/Gradle dependencies. If Java 21 is missing, select it in IntelliJ **Settings → Build, Execution, Deployment → Build Tools → Gradle → Gradle JVM**.
 
-For the safest immediate smoke test, create a **brand-new Creative world** and press **F8 → Load Demo Cottage**. The demo produces real blueprint blocks with no OpenAI account, API key, internet, or extra building mods. Select **Export Blueprint as .schem** to verify serialization; **Upload Blueprint** to preview it. Pick X/Z with a left click, sneak-right-click the chosen surface block, then inspect collision warnings carefully. Only in a disposable world run `/buildai confirm` (server operator permission is required in this prototype).
+For the safest immediate smoke test, create a **brand-new Creative world** and press **F8 → Load Demo Cottage**. The demo produces real blueprint blocks with no OpenAI account, API key, internet, or extra building mods. Select **Export Blueprint as .schem** to verify serialization; **Upload Blueprint** to preview it. After Upload Blueprint, close F8, move to the desired position, press G to freeze the preview and Enter to lock XYZ; inspect collision warnings carefully. Only in a disposable world run `/buildai confirm` (server operator permission is required in this prototype).
 
 **ChatGPT sign-in is now implemented in source but NOT yet live user-verified**. Open F8 → Continue with ChatGPT; approve plan usage in the browser and return to Minecraft. If login or account entitlements fail, use the optional OpenAI API-key fallback or offline demo.
 
@@ -407,16 +407,16 @@ BuildAI never uses an artificial observer/spectator camera. After **Upload & Pre
 2. Enter an OpenAI developer API key (optional if importing rather than generating) and describe an ornate house. Click **Generate with AI**.
 3. Or choose **Import File** to select .schem / .schematic / .litematic / .nbt using a desktop file picker.
 4. Adjust **Surface Y** to the local blueprint layer intended to match the terrain surface. Use **Export .schem** to save generated build files to disk.
-5. Click **Upload Blueprint**, close GUI, aim at a block and **left-click** to mark horizontal X/Z. See green/red outline guidance.
-6. **Sneak-right-click** your desired surface block to lock absolute Y. An existing-volume collision report appears in chat.
-7. Inspect the outline and only on a disposable world run **/buildai confirm**. Construction excavates overlapping blocks without drops, then builds Y-layer by Y-layer.
+5. Click **Upload Blueprint**, close GUI and walk/fly to the proposed site. The ghost follows your character. Press **G** to freeze its current XYZ (no block targeting or right-click required).
+6. Adjust position with arrow keys/mouse wheel and press **Enter** to lock final coordinates on the server. Read collision warnings before building.
+7. In a disposable world, use **/buildai confirm excavate:no** to overlay actual schematic blocks, or explicitly select hollow/full excavation only when intended. Construction builds Y-layer by Y-layer.
 8. Use **/buildai status**, **/buildai cinematic**, **/buildai fast**, **/buildai cancel**, **/buildai undo**, and (for operators level 4 only) **/buildai undo force**.
 
-This prototype restricts world modification to **operators** until claim/permission checks are implemented. **Safe Undo** now prechecks affected cells for protected block entities and then restores the original block states in bounded server-tick batches. It recognizes command blocks belonging to the generated design. If new inventory/script block entities conflict, **Force Undo (OP4)** is available through an explicit in-game confirmation and can destroy those new contents. Neither mode refunds supplies or recovers construction journals after server restarts. Undo is not a substitute for world backups.
+This prototype restricts world modification to **operators** until claim/permission checks are implemented. **Safe Undo** prechecks affected cells for protected block entities and restores recorded original block states in bounded server-tick batches. In Survival, consumed materials are then refunded to their original source chests while the active project's in-memory receipt ledger remains available; full/missing chests pause refunds. **Force Undo (OP4)** can destroy user-edited inventory/script contents, which cannot be recovered. Construction and refund journals are not crash-persistent. Undo is not a substitute for world backups.
 
 ## Survival supplies
 
-Mark a chest with a sign that reads **BuildAI** on any line. After selecting the building's surface, **sneak-right-click the chest** to link it. Add materials; they are consumed as each block is placed. Additional marked chests can be linked. Nearby chest HUD shows material totals and two progress bars.
+Put an ordinary chest near the building and attach or place a sign immediately next to it reading **BuildAI** on any line (front or back). **No sneak-right-click linking exists or is necessary.** BuildAI automatically discovers marked chests near the site or player during construction; other unsigned chests are not authorized supply sources. Sneak-right-click retains its ordinary Minecraft meaning, such as placing a sign against a chest. Building preview placement uses **G** to freeze and **Enter** to lock. Add materials to one or more marked chests; they are consumed progressively as corresponding schematic blocks are placed. Nearby chest HUD shows material totals and progress.
 
 Use **/buildai materials** to see consumed + available / required per material. When items run out, construction pauses until more appear.
 

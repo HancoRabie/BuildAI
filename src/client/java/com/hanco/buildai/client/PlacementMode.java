@@ -20,7 +20,9 @@ import net.minecraft.util.math.BlockPos;
  * CTRL+UP/DOWN or wheel = forward/back relative to heading captured on G;
  * ENTER validates and locks the current XYZ and rotation on the server.
  *
- * F8 > Placement / Export > Retry Placement (or /buildai retry) unfreezes.\n * No global R binding: R is reserved for other mods such as Cobblemon.
+ * F8 > Placement / Export > Retry Placement (or /buildai retry) unfreezes.
+ * R retries ONLY while placement is editable; Cobblemon retains it elsewhere.
+ * Neither R nor G/Enter/arrows are globally registered keybindings.
  */
 public final class PlacementMode {
     private PlacementMode(){}
@@ -121,8 +123,10 @@ public final class PlacementMode {
     }
     /** Consume the wheel only during an unlocked preview; preserve hotbar otherwise. */
     public static boolean scroll(double vertical){
-        if(!active()||!BuildAIClient.selecting||waitingLock||
-            MinecraftClient.getInstance().currentScreen!=null)return false;
+        MinecraftClient mc=MinecraftClient.getInstance();
+        if(vertical==0 || !PlacementInputPolicy.claimsScroll(
+            mc.player!=null&&mc.world!=null,mc.currentScreen==null,
+            active(),BuildAIClient.selecting,waitingLock))return false;
         int amount=(int)Math.round(vertical);
         if(amount==0)amount=vertical>0?1:-1;
         amount=Math.max(-16,Math.min(16,amount));

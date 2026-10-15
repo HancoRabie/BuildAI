@@ -231,7 +231,7 @@ public final class BuildAIScreen extends Screen {
             });
             add("Lock XYZ (Enter)",left+half+gap,row(7),half,buttonHeight,b->{
                 if(!BuildAIClient.selecting){
-                    status="Upload first, or press R to retry. Press G outside the GUI to freeze the ghost, then arrows/wheel to adjust.";return;
+                    status="Upload first, or use Retry Placement. Press G outside the GUI to freeze the ghost, then arrows/wheel to adjust.";return;
                 }
                 PlacementMode.lock();
                 status=PlacementMode.groundSelected()?"Placement lock requested; wait for server approval.":

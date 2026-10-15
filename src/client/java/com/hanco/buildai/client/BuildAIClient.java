@@ -3,8 +3,6 @@ package com.hanco.buildai.client;
 import com.hanco.buildai.blueprint.Blueprint;
 import com.hanco.buildai.blueprint.StagedFarmPlan;
 import com.hanco.buildai.net.PlacePayload;
-import net.fabricmc.fabric.api.event.player.UseBlockCallback;
-import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.BlockPos;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;

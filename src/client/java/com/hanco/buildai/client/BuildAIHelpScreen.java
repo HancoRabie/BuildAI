@@ -164,7 +164,7 @@ public final class BuildAIHelpScreen extends Screen {
             "/buildai hide - dismiss the visual placement grid without modifying the real building.",
             "/buildai confirm: excavate:no overlays only intended schematic non-AIR blocks; unpainted terrain stays. foundation:no SANITIZES the schematic by omitting majority foundation material from consecutive lower layers (>=90% connected footprint coverage, automatic type >=51% OR each explicitly named type >=20%); existing world blocks at omitted positions are NEVER cleared. foundation:no by itself defaults to excavate:no. hollow:yes separately requests interior AIR excavation, while excavate:yes explicitly requests full-site clearing. hollow:yes excavate:yes is invalid.",
             "/buildai cancel - stop and keep already placed blocks.",
-            "/buildai undo - safely restores the original world blockstates in batches, then returns Survival supplies to their original BuildAI chests without partial refunds. Full/missing chests hold the pending refund until fixed. /buildai undo force (OP4) can destroy edited inventories or scripts. Undo receipts are NOT crash-persistent yet."
+            "/buildai undo - safely restores the original world blockstates in batches, then returns Survival supplies to their original BuildAI chests without partial refunds. Full/missing chests hold the pending refund until fixed. /buildai undo force (BuildAI Admin only) can destroy edited inventories or scripts. Undo receipts are NOT crash-persistent yet."
         },
         {
             "DO NOT test BuildAI on a valuable world without a backup.",

@@ -11,15 +11,11 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
-import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
 import net.minecraft.server.command.CommandManager;
 
 import static net.minecraft.server.command.CommandManager.literal;
@@ -272,20 +268,10 @@ public final class BuildAIMod implements ModInitializer {
                 }
             });
         });
-        UseBlockCallback.EVENT.register((player,world,hand,hit)->{
-            if(world.isClient()||!(player instanceof ServerPlayerEntity server)||!server.hasPermissionLevel(2))
-                return ActionResult.PASS;
-            ConstructionProject project=ConstructionManager.get(server);
-            if(project==null||!player.isSneaking())return ActionResult.PASS;
-            try {
-                if(world.getBlockEntity(hit.getBlockPos()) instanceof net.minecraft.inventory.Inventory) {
-                    project.linkChest(hit.getBlockPos());
-                    reply(server,"BuildAI chest linked. Any adjacent sign reading BuildAI also auto-registers its chest; manual linking is optional. /buildai materials shows progress.");
-                    return ActionResult.SUCCESS;
-                }
-            }catch(Exception e){reply(server,"Could not select: "+e.getMessage());return ActionResult.SUCCESS;}
-            return ActionResult.PASS;
-        });
+        // Supply chests are discovered from an adjacent BuildAI sign during
+        // Survival construction. Do not intercept sneak-right-click: that
+        // native action is how players attach signs, open chests, and place
+        // blocks. Blueprint placement is handled exclusively by G/Enter.
         PlayerBlockBreakEvents.BEFORE.register((world,player,pos,state,entity)->{
             if(ConstructionManager.protectedChest(pos,world)) {
                 player.sendMessage(Text.literal("[BuildAI] Supply chest is protected while project is active."),true);

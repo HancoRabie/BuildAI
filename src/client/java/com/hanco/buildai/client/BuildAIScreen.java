@@ -187,7 +187,7 @@ public final class BuildAIScreen extends Screen {
                 client.getNetworkHandler().sendChatCommand("buildai undo");
                 status="Safe undo requested. Follow /buildai status; protected containers are not overwritten.";
             });
-            add("Force Undo (OP4)...",left+half+gap,row(3),half,buttonHeight,b->{
+            add("Force Undo (Admin)...",left+half+gap,row(3),half,buttonHeight,b->{
                 if(client==null||client.getNetworkHandler()==null){
                     status="Join a world to request undo.";return;
                 }

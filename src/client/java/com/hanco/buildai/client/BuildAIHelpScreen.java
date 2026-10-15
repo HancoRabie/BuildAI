@@ -12,7 +12,7 @@ public final class BuildAIHelpScreen extends Screen {
     private static final String[] TITLES = {
         "Welcome to BuildAI", "Creative quick start", "Survival quick start",
         "BuildAI chest labels", "Survival material costs", "Foundation & hollowing",
-        "Undo and item returns", "ChatGPT and API access", "Generate and revise",
+        "Undo and item returns", "Access & permissions", "ChatGPT and API access", "Generate and revise",
         "Import and export", "Feedback & reference schematics", "Choose your placement", "Ground level and excavation",
         "Survival material chests", "Construction controls", "Safety and known limitations"
     };
@@ -82,6 +82,18 @@ public final class BuildAIHelpScreen extends Screen {
             "World backups are required for crash safety. Cancel without undo keeps placed blocks and does NOT return materials."
         },
         {
+            "BuildAI WORKS WITH CHEATS OFF in singleplayer Survival and Creative. The singleplayer world owner is a BuildAI administrator automatically.",
+            "F8 -> generate/import a blueprint -> G to freeze preview -> Enter to lock -> /buildai confirm. The Allow Cheats world setting does NOT affect BuildAI.",
+            "The integrated-world HOST keeps this permission even while hosting LAN. LAN visitors do NOT gain the host's privileges.",
+            "On dedicated servers, OP2+ or an explicit BuildAI UUID grant allows all ordinary building workflows without giving the player Minecraft OP.",
+            "An administrator (singleplayer host or dedicated OP4) can /buildai access grant <online-player-name-or-UUID> and /buildai access revoke <online-player-name-or-UUID>.",
+            "/buildai access displays your role; /buildai access list shows saved UUID grants (admin only). Grants persist per world in buildai/access.json.",
+            "Builders can upload, place, build, manage Survival materials, substitute, retry, cancel and SAFELY undo their OWN projects.",
+            "Force Undo and command-block script programming/approval are administrator-only. BuildAI grants never elevate vanilla operator permissions.",
+            "There is no region-claim protection yet. Only grant BuildAI to trusted players on shared worlds, as buildings can modify nearby terrain.",
+            "Server-side permission checks apply to both chat commands and uploaded blueprint/placement network packets."
+        },
+        {
             "Press F8, then Continue with ChatGPT. BuildAI tries to open the secure OpenAI login in your default browser. Approve permission and return to Minecraft.",
             "If Java cannot launch your browser, use the sign-in modal's Open Browser or Copy Sign-in Link button. Paste the copied link into your preferred browser, such as Brave, while the sign-in session is active.",
             "Connected eligible ChatGPT users can generate with their plan. A separate OpenAI developer API key remains an optional fallback; it is not saved by the game.",
@@ -148,7 +160,7 @@ public final class BuildAIHelpScreen extends Screen {
             "Chains are not self-connecting fences. BuildAI now flags one-block gaps between aligned chain segments as QA warnings; add real links to bridge a gap.",
             "For command-driven maps, AI supplies a command plan mapped to actual placed blocks. Lock placement at zero-degree rotation. Build the physical map normally with /buildai confirm: you do NOT need to race against construction to approve commands.",
             "AFTER the physical build and naturalization finish, BuildAI pauses indefinitely at WAITING_COMMAND_APPROVAL and automatically opens the full command review IN Minecraft. Each script has a stable number, exact world location and matching block. You can close and reopen the review at F8 > Placement / Export > Design QA.",
-            "With server OP4 and enable-command-block=true, choose Approve All or individually mark scripts in the review screen. Chat alternatives: /buildai commands approve all, /buildai commands approve 1,2,4,7, or /buildai commands 1,2,4. One-based numbering everywhere; nonapproved blocks remain empty/inert. Selected scripts program before any automatic activation. Test full game logic before public use.",
+            "Only BuildAI ADMINS may program/approve command-block scripts: the singleplayer host even with cheats OFF, or dedicated OP4. Dedicated servers also need enable-command-block=true. Review each script carefully: it executes with server authority. /buildai commands approve all or /buildai commands approve 1,2,4 authorizes selected scripts. Ordinary BuildAI builders never receive this power.",
             "/buildai hide - dismiss the visual placement grid without modifying the real building.",
             "/buildai confirm: excavate:no overlays only intended schematic non-AIR blocks; unpainted terrain stays. foundation:no SANITIZES the schematic by omitting majority foundation material from consecutive lower layers (>=90% connected footprint coverage, automatic type >=51% OR each explicitly named type >=20%); existing world blocks at omitted positions are NEVER cleared. foundation:no by itself defaults to excavate:no. hollow:yes separately requests interior AIR excavation, while excavate:yes explicitly requests full-site clearing. hollow:yes excavate:yes is invalid.",
             "/buildai cancel - stop and keep already placed blocks.",

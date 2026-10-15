@@ -26,7 +26,7 @@ public final class BuildAIHelpScreen extends Screen {
         {
             "Creative quick start: 1) Press F8 to create a structure with AI, load a saved schematic, or use the offline demo.",
             "2) Select the intended ground or surface Y-layer, then Upload and Preview. Fly to the build site; the ghost starts in front of you.",
-            "3) Press G to freeze the preview. Adjust it with arrows and mouse wheel; CTRL+arrows rotate or move forward/back. Press ENTER to lock. R retries.",
+            "3) Press G to freeze the preview. Adjust it with arrows and mouse wheel; CTRL+arrows rotate or move forward/back. Press ENTER to lock. F8 > Placement / Export > Retry Placement resets.",
             "4) Inspect the space BEFORE confirming. /buildai confirm clears the full volume; /buildai confirm excavate:no overlays existing terrain.",
             "5) foundation:no SANITIZES THE SCHEMATIC: omitted foundation blocks are never placed. It does not delete existing world terrain. Only excavate:yes or hollow:yes explicitly clears terrain.",
             "6) Creative building does not require or consume inventory resources. Follow /buildai status; inspect rooms and redstone before trusting the result.",
@@ -133,11 +133,11 @@ public final class BuildAIHelpScreen extends Screen {
             "Upload and Preview sends the design to the server. Once accepted, close F8 and move normally in your own player view; Creative flight works as usual.",
             "The preview starts completely IN FRONT of the player, with the building facade facing the player. In Survival, walk to the site; in Creative, fly as usual.",
             "After G, LEFT/RIGHT arrows nudge sideways relative to the captured camera heading; UP/DOWN changes Y. CTRL+LEFT/RIGHT rotates in 90-degree steps; CTRL+UP/DOWN or the wheel moves forward/back. Hotbar scrolling returns when placement is locked.",
-            "Press G anywhere to freeze the ghost exactly where it is shown. No ground block or raycast required. Walk/fly around it, fine-tune with arrows/wheel, and press ENTER to lock XYZ. R resets placement.",
+            "Press G anywhere to freeze the ghost exactly where it is shown. No ground block or raycast required. Walk/fly around it, fine-tune with arrows/wheel, and press ENTER to lock XYZ. Use F8 > Placement / Export > Retry Placement to reset.",
             "The project remains in review until you explicitly confirm it."
         },
         {
-            "After G, use arrows and wheel to fine tune the ghost, then ENTER locks its XYZ. R or /buildai retry resets it. F8 > Confirm & Build begins excavation only after server validation; protected containers and unloaded chunks are still rejected.",
+            "After G, use arrows and wheel to fine tune the ghost, then ENTER locks its XYZ. Use F8 > Retry Placement or /buildai retry to reset it (R remains available for Cobblemon). F8 > Confirm & Build begins excavation only after server validation; protected containers and unloaded chunks are still rejected.",
             "DEFAULT /buildai confirm: clear all existing blocks in the blueprint volume before placing the build. /buildai confirm excavate:no: overlay blueprint blocks without clearing its empty spaces. Existing terrain in blueprint-AIR cells remains.",
             "/buildai confirm hollow:yes explicitly clears recognized interior schematic AIR in the WORLD. Adding foundation:no only omits foundation blocks from the schematic placement list; it does not excavate world stone. Use a backup before hollowing.",
             "In hollow mode, only existing terrain inside wall-defined blueprint AIR cells is excavated; generated decorations/floors/walls are never removed. Rooms with four-sided wall containment AND wall-defined corridors with long parallel standing walls qualify. No recognized area? The request fails safely. Protected containers/bedrock and unloaded chunks reject the whole operation before edits.",

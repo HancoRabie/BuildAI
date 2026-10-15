@@ -98,7 +98,6 @@ public final class ConstructionProject {
     private int refundedSupplies=0;
     private final Map<String,String> substitutions=new LinkedHashMap<>();
     private final List<BlockPos> supplies=new ArrayList<>();
-    private final Set<BlockPos> linkedChests=new LinkedHashSet<>();
     private long lastChestScan=0;
     private boolean hasSnapshot=false;
     private List<BlockPos> rollbackOrder=List.of();
@@ -1064,13 +1063,8 @@ public final class ConstructionProject {
     private void refreshChests() {
         supplies.clear();
         lastChestScan=world.getTime();
-        for(BlockPos linked:linkedChests){
-            if(world.isChunkLoaded(linked)&&
-                world.getBlockEntity(linked) instanceof Inventory&&marked(linked))
-                supplies.add(linked);
-        }
-        // A SIGN reading BuildAI next to a chest is enough. No sneak-click
-        // or manual association is required. Manual linking remains optional.
+        // Only an adjacent sign reading BuildAI authorizes auto-discovery.
+        // Never intercept ordinary sneak-right-click or require linking.
         discoverSignedChestsNear(origin.up(surfaceLayer),12,4);
         var player=world.getServer().getPlayerManager().getPlayer(owner);
         if(player!=null&&player.getServerWorld()==world)
@@ -1092,16 +1086,9 @@ public final class ConstructionProject {
     public boolean protectedChest(BlockPos pos) {
         // Even freshly signed chests (before the next auto-discovery tick)
         // must not be broken by accident during active construction.
-        return linkedChests.contains(pos)||supplies.contains(pos)||
+        return supplies.contains(pos)||
             (projectSupplyArea(pos)&&
                 world.getBlockEntity(pos) instanceof Inventory&&marked(pos));
-    }
-    public void linkChest(BlockPos pos) {
-        if(!(world.getBlockEntity(pos) instanceof Inventory))throw new IllegalArgumentException("Select a chest or other inventory block");
-        if(!marked(pos))throw new IllegalArgumentException("Put a sign saying BuildAI beside the chest first");
-        if(!projectSupplyArea(pos))
-            throw new IllegalArgumentException("Supply chest must be at or near your construction site");
-        linkedChests.add(pos.toImmutable());refreshChests();
     }
     public Map<String,Integer> stored(){
         ensureSupplyChests();

@@ -10,8 +10,14 @@ import java.util.UUID;
  */
 public final class CommandAuthorization {
     private CommandAuthorization(){}
+    /** Pure server-security check: no other project's scripts, no builder role. */
+    public static boolean mayApprove(UUID actingPlayer,UUID projectOwner,
+                                     BuildAIPermissions.Role role){
+        return actingPlayer.equals(projectOwner)&&
+            role==BuildAIPermissions.Role.ADMIN;
+    }
     public static boolean canApprove(ServerPlayerEntity player,UUID owner){
-        return player.getUuid().equals(owner)&&BuildAIPermissions.canAdmin(player);
+        return mayApprove(player.getUuid(),owner,BuildAIPermissions.role(player));
     }
     public static String explanation(ServerPlayerEntity player){
         return "Command-block scripting requires the project owner to have BuildAI "+

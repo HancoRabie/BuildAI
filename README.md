@@ -18,6 +18,20 @@ Minecraft Java 1.21.1, Fabric Loader 0.16.7+, Fabric API, JDK 21 for development
 
 For text-to-build, v0.1 optionally connects to OpenAI API using an API key and an API-billed model. This is **not Sign in with ChatGPT** and does not consume ChatGPT Plus/Pro plan messages. No key is persisted by the mod or sent to Minecraft servers.
 
+## Permissions, including Survival worlds with cheats disabled
+
+BuildAI works in **singleplayer Survival or Creative with Allow Cheats OFF**. The owner of the integrated singleplayer world automatically has BuildAI administrator access; other LAN players do not inherit this permission.
+
+Open **F8 → Permissions / Server Access** for role explanations, plus **Grant Builder**, **Revoke Builder**, **Check My Role**, and **List Grants**. Enter the moderator's online Minecraft username (or UUID) and click the relevant admin action. All grant changes are validated on the server; the GUI itself cannot grant permission.
+
+On a dedicated server, two access levels keep setup simple: **Builder** (Minecraft OP2 or an explicit UUID grant) can generate, import, preview, build, manage chest materials, cancel, and safely undo their own projects. **Admin** (OP4) can additionally grant/revoke builders, force undo, and approve sensitive Minecraft command-block scripts. A grant does **not** make a player a Minecraft operator or enable vanilla cheats. Admin commands are also available directly in chat:
+
+- `/buildai access grant <online-name-or-uuid>`
+- `/buildai access revoke <online-name-or-uuid>`
+- `/buildai access list`
+
+Anyone, including an unauthorized player, can run `/buildai access` to view their current BuildAI role and setup instructions. Grants are stored as UUIDs in the world-specific `buildai/access.json` and survive restarts. **Security limitation:** BuildAI does not integrate with land-claim protection; only grant build permission to trusted people. A granted Builder is trusted to make substantial world edits.
+
 ## Set up in IntelliJ (Windows)
 
 Your project was previously cloned to the MC-MODS folder. In IntelliJ open that BuildAI directory and run:

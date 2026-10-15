@@ -20,7 +20,7 @@ import net.minecraft.util.math.BlockPos;
  * CTRL+UP/DOWN or wheel = forward/back relative to heading captured on G;
  * ENTER validates and locks the current XYZ and rotation on the server.
  *
- * R unfreezes/retries. Command-driven designs cannot yet rotate safely.
+ * F8 > Placement / Export > Retry Placement (or /buildai retry) unfreezes.\n * No global R binding: R is reserved for other mods such as Cobblemon.
  */
 public final class PlacementMode {
     private PlacementMode(){}
@@ -59,7 +59,7 @@ public final class PlacementMode {
             updatePlayerPreview();
         }
         BuildAIClient.message(lockedReview
-            ?"Location locked. F8 > Confirm & Build, or R to retry."
+            ?"Location locked. F8 > Confirm & Build, or F8 > Retry Placement."
             :"Preview follows you. G freezes the current spot, no block targeting. "+
               "Arrows move; CTRL+LEFT/RIGHT rotates; CTRL+UP/DOWN or wheel moves forward/back; ENTER locks.");
     }
@@ -100,7 +100,7 @@ public final class PlacementMode {
         anchored=true;
         BuildAIClient.message("Preview FROZEN at "+BuildAIClient.previewOrigin.toShortString()+
             ". Arrows left/right move sideways; up/down change Y; CTRL+arrows rotate/move depth. "+
-            "Wheel moves forward/back. ENTER locks, R retries.");
+            "Wheel moves forward/back. ENTER locks; F8 > Retry Placement resets.");
     }
     private static void shift(int x,int y,int z){
         if(BuildAIClient.previewOrigin==null)return;
@@ -184,7 +184,7 @@ public final class PlacementMode {
             BuildAIClient.previewLocked=true;
             anchored=true;
             BuildAIClient.previewOrigin=origin.toImmutable();
-            BuildAIClient.message("Position locked! F8 > Confirm & Build, or R to retry.");
+            BuildAIClient.message("Position locked! F8 > Confirm & Build, or F8 > Retry Placement.");
         }else{
             anchored=false;
             BuildAIClient.previewLocked=false;

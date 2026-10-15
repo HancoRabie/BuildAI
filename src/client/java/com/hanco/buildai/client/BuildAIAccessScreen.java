@@ -89,7 +89,7 @@ public final class BuildAIAccessScreen extends Screen {
         return lines;
     }
     @Override public boolean mouseScrolled(double mouseX,double mouseY,double horizontal,double vertical){
-        int max=Math.max(0,paragraphs().size()-Math.max(1,(height-163)/12));
+        int max=Math.max(0,paragraphs().size()-Math.max(1,(Math.max(27,height-153)-45)/12));
         scroll=Math.max(0,Math.min(max,scroll-(int)Math.signum(vertical)*3));
         return true;
     }
@@ -99,7 +99,7 @@ public final class BuildAIAccessScreen extends Screen {
             width/2,9,0x69E4B7);
         int px=x();
         List<OrderedText> lines=paragraphs();
-        int visible=Math.max(1,(height-165)/12);
+        int visible=Math.max(1,(Math.max(27,height-153)-45)/12);
         scroll=Math.min(scroll,Math.max(0,lines.size()-visible));
         int start=34;
         for(int i=scroll;i<Math.min(lines.size(),scroll+visible);i++)

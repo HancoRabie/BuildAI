@@ -160,6 +160,27 @@ public final class BuildAIMod implements ModInitializer {
             approvalResult(player,false,"Approval rejected: "+ex.getMessage());return 0;
         }
     }
+    private static java.util.UUID accessTarget(ServerPlayerEntity sender,String nameOrUuid){
+        ServerPlayerEntity online=sender.getServer().getPlayerManager().getPlayer(nameOrUuid);
+        if(online!=null)return online.getUuid();
+        try{return java.util.UUID.fromString(nameOrUuid);}
+        catch(IllegalArgumentException e){
+            throw new IllegalArgumentException(
+                "Player must be online for name lookup, or provide their UUID");
+        }
+    }
+    private static int grantAccess(ServerPlayerEntity admin,String requested,boolean grant){
+        try{
+            java.util.UUID id=accessTarget(admin,requested);
+            boolean changed=grant
+                ?BuildAIPermissions.grant(admin.getServer(),id)
+                :BuildAIPermissions.revoke(admin.getServer(),id);
+            reply(admin,(changed?(grant?"Granted":"Revoked"):"No change to")+
+                " BuildAI builder access for "+requested+" ("+id+"). "+
+                "Normal builders cannot force undo or run server command scripts.");
+            return 1;
+        }catch(Exception e){reply(admin,"BuildAI access edit failed: "+e.getMessage());return 0;}
+    }
     private static int confirmProject(ServerPlayerEntity player,ConstructionOptions options){
         ConstructionProject p=ConstructionManager.get(player);
         if(p==null){reply(player,"No project");return 0;}
@@ -219,8 +240,10 @@ public final class BuildAIMod implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(BlueprintChunkPayload.ID,(payload,context)->{
             ServerPlayerEntity player=context.player();
             context.server().execute(()->{
-                if(!player.hasPermissionLevel(2)){
-                    uploadResult(player,false,"Operator permission required to upload a building.");return;
+                if(!BuildAIPermissions.canBuild(player)){
+                    uploadResult(player,false,"BuildAI access required. "+
+                        "Singleplayer hosts have automatic access even with cheats off; "+
+                        "on servers ask an admin for /buildai access grant <player>.");return;
                 }
                 try{
                     String response=UPLOADS.accept(player.getUuid(),payload);
@@ -242,7 +265,7 @@ public final class BuildAIMod implements ModInitializer {
             ServerPlayerEntity player=context.player();
             context.server().execute(()->{
                 ConstructionProject p=ConstructionManager.get(player);
-                if(p==null||!player.hasPermissionLevel(2))return;
+                if(p==null||!BuildAIPermissions.canBuild(player))return;
                 BlockPos candidate=payload.pos();
                 try {
                     // Placement always uses the normal player camera; the server is authoritative
@@ -284,6 +307,35 @@ public final class BuildAIMod implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(ConstructionManager::tick);
         CommandRegistrationCallback.EVENT.register((dispatcher,registry,environment)->
             dispatcher.register(literal("buildai")
+                .requires(BuildAIPermissions::canBuild)
+                .then(literal("access")
+                    .executes(c->{
+                        ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                        reply(player,"BuildAI access: "+BuildAIPermissions.role(player)+
+                            ". Singleplayer owner has full access with cheats OFF. "+
+                            "Multiplayer: OP2 or explicit grant = builder; OP4 = admin. "+
+                            "Admins: /buildai access grant <online-player-or-uuid>, "+
+                            "/buildai access revoke <online-player-or-uuid>, "+
+                            "/buildai access list.");
+                        return 1;
+                    })
+                    .then(literal("grant").requires(BuildAIPermissions::canAdmin)
+                        .then(argument("player",StringArgumentType.word()).executes(c->
+                            grantAccess(c.getSource().getPlayerOrThrow(),
+                                StringArgumentType.getString(c,"player"),true))))
+                    .then(literal("revoke").requires(BuildAIPermissions::canAdmin)
+                        .then(argument("player",StringArgumentType.word()).executes(c->
+                            grantAccess(c.getSource().getPlayerOrThrow(),
+                                StringArgumentType.getString(c,"player"),false))))
+                    .then(literal("list").requires(BuildAIPermissions::canAdmin)
+                        .executes(c->{
+                            ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
+                            var granted=BuildAIPermissions.grants(player.getServer());
+                            reply(player,"BuildAI granted builder UUIDs ("+granted.size()+
+                                "): "+(granted.isEmpty()?"none":granted.toString())+
+                                ". Integrated hosts and server operators are implicit.");
+                            return 1;
+                        })))
                 .then(literal("status").executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
@@ -321,7 +373,7 @@ public final class BuildAIMod implements ModInitializer {
                     }
                     return 1;
                 }))
-                .then(literal("substitute").requires(s->s.hasPermissionLevel(2))
+                .then(literal("substitute").requires(BuildAIPermissions::canBuild)
                     .then(argument("mapping",StringArgumentType.greedyString()).executes(c->{
                         ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                         ConstructionProject p=ConstructionManager.get(player);
@@ -334,13 +386,13 @@ public final class BuildAIMod implements ModInitializer {
                             return 1;
                         }catch(Exception e){reply(player,"Replacement rejected: "+e.getMessage());return 0;}
                     })))
-                .then(literal("cinematic").requires(s->s.hasPermissionLevel(2)).executes(c->{
+                .then(literal("cinematic").requires(BuildAIPermissions::canBuild).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project");return 0;}
                     p.setCinematic(true);reply(player,"Cinematic enabled. The site is visually masked while excavated, then a black-hole suction animation plays before building.");return 1;
                 }))
-                .then(literal("normalize").requires(s->s.hasPermissionLevel(2)).executes(c->{
+                .then(literal("normalize").requires(BuildAIPermissions::canBuild).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p!=null&&p.requestPaneRepair()){
@@ -358,13 +410,13 @@ public final class BuildAIMod implements ModInitializer {
                     reply(player,"Normalized "+count+" pane/fence/wall/redstone wire connection states and refreshed nearby redstone devices (20-block horizontal radius). Note: live circuits may pulse.");
                     return 1;
                 }))
-                .then(literal("fast").requires(s->s.hasPermissionLevel(2)).executes(c->{
+                .then(literal("fast").requires(BuildAIPermissions::canBuild).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project");return 0;}
                     p.setCinematic(false);reply(player,"Fast placement (256 blocks/tick) enabled.");return 1;
                 }))
-                .then(literal("retry").requires(s->s.hasPermissionLevel(2)).executes(c->{
+                .then(literal("retry").requires(BuildAIPermissions::canBuild).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject project=ConstructionManager.get(player);
                     if(project==null){reply(player,"No blueprint loaded; upload one in F8.");return 0;}
@@ -383,16 +435,16 @@ public final class BuildAIMod implements ModInitializer {
                     reply(player,"Placement preview hidden. Blueprint and built blocks unchanged.");
                     return 1;
                 }))
-                .then(literal("commands").requires(src->src.hasPermissionLevel(2))
-                    .then(literal("recover").then(
+                .then(literal("commands").requires(BuildAIPermissions::canBuild)
+                    .then(literal("recover").requires(BuildAIPermissions::canAdmin).then(
                         argument("filename",StringArgumentType.greedyString()).executes(c->
                             recoverSavedCommands(c.getSource().getPlayerOrThrow(),
                                 StringArgumentType.getString(c,"filename")))))
-                    .then(literal("set").requires(src->src.hasPermissionLevel(2))
+                    .then(literal("set").requires(BuildAIPermissions::canAdmin)
                         .then(argument("command",StringArgumentType.greedyString()).executes(c->
                             stageAtCrosshair(c.getSource().getPlayerOrThrow(),
                                 StringArgumentType.getString(c,"command")))))
-                    .then(literal("preset").requires(src->src.hasPermissionLevel(2))
+                    .then(literal("preset").requires(BuildAIPermissions::canAdmin)
                         .then(argument("choice",StringArgumentType.word()).executes(c->{
                             ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                             try{return stageAtCrosshair(player,
@@ -469,7 +521,7 @@ public final class BuildAIMod implements ModInitializer {
                                     " : "+block.command());
                                 return 1;
                             })))
-                    .then(literal("approve").requires(src->src.hasPermissionLevel(2))
+                    .then(literal("approve").requires(BuildAIPermissions::canAdmin)
                         .executes(c->{
                             reply(c.getSource().getPlayerOrThrow(),"Specify 'approve all' or "+
                                 "'approve 1,2,4' after the physical map finishes.");return 0;
@@ -481,10 +533,10 @@ public final class BuildAIMod implements ModInitializer {
                                 StringArgumentType.getString(c,"indices")))))
                     // Short form: /buildai commands 1, 2, 4, 7
                     .then(argument("selection",StringArgumentType.greedyString())
-                        .requires(src->src.hasPermissionLevel(2)).executes(c->
+                        .requires(BuildAIPermissions::canAdmin).executes(c->
                             approveSelected(c.getSource().getPlayerOrThrow(),
                                 StringArgumentType.getString(c,"selection")))))
-                .then(literal("confirm").requires(s->s.hasPermissionLevel(2))
+                .then(literal("confirm").requires(BuildAIPermissions::canBuild)
                     .executes(c->confirmProject(c.getSource().getPlayerOrThrow(),
                         ConstructionOptions.DEFAULT))
                     .then(argument("flags",StringArgumentType.greedyString())
@@ -498,14 +550,14 @@ public final class BuildAIMod implements ModInitializer {
                                 return 0;
                             }
                         })))
-                .then(literal("cancel").requires(s->s.hasPermissionLevel(2)).executes(c->{
+                .then(literal("cancel").requires(BuildAIPermissions::canBuild).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project");return 0;}
                     try{p.cancel(false);clearGhost(player);reply(player,"Project stopped; partial build retained.");return 1;}
                     catch(Exception e){reply(player,"Cancel failed: "+e.getMessage());return 0;}
                 }))
-                .then(literal("undo").requires(src->src.hasPermissionLevel(2))
+                .then(literal("undo").requires(BuildAIPermissions::canBuild)
                     .executes(c->{
                         ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                         ConstructionProject p=ConstructionManager.get(player);
@@ -519,7 +571,7 @@ public final class BuildAIMod implements ModInitializer {
                             return 1;
                         }catch(Exception e){reply(player,"Undo unavailable: "+e.getMessage());return 0;}
                     })
-                    .then(literal("force").requires(src->src.hasPermissionLevel(4)).executes(c->{
+                    .then(literal("force").requires(BuildAIPermissions::canAdmin).executes(c->{
                         ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                         ConstructionProject p=ConstructionManager.get(player);
                         if(p==null){reply(player,"No project to undo.");return 0;}

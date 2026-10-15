@@ -307,7 +307,6 @@ public final class BuildAIMod implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(ConstructionManager::tick);
         CommandRegistrationCallback.EVENT.register((dispatcher,registry,environment)->
             dispatcher.register(literal("buildai")
-                .requires(BuildAIPermissions::canBuild)
                 .then(literal("access")
                     .executes(c->{
                         ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
@@ -336,7 +335,7 @@ public final class BuildAIMod implements ModInitializer {
                                 ". Integrated hosts and server operators are implicit.");
                             return 1;
                         })))
-                .then(literal("status").executes(c->{
+                .then(literal("status").requires(BuildAIPermissions::canBuild).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project. Open BuildAI GUI to generate/import.");return 1;}
@@ -361,7 +360,7 @@ public final class BuildAIMod implements ModInitializer {
                     }
                     return 1;
                 }))
-                .then(literal("materials").executes(c->{
+                .then(literal("materials").requires(BuildAIPermissions::canBuild).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     ConstructionProject p=ConstructionManager.get(player);
                     if(p==null){reply(player,"No project");return 0;}
@@ -429,7 +428,7 @@ public final class BuildAIMod implements ModInitializer {
                         return 1;
                     }catch(Exception e){reply(player,"Retry unavailable: "+e.getMessage());return 0;}
                 }))
-                .then(literal("hide").executes(c->{
+                .then(literal("hide").requires(BuildAIPermissions::canBuild).executes(c->{
                     ServerPlayerEntity player=c.getSource().getPlayerOrThrow();
                     clearGhost(player);
                     reply(player,"Placement preview hidden. Blueprint and built blocks unchanged.");

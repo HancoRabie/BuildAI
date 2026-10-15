@@ -17,7 +17,7 @@ public final class PlacementHud {
                 ?"BuildAI | LOCATION LOCKED"
                 :"BuildAI | POSITION PREVIEW";
             String controls=BuildAIClient.previewLocked
-                ?"Inspect the locked facade normally | R retries"
+                ?"Inspect the locked facade normally | F8 > Retry Placement"
                 :PlacementMode.groundSelected()
                     ?"LEFT/RIGHT: sideways | UP/DOWN: height | CTRL+L/R: rotate"
                     :"Building follows you | G: freeze at visible spot (no block target)";

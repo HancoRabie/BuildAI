@@ -1,18 +1,11 @@
 package com.hanco.buildai.build;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.WorldSavePath;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -52,20 +45,7 @@ public final class BuildAIPermissions {
         // allowlists between saves in the same long-lived client process.
         GRANTED.clear();
         loadedPath=null;
-        if(Files.exists(file)){
-            try{
-                JsonObject data=JsonParser.parseString(Files.readString(file,StandardCharsets.UTF_8))
-                    .getAsJsonObject();
-                JsonArray arr=data.getAsJsonArray("builders");
-                if(arr!=null)for(var entry:arr){
-                    GRANTED.add(UUID.fromString(entry.getAsString()));
-                }
-            }catch(Exception e){
-                GRANTED.clear();
-                throw new IllegalStateException("Invalid BuildAI permission file at "+file+
-                    "; access denied until corrected: "+e.getMessage(),e);
-            }
-        }
+        GRANTED.addAll(BuildAIAccessStore.read(file));
         loadedPath=file;
     }
     private static synchronized boolean hasGrant(MinecraftServer server,UUID id){
@@ -112,25 +92,6 @@ public final class BuildAIPermissions {
         return Set.copyOf(GRANTED);
     }
     private static void save(){
-        try{
-            Path path=loadedPath;
-            Files.createDirectories(path.getParent());
-            JsonObject data=new JsonObject();
-            data.addProperty("version",1);
-            JsonArray arr=new JsonArray();
-            GRANTED.stream().map(UUID::toString).sorted().forEach(arr::add);
-            data.add("builders",arr);
-            Path temp=Files.createTempFile(path.getParent(),"access-", ".tmp");
-            try{
-                Files.writeString(temp,data.toString(),StandardCharsets.UTF_8);
-                try{Files.move(temp,path,StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING);}
-                catch(AtomicMoveNotSupportedException e){
-                    Files.move(temp,path,StandardCopyOption.REPLACE_EXISTING);
-                }
-            }finally{Files.deleteIfExists(temp);}
-        }catch(Exception e){
-            throw new IllegalStateException("Cannot persist BuildAI permissions: "+e.getMessage(),e);
-        }
+        BuildAIAccessStore.write(loadedPath,GRANTED);
     }
 }

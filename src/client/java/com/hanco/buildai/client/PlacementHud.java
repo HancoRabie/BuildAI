@@ -22,7 +22,7 @@ public final class PlacementHud {
                     ?"LEFT/RIGHT: sideways | UP/DOWN: height | CTRL+L/R: rotate"
                     :"Building follows you | G: freeze at visible spot (no block target)";
             String action=BuildAIClient.previewLocked
-                ?"F8 > Confirm & Build | R: retry"
+                ?"F8 > Confirm & Build | F8 > Retry Placement"
                 :PlacementMode.waitingForLock()
                     ?"Checking XYZ with server..."
                     :PlacementMode.groundSelected()
